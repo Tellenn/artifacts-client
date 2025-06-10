@@ -1,0 +1,122 @@
+package com.tellenn.artifacts.clients.models
+
+import com.fasterxml.jackson.annotation.JsonAlias
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties
+import kotlin.math.min
+
+@JsonIgnoreProperties(ignoreUnknown = true)
+class ArtifactsCharacter(
+    val name: String,
+    val level: Int,
+    val gold: Int,
+    val hp: Int,
+    @JsonAlias("max_hp") val maxHp: Int,
+    val x: Int,
+    val y: Int,
+    val inventory: Array<InventorySlot>?,
+    val cooldown: Int,
+    val skin: String?,
+    val task: String?,
+    @JsonAlias("task_type") val taskType: String?,
+    @JsonAlias("task_total") val taskTotal: Int,
+    @JsonAlias("task_progress") val taskProgress: Int,
+    @JsonAlias("mining_level") val miningLevel: Int,
+    @JsonAlias("woodcutting_level") val woodcuttingLevel: Int,
+    @JsonAlias("fishing_level") val fishingLevel: Int,
+    @JsonAlias("weaponcrafting_level") val weaponcraftingLevel: Int,
+    @JsonAlias("gearcrafting_level") val gearcraftingLevel: Int,
+    @JsonAlias("jewelrycrafting_level") val jewelrycraftingLevel: Int,
+    @JsonAlias("cooking_level") val cookingLevel: Int,
+    @JsonAlias("alchemy_level") val alchemyLevel: Int,
+    @JsonAlias("inventory_max_items") val inventoryMaxItems: Int,
+    @JsonAlias("attack_fire") val attackFire: Int,
+    @JsonAlias("attack_earth") val attackEarth: Int,
+    @JsonAlias("attack_water") val attackWater: Int,
+    @JsonAlias("attack_air") val attackAir: Int,
+    @JsonAlias("dmg_fire") val dmgFire: Int,
+    @JsonAlias("dmg_earth") val dmgEarth: Int,
+    @JsonAlias("dmg_water") val dmgWater: Int,
+    @JsonAlias("dmg_air") val dmgAir: Int,
+    @JsonAlias("res_fire") val resFire: Int,
+    @JsonAlias("res_earth") val resEarth: Int,
+    @JsonAlias("res_water") val resWater: Int,
+    @JsonAlias("res_air") val resAir: Int,
+    @JsonAlias("weapon_slot") val weaponSlot: String?,
+    @JsonAlias("rune_slot") val runeSlot: String?,
+    @JsonAlias("shield_slot") val shieldSlot: String?,
+    @JsonAlias("helmet_slot") val helmetSlot: String?,
+    @JsonAlias("body_armor_slot") val bodyArmorSlot: String?,
+    @JsonAlias("leg_armor_slot") val legArmorSlot: String?,
+    @JsonAlias("boots_slot") val bootsSlot: String?,
+    @JsonAlias("ring1_slot") val ring1Slot: String?,
+    @JsonAlias("ring2_slot") val ring2Slot: String?,
+    @JsonAlias("amulet_slot") val amuletSlot: String?,
+    @JsonAlias("artifact1_slot") val artifact1Slot: String?,
+    @JsonAlias("artifact2_slot") val artifact2Slot: String?,
+    @JsonAlias("artifact3_slot") val artifact3Slot: String?,
+    @JsonAlias("utility1_slot") val utility1Slot: String?,
+    @JsonAlias("utility1_slot_quantity") val utility1SlotQuantity: Int,
+    @JsonAlias("utility2_slot") val utility2Slot: String?,
+    @JsonAlias("utility2_slot_quantity") val utility2SlotQuantity: Int,
+    @JsonAlias("bag_slot") val bagSlot: String?
+) {
+    fun position(): String {
+        return "{\"x\": " + this.x + " , \"y\": " + this.y + "}"
+    }
+
+    val remainingTask: Int
+        get() = taskTotal - taskProgress
+
+    fun getLevelOf(job: String): Int {
+        return when (job) {
+            "mining" -> miningLevel
+            "woodcutting" -> woodcuttingLevel
+            "fishing" -> fishingLevel
+            "cooking" -> cookingLevel
+            "weaponcrafting" -> weaponcraftingLevel
+            "jewelrycrafting" -> jewelrycraftingLevel
+            "gearcrafting" -> gearcraftingLevel
+            "alchemy" -> alchemyLevel
+            else -> 0
+        }
+    }
+
+    val lowestCraftLevel: String
+        /**
+         * Return the lowest level ranked by 5 levels in order weapon > gear > jewel
+         * @Example : Weapon 23, Gear 24, jewel 20 returns weapon
+         * @Example : Weapon 23, Gear 19, jewel 20 returns gear
+         * <     * @return the lowest skill level, floored by 5, with priority.
+         */
+        get() {
+            val modulo = 5
+            val min = min(
+                min(
+                    weaponcraftingLevel - (weaponcraftingLevel % modulo),
+                    jewelrycraftingLevel - (jewelrycraftingLevel % modulo)
+                ), gearcraftingLevel - (gearcraftingLevel % modulo)
+            )
+            if (min == Const.MAX_LEVEL) return "none"
+            if (min == weaponcraftingLevel - (weaponcraftingLevel % modulo)) return "weaponcrafting"
+            if (min == gearcraftingLevel - (gearcraftingLevel % modulo)) return "gearcrafting"
+            return "jewelrycrafting"
+        }
+
+    fun get(equipmentType: String): String? {
+        return when (equipmentType) {
+            "weapon_slot" -> weaponSlot
+            "shield_slot" -> shieldSlot
+            "helmet_slot" -> helmetSlot
+            "body_armor_slot" -> bodyArmorSlot
+            "leg_armor_slot" -> legArmorSlot
+            "boots_slot" -> bootsSlot
+            "ring1_slot" -> ring1Slot
+            "ring2_slot" -> ring2Slot
+            "amulet_slot" -> amuletSlot
+            "artifact1_slot" -> artifact1Slot
+            "artifact2_slot" -> artifact2Slot
+            "artifact3_slot" -> artifact3Slot
+            else -> null
+        }
+    }
+}

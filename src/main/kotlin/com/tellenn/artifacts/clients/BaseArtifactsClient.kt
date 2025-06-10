@@ -1,11 +1,17 @@
-package com.tellenn.tellenn_artifacts_client.clients
+package com.tellenn.artifacts.clients
 
+import com.fasterxml.jackson.module.kotlin.jacksonObjectMapper
+import com.tellenn.artifacts.clients.requests.ArtifactsRequestBody
 import lombok.extern.slf4j.Slf4j
+import okhttp3.MediaType.Companion.toMediaType
+import okhttp3.OkHttpClient
+import okhttp3.Request
+import okhttp3.RequestBody.Companion.toRequestBody
+import okhttp3.Response
+import org.springframework.beans.factory.annotation.Value
 
 @Slf4j
-@Component
-class BaseArtifactsClient {
-
+abstract class BaseArtifactsClient() {
 
     @Value("\${artifacts.api.url}")
     private lateinit var url: String
@@ -13,34 +19,39 @@ class BaseArtifactsClient {
     @Value("\${artifacts.api.key}")
     private lateinit var key: String
 
+    val client = OkHttpClient()
 
-    fun sendRequest(ArtifactsRequestBody body){
-        val client = OkHttpClient()
+    val objectMapper = jacksonObjectMapper()
 
-        // Exemple de requête GET
+    fun sendGetRequest(path : String) : Response {
         val getRequest = Request.Builder()
-            .url("https://jsonplaceholder.typicode.com/posts/1")
+            .url(url+path)
             .build()
 
         client.newCall(getRequest).execute().use { response ->
             if (!response.isSuccessful) throw Exception("Réponse non réussie: ${response.code}")
             println("Réponse GET: ${response.body?.string()}")
+            // TODO : Generic Response object from artifacts
+            return response
         }
+    }
 
-        // Exemple de requête POST
-        val postBody = body.toString().trim
-
+    fun sendPostRequest(path : String, body: String) : Response {
+        val postBody = body.trimIndent()
         val mediaType = "application/json; charset=utf-8".toMediaType()
         val requestBody = postBody.toRequestBody(mediaType)
 
         val postRequest = Request.Builder()
-            .url("https://jsonplaceholder.typicode.com/posts")
+            .url(url+path)
             .post(requestBody)
+            .header("Authorization", "Bearer $key")
             .build()
 
         client.newCall(postRequest).execute().use { response ->
             if (!response.isSuccessful) throw Exception("Réponse non réussie: ${response.code}")
             println("Réponse POST: ${response.body?.string()}")
+            // TODO : Generic Response object from artifacts
+            return response
         }
     }
 }

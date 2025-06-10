@@ -1,4 +1,4 @@
-package com.tellenn.tellenn_artifacts_client
+package com.tellenn.artifacts
 
 import org.junit.jupiter.api.Test
 import org.springframework.boot.test.context.SpringBootTest

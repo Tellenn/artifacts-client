@@ -1,4 +1,4 @@
-package com.tellenn.tellenn_artifacts_client
+package com.tellenn.artifacts
 
 import org.springframework.boot.autoconfigure.SpringBootApplication
 import org.springframework.boot.runApplication
