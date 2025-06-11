@@ -1,10 +1,10 @@
 package com.tellenn.artifacts.clients.models
 
 import com.fasterxml.jackson.annotation.JsonAlias
-import com.fasterxml.jackson.annotation.JsonIgnoreProperties
+import com.tellenn.artifacts.AppConfig
 import kotlin.math.min
 
-@JsonIgnoreProperties(ignoreUnknown = true)
+@Suppress("unused")
 class ArtifactsCharacter(
     val name: String,
     val level: Int,
@@ -96,7 +96,7 @@ class ArtifactsCharacter(
                     jewelrycraftingLevel - (jewelrycraftingLevel % modulo)
                 ), gearcraftingLevel - (gearcraftingLevel % modulo)
             )
-            if (min == Const.MAX_LEVEL) return "none"
+            if (min == AppConfig.maxLevel) return "none"
             if (min == weaponcraftingLevel - (weaponcraftingLevel % modulo)) return "weaponcrafting"
             if (min == gearcraftingLevel - (gearcraftingLevel % modulo)) return "gearcrafting"
             return "jewelrycrafting"
