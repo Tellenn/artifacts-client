@@ -11,6 +11,7 @@ import org.springframework.context.annotation.Primary
 @SpringBootTest
 class TellennArtifactsClientApplicationTests {
 
+    @Suppress("EmptyMethod")
     @Test
     fun contextLoads() {
         // The mock is already configured in the TestConfig class
