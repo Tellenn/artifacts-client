@@ -10,12 +10,12 @@ import org.springframework.stereotype.Component
 @Component
 class MapClient : BaseArtifactsClient() {
 
-    fun getMap(x: Int, y: Int, width: Int = 1, height: Int = 1): ArtifactsResponseBody<MapData> {
+    fun getMap(x: Int, y: Int, name: String = "default", skin: String = "default"): ArtifactsResponseBody<MapData> {
         val queryParams = buildQueryParams(
             "x" to x.toString(),
             "y" to y.toString(),
-            "width" to width.toString(),
-            "height" to height.toString()
+            "name" to name,
+            "skin" to skin
         )
         return sendGetRequest("/map$queryParams").use { response ->
             val responseBody = response.body!!.string()
@@ -27,7 +27,7 @@ class MapClient : BaseArtifactsClient() {
         val queryParams = params
             .filter { it.second != null }
             .joinToString("&") { "${it.first}=${it.second}" }
-        
+
         return if (queryParams.isNotEmpty()) "?$queryParams" else ""
     }
 }

@@ -4,7 +4,7 @@ import com.fasterxml.jackson.annotation.JsonAlias
 import java.util.Date
 
 class MapContent(
-    @JsonAlias("type") type : String,
-    @JsonAlias("code") code : String
+    @JsonAlias("type") val type: String,
+    @JsonAlias("code") val code: String
 ) {
 }

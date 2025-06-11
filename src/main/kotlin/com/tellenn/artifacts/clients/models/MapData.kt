@@ -4,11 +4,11 @@ import com.fasterxml.jackson.annotation.JsonAlias
 
 @Suppress("unused")
 class MapData(
+    @JsonAlias("name") val name: String,
+    @JsonAlias("skin") val skin: String,
     @JsonAlias("x") val x: Int,
     @JsonAlias("y") val y: Int,
-    @JsonAlias("width") val width: Int,
-    @JsonAlias("height") val height: Int,
-    @JsonAlias("cells") val cells: List<MapCell>
+    @JsonAlias("content") val content: MapContent
 )
 
 class MapCell(
