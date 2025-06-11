@@ -1,0 +1,198 @@
+package com.tellenn.artifacts.db.repositories
+
+import com.tellenn.artifacts.config.MongoTestConfiguration
+import com.tellenn.artifacts.db.documents.ItemDocument
+import org.junit.jupiter.api.AfterEach
+import org.junit.jupiter.api.BeforeEach
+import org.junit.jupiter.api.Test
+import org.junit.jupiter.api.Assertions.*
+import org.springframework.beans.factory.annotation.Autowired
+import org.springframework.boot.test.autoconfigure.data.mongo.DataMongoTest
+import org.springframework.context.annotation.Import
+import org.springframework.data.domain.PageRequest
+import org.testcontainers.junit.jupiter.Testcontainers
+
+@DataMongoTest
+@Import(MongoTestConfiguration::class)
+@Testcontainers
+class ItemRepositoryTest {
+
+    @Autowired
+    private lateinit var itemRepository: ItemRepository
+
+    private val testItems = listOf(
+        ItemDocument(
+            code = "TEST_SWORD_1",
+            name = "Test Sword",
+            description = "A test sword for testing",
+            type = "weapon",
+            rarity = "common",
+            level = 1,
+            value = 100,
+            weight = 5,
+            stackable = false,
+            usable = false,
+            equippable = true,
+            slot = "hand",
+            stats = null,
+            recipe = null
+        ),
+        ItemDocument(
+            code = "TEST_POTION_1",
+            name = "Test Potion",
+            description = "A test potion for testing",
+            type = "consumable",
+            rarity = "uncommon",
+            level = 5,
+            value = 50,
+            weight = 1,
+            stackable = true,
+            usable = true,
+            equippable = false,
+            slot = null,
+            stats = null,
+            recipe = null
+        ),
+        ItemDocument(
+            code = "TEST_ARMOR_1",
+            name = "Test Armor",
+            description = "A test armor for testing",
+            type = "armor",
+            rarity = "rare",
+            level = 10,
+            value = 500,
+            weight = 20,
+            stackable = false,
+            usable = false,
+            equippable = true,
+            slot = "body",
+            stats = null,
+            recipe = null
+        )
+    )
+
+    @BeforeEach
+    fun setup() {
+        // Clear the repository and insert test data
+        itemRepository.deleteAll()
+        itemRepository.saveAll(testItems)
+    }
+
+    @AfterEach
+    fun cleanup() {
+        // Clean up after each test
+        itemRepository.deleteAll()
+    }
+
+    @Test
+    fun `should find all items`() {
+        // When
+        val items = itemRepository.findAll()
+
+        // Then
+        assertEquals(3, items.size)
+        assertTrue(items.any { it.code == "TEST_SWORD_1" })
+        assertTrue(items.any { it.code == "TEST_POTION_1" })
+        assertTrue(items.any { it.code == "TEST_ARMOR_1" })
+    }
+
+    @Test
+    fun `should find item by id`() {
+        // When
+        val item = itemRepository.findById("TEST_SWORD_1")
+
+        // Then
+        assertTrue(item.isPresent)
+        assertEquals("Test Sword", item.get().name)
+        assertEquals("weapon", item.get().type)
+    }
+
+    @Test
+    fun `should find items by name containing`() {
+        // When
+        val pageable = PageRequest.of(0, 10)
+        val items = itemRepository.findByNameContainingIgnoreCase("sword", pageable)
+
+        // Then
+        assertEquals(1, items.totalElements)
+        assertEquals("TEST_SWORD_1", items.content[0].code)
+    }
+
+    @Test
+    fun `should find items by type`() {
+        // When
+        val pageable = PageRequest.of(0, 10)
+        val items = itemRepository.findByType("weapon", pageable)
+
+        // Then
+        assertEquals(1, items.totalElements)
+        assertEquals("TEST_SWORD_1", items.content[0].code)
+    }
+
+    @Test
+    fun `should find items by rarity`() {
+        // When
+        val pageable = PageRequest.of(0, 10)
+        val items = itemRepository.findByRarity("rare", pageable)
+
+        // Then
+        assertEquals(1, items.totalElements)
+        assertEquals("TEST_ARMOR_1", items.content[0].code)
+    }
+
+    @Test
+    fun `should find items by level`() {
+        // When
+        val pageable = PageRequest.of(0, 10)
+        val items = itemRepository.findByLevel(5, pageable)
+
+        // Then
+        assertEquals(1, items.totalElements)
+        assertEquals("TEST_POTION_1", items.content[0].code)
+    }
+
+    @Test
+    fun `should find items by equippable`() {
+        // When
+        val pageable = PageRequest.of(0, 10)
+        val items = itemRepository.findByEquippable(true, pageable)
+
+        // Then
+        assertEquals(2, items.totalElements)
+        assertTrue(items.content.any { it.code == "TEST_SWORD_1" })
+        assertTrue(items.content.any { it.code == "TEST_ARMOR_1" })
+    }
+
+    @Test
+    fun `should find items by usable`() {
+        // When
+        val pageable = PageRequest.of(0, 10)
+        val items = itemRepository.findByUsable(true, pageable)
+
+        // Then
+        assertEquals(1, items.totalElements)
+        assertEquals("TEST_POTION_1", items.content[0].code)
+    }
+
+    @Test
+    fun `should find items by stackable`() {
+        // When
+        val pageable = PageRequest.of(0, 10)
+        val items = itemRepository.findByStackable(true, pageable)
+
+        // Then
+        assertEquals(1, items.totalElements)
+        assertEquals("TEST_POTION_1", items.content[0].code)
+    }
+
+    @Test
+    fun `should find items by slot`() {
+        // When
+        val pageable = PageRequest.of(0, 10)
+        val items = itemRepository.findBySlot("body", pageable)
+
+        // Then
+        assertEquals(1, items.totalElements)
+        assertEquals("TEST_ARMOR_1", items.content[0].code)
+    }
+}

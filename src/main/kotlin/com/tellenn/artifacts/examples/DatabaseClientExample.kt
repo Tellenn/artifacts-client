@@ -1,0 +1,67 @@
+package com.tellenn.artifacts.examples
+
+import com.tellenn.artifacts.db.clients.DatabaseClient
+import org.slf4j.LoggerFactory
+import org.springframework.boot.CommandLineRunner
+import org.springframework.context.annotation.Profile
+import org.springframework.stereotype.Component
+
+/**
+ * Example showing how to use the DatabaseClient to query items from the database.
+ * This class will run automatically when the application starts with the "db-client-example" profile.
+ */
+@Component
+@Profile("db-client-example")
+class DatabaseClientExample(private val databaseClient: DatabaseClient) : CommandLineRunner {
+    
+    private val logger = LoggerFactory.getLogger(DatabaseClientExample::class.java)
+    
+    override fun run(vararg args: String) {
+        logger.info("Starting DatabaseClient example")
+        
+        // Example 1: Get all items (paginated)
+        val allItems = databaseClient.getItems(page = 1, size = 10)
+        logger.info("Found ${allItems.data.total} total items, showing page ${allItems.data.page} of ${allItems.data.pages}")
+        allItems.data.items.forEach { item ->
+            logger.info("Item: ${item.code} - ${item.name} (${item.rarity} ${item.type})")
+        }
+        
+        // Example 2: Search items by name
+        val searchResult = databaseClient.getItems(name = "sword", page = 1, size = 10)
+        logger.info("Found ${searchResult.data.total} items matching 'sword'")
+        searchResult.data.items.forEach { item ->
+            logger.info("Item: ${item.code} - ${item.name} (${item.rarity} ${item.type})")
+        }
+        
+        // Example 3: Filter items by type
+        val weaponItems = databaseClient.getItems(type = "weapon", page = 1, size = 10)
+        logger.info("Found ${weaponItems.data.total} weapon items")
+        weaponItems.data.items.forEach { item ->
+            logger.info("Weapon: ${item.code} - ${item.name} (${item.rarity})")
+        }
+        
+        // Example 4: Get item details by code
+        try {
+            // Note: You need to replace "ITEM_CODE" with an actual item code that exists in your database
+            val itemCode = if (allItems.data.items.isNotEmpty()) allItems.data.items[0].code else "ITEM_CODE"
+            val itemDetails = databaseClient.getItemDetails(itemCode)
+            val item = itemDetails.data
+            logger.info("Item details for $itemCode:")
+            logger.info("Name: ${item.name}")
+            logger.info("Description: ${item.description ?: "N/A"}")
+            logger.info("Type: ${item.type}")
+            logger.info("Rarity: ${item.rarity}")
+            logger.info("Level: ${item.level}")
+            logger.info("Value: ${item.value}")
+            logger.info("Weight: ${item.weight}")
+            logger.info("Stackable: ${item.stackable}")
+            logger.info("Usable: ${item.usable}")
+            logger.info("Equippable: ${item.equippable}")
+            logger.info("Slot: ${item.slot ?: "N/A"}")
+        } catch (e: Exception) {
+            logger.error("Error getting item details", e)
+        }
+        
+        logger.info("DatabaseClient example completed")
+    }
+}
