@@ -3,6 +3,7 @@ package com.tellenn.artifacts.clients
 import com.fasterxml.jackson.module.kotlin.readValue
 import com.tellenn.artifacts.clients.models.MapData
 import com.tellenn.artifacts.clients.responses.ArtifactsResponseBody
+import com.tellenn.artifacts.clients.responses.DataPage
 import lombok.extern.slf4j.Slf4j
 import org.springframework.stereotype.Component
 
@@ -20,6 +21,22 @@ class MapClient : BaseArtifactsClient() {
         return sendGetRequest("/map$queryParams").use { response ->
             val responseBody = response.body!!.string()
             objectMapper.readValue<ArtifactsResponseBody<MapData>>(responseBody)
+        }
+    }
+
+    fun getMaps(name: String? = null, 
+                content_type: String? = null, content_code: String? = null,
+                page: Int = 1, size: Int = 50): ArtifactsResponseBody<DataPage<MapData>> {
+        val queryParams = buildQueryParams(
+            "name" to name,
+            "content_type" to content_type,
+            "content_code" to content_code,
+            "page" to page.toString(),
+            "size" to size.toString()
+        )
+        return sendGetRequest("/maps$queryParams").use { response ->
+            val responseBody = response.body!!.string()
+            objectMapper.readValue<ArtifactsResponseBody<DataPage<MapData>>>(responseBody)
         }
     }
 

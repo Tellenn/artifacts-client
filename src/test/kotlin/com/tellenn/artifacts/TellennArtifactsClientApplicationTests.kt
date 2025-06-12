@@ -1,6 +1,8 @@
 package com.tellenn.artifacts
 
 import com.tellenn.artifacts.services.ItemSyncService
+import com.tellenn.artifacts.services.MapSyncService
+import com.tellenn.artifacts.services.MonsterSyncService
 import org.junit.jupiter.api.Test
 import org.mockito.Mockito
 import org.springframework.boot.test.context.SpringBootTest
@@ -26,6 +28,22 @@ class TellennArtifactsClientApplicationTests {
             val mockItemSyncService = Mockito.mock(ItemSyncService::class.java)
             Mockito.`when`(mockItemSyncService.syncAllItems()).thenReturn(0)
             return mockItemSyncService
+        }
+
+        @Bean
+        @Primary
+        fun mapSyncService(): MapSyncService {
+            val mockMapSyncService = Mockito.mock(MapSyncService::class.java)
+            Mockito.`when`(mockMapSyncService.syncWholeMap()).thenReturn(0)
+            return mockMapSyncService
+        }
+
+        @Bean
+        @Primary
+        fun monsterSyncService(): MonsterSyncService {
+            val mockMonsterSyncService = Mockito.mock(MonsterSyncService::class.java)
+            Mockito.`when`(mockMonsterSyncService.syncAllMonsters()).thenReturn(0)
+            return mockMonsterSyncService
         }
     }
 }

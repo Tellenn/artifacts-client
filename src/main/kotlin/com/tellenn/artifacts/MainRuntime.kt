@@ -3,6 +3,8 @@ package com.tellenn.artifacts
 import com.fasterxml.jackson.databind.ObjectMapper
 import com.tellenn.artifacts.clients.ServerStatusClient
 import com.tellenn.artifacts.services.ItemSyncService
+import com.tellenn.artifacts.services.MapSyncService
+import com.tellenn.artifacts.services.MonsterSyncService
 import com.tellenn.artifacts.utils.TimeSync
 import lombok.extern.slf4j.Slf4j
 import org.apache.logging.log4j.LogManager
@@ -16,8 +18,9 @@ class MainRuntime(
     private val serverClient: ServerStatusClient,
     private val objectMapper: ObjectMapper,
     private val timeSync: TimeSync,
-    private val itemSyncService: ItemSyncService
-
+    private val itemSyncService: ItemSyncService,
+    private val mapSyncService: MapSyncService,
+    private val monsterSyncService: MonsterSyncService
 ) : ApplicationRunner {
 
     private val log = LogManager.getLogger(MainRuntime::class.java)
@@ -36,5 +39,13 @@ class MainRuntime(
         // Synchronize items from the server
         val syncedItemsCount = itemSyncService.syncAllItems()
         log.info("Items synchronized with server. Total items: $syncedItemsCount")
+
+        // Synchronize maps from the server
+        val syncedMapChunksCount = mapSyncService.syncWholeMap()
+        log.info("Maps synchronized with server. Total map chunks: $syncedMapChunksCount")
+
+        // Synchronize monsters from the server
+        val syncedMonstersCount = monsterSyncService.syncAllMonsters()
+        log.info("Monsters synchronized with server. Total monsters: $syncedMonstersCount")
     }
 }
