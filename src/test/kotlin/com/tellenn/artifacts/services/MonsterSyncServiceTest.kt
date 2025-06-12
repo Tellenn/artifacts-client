@@ -3,8 +3,8 @@ package com.tellenn.artifacts.services
 import com.tellenn.artifacts.clients.MonsterClient
 import com.tellenn.artifacts.clients.models.MonsterData
 import com.tellenn.artifacts.clients.models.MonsterDrop
+import com.tellenn.artifacts.clients.responses.ArtifactsArrayResponseBody
 import com.tellenn.artifacts.clients.responses.ArtifactsResponseBody
-import com.tellenn.artifacts.clients.responses.DataPage
 import com.tellenn.artifacts.db.repositories.MonsterRepository
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
@@ -38,14 +38,8 @@ class MonsterSyncServiceTest {
         val testMonsterData2 = createTestMonsterData("monster2", "Orc", 5)
         val testMonsterData3 = createTestMonsterData("monster3", "Dragon", 20)
 
-        val dataPage = DataPage(
-            items = listOf(testMonsterData1, testMonsterData2, testMonsterData3),
-            total = 3,
-            page = 1,
-            size = 50,
-            pages = 1
-        )
-        val response = ArtifactsResponseBody(dataPage)
+        val response =
+            ArtifactsArrayResponseBody(listOf(testMonsterData1, testMonsterData2, testMonsterData3), 3, 1, 50, 1)
 
         // Create a mock that returns a response for the getMonsters call
         `when`(monsterClient.getMonsters(
@@ -103,14 +97,7 @@ class MonsterSyncServiceTest {
         val testMonsterData1 = createTestMonsterData("monster1", "Goblin", 1)
         val testMonsterData2 = createTestMonsterData("monster2", "Orc", 5)
 
-        val dataPage1 = DataPage(
-            items = listOf(testMonsterData1, testMonsterData2),
-            total = 2,
-            page = 1,
-            size = 50,
-            pages = 2
-        )
-        val response1 = ArtifactsResponseBody(dataPage1)
+        val response1 = ArtifactsArrayResponseBody(listOf(testMonsterData1, testMonsterData2),2,1,50,2)
 
         // First page succeeds
         `when`(monsterClient.getMonsters(

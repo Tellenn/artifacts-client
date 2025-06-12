@@ -7,8 +7,8 @@ import com.tellenn.artifacts.clients.models.BankItem
 import com.tellenn.artifacts.clients.models.GEOrder
 import com.tellenn.artifacts.clients.models.GEOrderHistory
 import com.tellenn.artifacts.clients.requests.ChangePasswordRequest
+import com.tellenn.artifacts.clients.responses.ArtifactsArrayResponseBody
 import com.tellenn.artifacts.clients.responses.ArtifactsResponseBody
-import com.tellenn.artifacts.clients.responses.DataPage
 import lombok.extern.slf4j.Slf4j
 import org.springframework.stereotype.Component
 
@@ -23,7 +23,7 @@ class AccountClient : BaseArtifactsClient() {
         }
     }
 
-    fun getBankItems(itemCode: String? = null, page: Int = 1, size: Int = 50): ArtifactsResponseBody<DataPage<BankItem>> {
+    fun getBankItems(itemCode: String? = null, page: Int = 1, size: Int = 50): ArtifactsArrayResponseBody<BankItem> {
         val queryParams = buildQueryParams(
             "item_code" to itemCode,
             "page" to page.toString(),
@@ -31,11 +31,11 @@ class AccountClient : BaseArtifactsClient() {
         )
         return sendGetRequest("/my/bank/items$queryParams").use { response ->
             val responseBody = response.body!!.string()
-            objectMapper.readValue<ArtifactsResponseBody<DataPage<BankItem>>>(responseBody)
+            objectMapper.readValue<ArtifactsArrayResponseBody<BankItem>>(responseBody)
         }
     }
 
-    fun getGESellOrders(code: String? = null, page: Int = 1, size: Int = 50): ArtifactsResponseBody<DataPage<GEOrder>> {
+    fun getGESellOrders(code: String? = null, page: Int = 1, size: Int = 50): ArtifactsArrayResponseBody<GEOrder> {
         val queryParams = buildQueryParams(
             "code" to code,
             "page" to page.toString(),
@@ -43,11 +43,11 @@ class AccountClient : BaseArtifactsClient() {
         )
         return sendGetRequest("/my/grandexchange/orders$queryParams").use { response ->
             val responseBody = response.body!!.string()
-            objectMapper.readValue<ArtifactsResponseBody<DataPage<GEOrder>>>(responseBody)
+            objectMapper.readValue<ArtifactsArrayResponseBody<GEOrder>>(responseBody)
         }
     }
 
-    fun getGESellHistory(id: String? = null, code: String? = null, page: Int = 1, size: Int = 50): ArtifactsResponseBody<DataPage<GEOrderHistory>> {
+    fun getGESellHistory(id: String? = null, code: String? = null, page: Int = 1, size: Int = 50): ArtifactsArrayResponseBody<GEOrderHistory> {
         val queryParams = buildQueryParams(
             "id" to id,
             "code" to code,
@@ -56,7 +56,7 @@ class AccountClient : BaseArtifactsClient() {
         )
         return sendGetRequest("/my/grandexchange/history$queryParams").use { response ->
             val responseBody = response.body!!.string()
-            objectMapper.readValue<ArtifactsResponseBody<DataPage<GEOrderHistory>>>(responseBody)
+            objectMapper.readValue<ArtifactsArrayResponseBody<GEOrderHistory>>(responseBody)
         }
     }
 

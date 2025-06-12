@@ -93,11 +93,11 @@ class DatabaseClientTest {
         val response = databaseClient.getItems()
         
         // Then
-        assertEquals(3, response.data.total)
-        assertEquals(3, response.data.items.size)
-        assertTrue(response.data.items.any { it.code == "TEST_SWORD_1" })
-        assertTrue(response.data.items.any { it.code == "TEST_POTION_1" })
-        assertTrue(response.data.items.any { it.code == "TEST_ARMOR_1" })
+        assertEquals(3, response.total)
+        assertEquals(3, response.data.size)
+        assertTrue(response.data.any { it.code == "TEST_SWORD_1" })
+        assertTrue(response.data.any { it.code == "TEST_POTION_1" })
+        assertTrue(response.data.any { it.code == "TEST_ARMOR_1" })
     }
 
     @Test
@@ -106,10 +106,10 @@ class DatabaseClientTest {
         val response = databaseClient.getItems(page = 1, size = 2)
         
         // Then
-        assertEquals(3, response.data.total)
-        assertEquals(2, response.data.items.size)
-        assertEquals(2, response.data.pages)
-        assertEquals(1, response.data.page)
+        assertEquals(3, response.total)
+        assertEquals(2, response.data.size)
+        assertEquals(2, response.pages)
+        assertEquals(1, response.page)
     }
 
     @Test
@@ -118,9 +118,9 @@ class DatabaseClientTest {
         val response = databaseClient.getItems(name = "sword")
         
         // Then
-        assertEquals(1, response.data.total)
-        assertEquals("TEST_SWORD_1", response.data.items[0].code)
-        assertEquals("Test Sword", response.data.items[0].name)
+        assertEquals(1, response.total)
+        assertEquals("TEST_SWORD_1", response.data[0].code)
+        assertEquals("Test Sword", response.data[0].name)
     }
 
     @Test
@@ -129,8 +129,8 @@ class DatabaseClientTest {
         val response = databaseClient.getItems(type = "weapon")
         
         // Then
-        assertEquals(1, response.data.total)
-        assertEquals("TEST_SWORD_1", response.data.items[0].code)
+        assertEquals(1, response.total)
+        assertEquals("TEST_SWORD_1", response.data[0].code)
     }
 
     @Test
@@ -139,8 +139,8 @@ class DatabaseClientTest {
         val response = databaseClient.getItems(rarity = "rare")
         
         // Then
-        assertEquals(1, response.data.total)
-        assertEquals("TEST_ARMOR_1", response.data.items[0].code)
+        assertEquals(1, response.total)
+        assertEquals("TEST_ARMOR_1", response.data[0].code)
     }
 
     @Test
@@ -149,8 +149,8 @@ class DatabaseClientTest {
         val response = databaseClient.getItems(level = 5)
         
         // Then
-        assertEquals(1, response.data.total)
-        assertEquals("TEST_POTION_1", response.data.items[0].code)
+        assertEquals(1, response.total)
+        assertEquals("TEST_POTION_1", response.data[0].code)
     }
 
     @Test
@@ -159,9 +159,9 @@ class DatabaseClientTest {
         val response = databaseClient.getItems(equippable = true)
         
         // Then
-        assertEquals(2, response.data.total)
-        assertTrue(response.data.items.any { it.code == "TEST_SWORD_1" })
-        assertTrue(response.data.items.any { it.code == "TEST_ARMOR_1" })
+        assertEquals(2, response.total)
+        assertTrue(response.data.any { it.code == "TEST_SWORD_1" })
+        assertTrue(response.data.any { it.code == "TEST_ARMOR_1" })
     }
 
     @Test
@@ -170,8 +170,8 @@ class DatabaseClientTest {
         val response = databaseClient.getItems(usable = true)
         
         // Then
-        assertEquals(1, response.data.total)
-        assertEquals("TEST_POTION_1", response.data.items[0].code)
+        assertEquals(1, response.total)
+        assertEquals("TEST_POTION_1", response.data[0].code)
     }
 
     @Test
@@ -180,8 +180,8 @@ class DatabaseClientTest {
         val response = databaseClient.getItems(stackable = true)
         
         // Then
-        assertEquals(1, response.data.total)
-        assertEquals("TEST_POTION_1", response.data.items[0].code)
+        assertEquals(1, response.total)
+        assertEquals("TEST_POTION_1", response.data[0].code)
     }
 
     @Test
@@ -190,8 +190,8 @@ class DatabaseClientTest {
         val response = databaseClient.getItems(slot = "body")
         
         // Then
-        assertEquals(1, response.data.total)
-        assertEquals("TEST_ARMOR_1", response.data.items[0].code)
+        assertEquals(1, response.total)
+        assertEquals("TEST_ARMOR_1", response.data[0].code)
     }
 
     @Test

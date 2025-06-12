@@ -3,8 +3,7 @@ package com.tellenn.artifacts.services
 import com.tellenn.artifacts.clients.MapClient
 import com.tellenn.artifacts.clients.models.MapData
 import com.tellenn.artifacts.clients.models.MapContent
-import com.tellenn.artifacts.clients.responses.ArtifactsResponseBody
-import com.tellenn.artifacts.clients.responses.DataPage
+import com.tellenn.artifacts.clients.responses.ArtifactsArrayResponseBody
 import com.tellenn.artifacts.db.repositories.MapRepository
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
@@ -13,9 +12,6 @@ import org.mockito.Mockito
 import org.mockito.Mockito.`when`
 import org.mockito.Mockito.verify
 import org.mockito.Mockito.times
-import org.mockito.Mockito.doAnswer
-import org.mockito.Mockito.anyInt
-import org.mockito.Mockito.anyString
 
 class MapSyncServiceTest {
 
@@ -37,14 +33,8 @@ class MapSyncServiceTest {
     fun `should sync a single map chunk`() {
         // Given
         val testMapData = createTestMapData(0, 0, "map_0_0", "default")
-        val dataPage = DataPage(
-            items = listOf(testMapData),
-            total = 1,
-            page = 1,
-            size = 1,
-            pages = 1
-        )
-        val response = ArtifactsResponseBody(dataPage)
+
+        val response = ArtifactsArrayResponseBody(listOf(testMapData),1,1,1,1,)
 
         `when`(mapClient.getMaps(
             name = "map_0_0",
@@ -80,14 +70,7 @@ class MapSyncServiceTest {
         val testMapData3 = createTestMapData(0, 10, "map_0_10", "default")
         val testMapData4 = createTestMapData(10, 10, "map_10_10", "default")
 
-        val dataPage = DataPage(
-            items = listOf(testMapData1, testMapData2, testMapData3, testMapData4),
-            total = 4,
-            page = 1,
-            size = 50,
-            pages = 1
-        )
-        val response = ArtifactsResponseBody(dataPage)
+        val response = ArtifactsArrayResponseBody(listOf(testMapData1, testMapData2, testMapData3, testMapData4),1,1,1,1)
 
         // Create a mock that returns a response for the getMaps call
         `when`(mapClient.getMaps(
@@ -118,14 +101,7 @@ class MapSyncServiceTest {
         val testMapData3 = createTestMapData(0, 10, "map_0_10", "default")
         val testMapData4 = createTestMapData(10, 10, "map_10_10", "default")
 
-        val dataPage = DataPage(
-            items = listOf(testMapData1, testMapData2, testMapData3, testMapData4),
-            total = 4,
-            page = 1,
-            size = 50,
-            pages = 1
-        )
-        val response = ArtifactsResponseBody(dataPage)
+        val response = ArtifactsArrayResponseBody(listOf(testMapData1, testMapData2, testMapData3, testMapData4),1,1,1,1)
 
         // Create a mock that returns a response for the getMaps call
         `when`(mapClient.getMaps(
@@ -176,14 +152,7 @@ class MapSyncServiceTest {
         val testMapData2 = createTestMapData(10, 0, "map_10_0", "default")
         val testMapData3 = createTestMapData(0, 10, "map_0_10", "default")
 
-        val dataPage1 = DataPage(
-            items = listOf(testMapData1, testMapData2, testMapData3),
-            total = 3,
-            page = 1,
-            size = 50,
-            pages = 1
-        )
-        val response1 = ArtifactsResponseBody(dataPage1)
+        val response1 = ArtifactsArrayResponseBody(listOf(testMapData1, testMapData2, testMapData3),1,1,1,1)
 
         // First page succeeds
         `when`(mapClient.getMaps(

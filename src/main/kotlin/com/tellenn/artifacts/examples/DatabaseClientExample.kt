@@ -21,29 +21,29 @@ class DatabaseClientExample(private val databaseClient: DatabaseClient) : Comman
         
         // Example 1: Get all items (paginated)
         val allItems = databaseClient.getItems(page = 1, size = 10)
-        logger.info("Found ${allItems.data.total} total items, showing page ${allItems.data.page} of ${allItems.data.pages}")
-        allItems.data.items.forEach { item ->
+        logger.info("Found ${allItems.total} total items, showing page ${allItems.page} of ${allItems.pages}")
+        allItems.data.forEach { item ->
             logger.info("Item: ${item.code} - ${item.name} (${item.rarity} ${item.type})")
         }
         
         // Example 2: Search items by name
         val searchResult = databaseClient.getItems(name = "sword", page = 1, size = 10)
-        logger.info("Found ${searchResult.data.total} items matching 'sword'")
-        searchResult.data.items.forEach { item ->
+        logger.info("Found ${searchResult.total} items matching 'sword'")
+        searchResult.data.forEach { item ->
             logger.info("Item: ${item.code} - ${item.name} (${item.rarity} ${item.type})")
         }
         
         // Example 3: Filter items by type
         val weaponItems = databaseClient.getItems(type = "weapon", page = 1, size = 10)
-        logger.info("Found ${weaponItems.data.total} weapon items")
-        weaponItems.data.items.forEach { item ->
+        logger.info("Found ${weaponItems.total} weapon items")
+        weaponItems.data.forEach { item ->
             logger.info("Weapon: ${item.code} - ${item.name} (${item.rarity})")
         }
         
         // Example 4: Get item details by code
         try {
             // Note: You need to replace "ITEM_CODE" with an actual item code that exists in your database
-            val itemCode = if (allItems.data.items.isNotEmpty()) allItems.data.items[0].code else "ITEM_CODE"
+            val itemCode = if (allItems.data.isNotEmpty()) allItems.data[0].code else "ITEM_CODE"
             val itemDetails = databaseClient.getItemDetails(itemCode)
             val item = itemDetails.data
             logger.info("Item details for $itemCode:")

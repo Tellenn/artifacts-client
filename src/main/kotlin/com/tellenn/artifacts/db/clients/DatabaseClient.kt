@@ -1,8 +1,8 @@
 package com.tellenn.artifacts.db.clients
 
 import com.tellenn.artifacts.clients.models.ItemDetails
+import com.tellenn.artifacts.clients.responses.ArtifactsArrayResponseBody
 import com.tellenn.artifacts.clients.responses.ArtifactsResponseBody
-import com.tellenn.artifacts.clients.responses.DataPage
 import com.tellenn.artifacts.db.documents.ItemDocument
 import com.tellenn.artifacts.db.repositories.ItemRepository
 import org.springframework.data.domain.PageRequest
@@ -31,7 +31,7 @@ class DatabaseClient(private val itemRepository: ItemRepository) {
         slot: String? = null,
         page: Int = 1,
         size: Int = 50
-    ): ArtifactsResponseBody<DataPage<ItemDetails>> {
+    ): ArtifactsArrayResponseBody<ItemDetails> {
         // Create pageable object for Spring Data
         val pageable = PageRequest.of(page - 1, size, Sort.by(Sort.Direction.ASC, "name"))
         
@@ -50,16 +50,8 @@ class DatabaseClient(private val itemRepository: ItemRepository) {
             else -> itemRepository.findAll(pageable)
         }
         
-        // Convert Spring Data Page to DataPage
-        val dataPage = DataPage(
-            items = result.content.map { convertToItemDetails(it) },
-            total = result.totalElements.toInt(),
-            page = result.number + 1, // Spring Data pages are 0-based, but our API is 1-based
-            size = result.size,
-            pages = result.totalPages
-        )
-        
-        return ArtifactsResponseBody(dataPage)
+        return ArtifactsArrayResponseBody(result.map({ it -> convertToItemDetails(it) }).toList(),
+            result.totalElements.toInt(),result.totalPages, result.size, result.totalPages)
     }
     
     /**

@@ -3,7 +3,7 @@ package com.tellenn.artifacts.clients
 import com.fasterxml.jackson.module.kotlin.readValue
 import com.tellenn.artifacts.clients.models.ItemDetails
 import com.tellenn.artifacts.clients.responses.ArtifactsResponseBody
-import com.tellenn.artifacts.clients.responses.DataPage
+import com.tellenn.artifacts.clients.responses.ArtifactsArrayResponseBody
 import lombok.extern.slf4j.Slf4j
 import org.springframework.stereotype.Component
 
@@ -13,7 +13,7 @@ class ItemClient : BaseArtifactsClient() {
 
     fun getItems(name: String? = null, type: String? = null, rarity: String? = null, level: Int? = null, 
                  equippable: Boolean? = null, usable: Boolean? = null, stackable: Boolean? = null,
-                 slot: String? = null, page: Int = 1, size: Int = 50): ArtifactsResponseBody<DataPage<ItemDetails>> {
+                 slot: String? = null, page: Int = 1, size: Int = 50): ArtifactsArrayResponseBody<ItemDetails> {
         val queryParams = buildQueryParams(
             "name" to name,
             "type" to type,
@@ -28,7 +28,7 @@ class ItemClient : BaseArtifactsClient() {
         )
         return sendGetRequest("/items$queryParams").use { response ->
             val responseBody = response.body!!.string()
-            objectMapper.readValue<ArtifactsResponseBody<DataPage<ItemDetails>>>(responseBody)
+            objectMapper.readValue<ArtifactsArrayResponseBody<ItemDetails>>(responseBody)
         }
     }
 

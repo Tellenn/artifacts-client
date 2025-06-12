@@ -54,15 +54,15 @@ class MapSyncService(
                     size = pageSize
                 )
                 val dataPage = response.data
-                totalPages = dataPage.pages
+                totalPages = response.pages
 
                 // Convert MapData to MapDocument and save to MongoDB in batch
-                val mapDocuments = dataPage.items.map { MapDocument.fromMapData(it) }
+                val mapDocuments = dataPage.map { MapDocument.fromMapData(it) }
                 mapRepository.saveAll(mapDocuments)
 
-                totalChunksProcessed += dataPage.items.size
-                logger.info("Processed ${dataPage.items.size} map chunks from page $currentPage")
-                println("[DEBUG_LOG] Processed ${dataPage.items.size} map chunks from page $currentPage")
+                totalChunksProcessed += dataPage.size
+                logger.info("Processed ${dataPage.size} map chunks from page $currentPage")
+                println("[DEBUG_LOG] Processed ${dataPage.size} map chunks from page $currentPage")
 
                 currentPage++
             } catch (e: Exception) {
@@ -109,13 +109,13 @@ class MapSyncService(
             )
             val dataPage = response.data
 
-            if (dataPage.items.isEmpty()) {
+            if (dataPage.isEmpty()) {
                 logger.error("No map chunk found at ($x,$y)")
                 return false
             }
 
             // Get the first (and only) map chunk
-            val mapData = dataPage.items.first()
+            val mapData = dataPage.first()
 
             // Override the name if it's different from the default
             val mapDataWithCorrectName = if (mapData.name != name) {

@@ -46,15 +46,15 @@ class MonsterSyncService(
                     size = pageSize
                 )
                 val dataPage = response.data
-                totalPages = dataPage.pages
+                totalPages = response.pages
 
                 // Convert MonsterData to MonsterDocument and save to MongoDB
-                val monsterDocuments = dataPage.items.map { MonsterDocument.fromMonsterData(it) }
+                val monsterDocuments = dataPage.map { MonsterDocument.fromMonsterData(it) }
                 monsterRepository.saveAll(monsterDocuments)
 
-                totalMonstersProcessed += dataPage.items.size
-                logger.info("Processed ${dataPage.items.size} monsters from page $currentPage")
-                println("[DEBUG_LOG] Processed ${dataPage.items.size} monsters from page $currentPage")
+                totalMonstersProcessed += dataPage.size
+                logger.info("Processed ${dataPage.size} monsters from page $currentPage")
+                println("[DEBUG_LOG] Processed ${dataPage.size} monsters from page $currentPage")
 
                 currentPage++
             } catch (e: Exception) {

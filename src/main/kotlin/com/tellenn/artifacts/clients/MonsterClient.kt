@@ -2,8 +2,8 @@ package com.tellenn.artifacts.clients
 
 import com.fasterxml.jackson.module.kotlin.readValue
 import com.tellenn.artifacts.clients.models.MonsterData
+import com.tellenn.artifacts.clients.responses.ArtifactsArrayResponseBody
 import com.tellenn.artifacts.clients.responses.ArtifactsResponseBody
-import com.tellenn.artifacts.clients.responses.DataPage
 import lombok.extern.slf4j.Slf4j
 import org.springframework.stereotype.Component
 
@@ -13,7 +13,7 @@ class MonsterClient : BaseArtifactsClient() {
 
     fun getMonsters(name: String? = null, level: Int? = null, 
                     min_level: Int? = null, max_level: Int? = null, drop: String? = null,
-                    page: Int = 1, size: Int = 50): ArtifactsResponseBody<DataPage<MonsterData>> {
+                    page: Int = 1, size: Int = 50): ArtifactsArrayResponseBody<MonsterData> {
         val queryParams = buildQueryParams(
             "name" to name,
             "level" to level?.toString(),
@@ -25,7 +25,7 @@ class MonsterClient : BaseArtifactsClient() {
         )
         return sendGetRequest("/monsters$queryParams").use { response ->
             val responseBody = response.body!!.string()
-            objectMapper.readValue<ArtifactsResponseBody<DataPage<MonsterData>>>(responseBody)
+            objectMapper.readValue<ArtifactsArrayResponseBody<MonsterData>>(responseBody)
         }
     }
 

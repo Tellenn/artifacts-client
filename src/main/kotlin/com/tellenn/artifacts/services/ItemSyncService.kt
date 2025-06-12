@@ -38,15 +38,15 @@ class ItemSyncService(
             logger.info("Fetching items page $currentPage of $totalPages")
             try {
                 val response = itemClient.getItems(page = currentPage, size = pageSize)
-                val dataPage = response.data
-                totalPages = dataPage.pages
+                val itemsResponse = response.data
+                totalPages = response.pages
 
                 // Convert ItemDetails to ItemDocument and save to MongoDB
-                val itemDocuments = dataPage.items.map { ItemDocument.fromItemDetails(it) }
+                val itemDocuments = response.data.map { ItemDocument.fromItemDetails(it) }
                 itemRepository.saveAll(itemDocuments)
 
-                totalItemsProcessed += dataPage.items.size
-                logger.info("Processed ${dataPage.items.size} items from page $currentPage")
+                totalItemsProcessed += response.data.size
+                logger.info("Processed ${response.data.size} items from page $currentPage")
 
                 currentPage++
             } catch (e: Exception) {
