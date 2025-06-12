@@ -26,48 +26,36 @@ class ItemRepositoryTest {
             name = "Test Sword",
             description = "A test sword for testing",
             type = "weapon",
-            rarity = "common",
+            subtype = "sword",
             level = 1,
-            value = 100,
-            weight = 5,
-            stackable = false,
-            usable = false,
-            equippable = true,
+            tradable = true,
             slot = "hand",
-            stats = null,
-            recipe = null
+            effect = null,
+            craft = null
         ),
         ItemDocument(
             code = "TEST_POTION_1",
             name = "Test Potion",
             description = "A test potion for testing",
             type = "consumable",
-            rarity = "uncommon",
+            subtype = "potion",
             level = 5,
-            value = 50,
-            weight = 1,
-            stackable = true,
-            usable = true,
-            equippable = false,
+            tradable = true,
             slot = null,
-            stats = null,
-            recipe = null
+            effect = null,
+            craft = null
         ),
         ItemDocument(
             code = "TEST_ARMOR_1",
             name = "Test Armor",
             description = "A test armor for testing",
             type = "armor",
-            rarity = "rare",
+            subtype = "body",
             level = 10,
-            value = 500,
-            weight = 20,
-            stackable = false,
-            usable = false,
-            equippable = true,
+            tradable = false,
             slot = "body",
-            stats = null,
-            recipe = null
+            effect = null,
+            craft = null
         )
     )
 
@@ -130,10 +118,10 @@ class ItemRepositoryTest {
     }
 
     @Test
-    fun `should find items by rarity`() {
+    fun `should find items by subtype`() {
         // When
         val pageable = PageRequest.of(0, 10)
-        val items = itemRepository.findByRarity("rare", pageable)
+        val items = itemRepository.findBySubtype("body", pageable)
 
         // Then
         assertEquals(1, items.totalElements)
@@ -152,37 +140,15 @@ class ItemRepositoryTest {
     }
 
     @Test
-    fun `should find items by equippable`() {
+    fun `should find items by tradable`() {
         // When
         val pageable = PageRequest.of(0, 10)
-        val items = itemRepository.findByEquippable(true, pageable)
+        val items = itemRepository.findByTradable(true, pageable)
 
         // Then
         assertEquals(2, items.totalElements)
         assertTrue(items.content.any { it.code == "TEST_SWORD_1" })
-        assertTrue(items.content.any { it.code == "TEST_ARMOR_1" })
-    }
-
-    @Test
-    fun `should find items by usable`() {
-        // When
-        val pageable = PageRequest.of(0, 10)
-        val items = itemRepository.findByUsable(true, pageable)
-
-        // Then
-        assertEquals(1, items.totalElements)
-        assertEquals("TEST_POTION_1", items.content[0].code)
-    }
-
-    @Test
-    fun `should find items by stackable`() {
-        // When
-        val pageable = PageRequest.of(0, 10)
-        val items = itemRepository.findByStackable(true, pageable)
-
-        // Then
-        assertEquals(1, items.totalElements)
-        assertEquals("TEST_POTION_1", items.content[0].code)
+        assertTrue(items.content.any { it.code == "TEST_POTION_1" })
     }
 
     @Test

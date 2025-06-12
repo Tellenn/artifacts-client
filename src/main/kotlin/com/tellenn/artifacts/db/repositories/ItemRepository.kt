@@ -15,20 +15,14 @@ interface ItemRepository : MongoRepository<ItemDocument, String> {
     // Find by type
     fun findByType(type: String, pageable: Pageable): Page<ItemDocument>
 
-    // Find by rarity
-    fun findByRarity(rarity: String, pageable: Pageable): Page<ItemDocument>
+    // Find by subtype
+    fun findBySubtype(subtype: String, pageable: Pageable): Page<ItemDocument>
 
     // Find by level
     fun findByLevel(level: Int, pageable: Pageable): Page<ItemDocument>
 
-    // Find by equippable
-    fun findByEquippable(equippable: Boolean, pageable: Pageable): Page<ItemDocument>
-
-    // Find by usable
-    fun findByUsable(usable: Boolean, pageable: Pageable): Page<ItemDocument>
-
-    // Find by stackable
-    fun findByStackable(stackable: Boolean, pageable: Pageable): Page<ItemDocument>
+    // Find by tradable
+    fun findByTradable(tradable: Boolean, pageable: Pageable): Page<ItemDocument>
 
     // Find by slot
     fun findBySlot(slot: String, pageable: Pageable): Page<ItemDocument>

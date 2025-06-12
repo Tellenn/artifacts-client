@@ -13,33 +13,33 @@ import org.springframework.stereotype.Component
 @Component
 @Profile("db-client-example")
 class DatabaseClientExample(private val databaseClient: DatabaseClient) : CommandLineRunner {
-    
+
     private val logger = LoggerFactory.getLogger(DatabaseClientExample::class.java)
-    
+
     override fun run(vararg args: String) {
         logger.info("Starting DatabaseClient example")
-        
+
         // Example 1: Get all items (paginated)
         val allItems = databaseClient.getItems(page = 1, size = 10)
         logger.info("Found ${allItems.total} total items, showing page ${allItems.page} of ${allItems.pages}")
         allItems.data.forEach { item ->
-            logger.info("Item: ${item.code} - ${item.name} (${item.rarity} ${item.type})")
+            logger.info("Item: ${item.code} - ${item.name} (${item.subtype} ${item.type})")
         }
-        
+
         // Example 2: Search items by name
         val searchResult = databaseClient.getItems(name = "sword", page = 1, size = 10)
         logger.info("Found ${searchResult.total} items matching 'sword'")
         searchResult.data.forEach { item ->
-            logger.info("Item: ${item.code} - ${item.name} (${item.rarity} ${item.type})")
+            logger.info("Item: ${item.code} - ${item.name} (${item.subtype} ${item.type})")
         }
-        
+
         // Example 3: Filter items by type
         val weaponItems = databaseClient.getItems(type = "weapon", page = 1, size = 10)
         logger.info("Found ${weaponItems.total} weapon items")
         weaponItems.data.forEach { item ->
-            logger.info("Weapon: ${item.code} - ${item.name} (${item.rarity})")
+            logger.info("Weapon: ${item.code} - ${item.name} (${item.subtype})")
         }
-        
+
         // Example 4: Get item details by code
         try {
             // Note: You need to replace "ITEM_CODE" with an actual item code that exists in your database
@@ -50,18 +50,16 @@ class DatabaseClientExample(private val databaseClient: DatabaseClient) : Comman
             logger.info("Name: ${item.name}")
             logger.info("Description: ${item.description ?: "N/A"}")
             logger.info("Type: ${item.type}")
-            logger.info("Rarity: ${item.rarity}")
+            logger.info("Subtype: ${item.subtype}")
             logger.info("Level: ${item.level}")
-            logger.info("Value: ${item.value}")
-            logger.info("Weight: ${item.weight}")
-            logger.info("Stackable: ${item.stackable}")
-            logger.info("Usable: ${item.usable}")
-            logger.info("Equippable: ${item.equippable}")
+            logger.info("Tradable: ${item.tradable}")
             logger.info("Slot: ${item.slot ?: "N/A"}")
+            logger.info("Effect: ${if (item.effect != null) "${item.effect.code}: ${item.effect.value}" else "N/A"}")
+            logger.info("Craft: ${if (item.craft != null) "${item.craft.skill} (level ${item.craft.level})" else "N/A"}")
         } catch (e: Exception) {
             logger.error("Error getting item details", e)
         }
-        
+
         logger.info("DatabaseClient example completed")
     }
 }

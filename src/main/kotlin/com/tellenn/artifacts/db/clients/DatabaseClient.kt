@@ -23,37 +23,33 @@ class DatabaseClient(private val itemRepository: ItemRepository) {
     fun getItems(
         name: String? = null,
         type: String? = null,
-        rarity: String? = null,
+        subtype: String? = null,
         level: Int? = null,
-        equippable: Boolean? = null,
-        usable: Boolean? = null,
-        stackable: Boolean? = null,
+        tradable: Boolean? = null,
         slot: String? = null,
         page: Int = 1,
         size: Int = 50
     ): ArtifactsArrayResponseBody<ItemDetails> {
         // Create pageable object for Spring Data
         val pageable = PageRequest.of(page - 1, size, Sort.by(Sort.Direction.ASC, "name"))
-        
+
         // Determine which repository method to use based on provided filters
         val result = when {
             // If multiple filters are provided, we would need more complex queries
             // For simplicity, we're prioritizing filters in a specific order
             name != null -> itemRepository.findByNameContainingIgnoreCase(name, pageable)
             type != null -> itemRepository.findByType(type, pageable)
-            rarity != null -> itemRepository.findByRarity(rarity, pageable)
+            subtype != null -> itemRepository.findBySubtype(subtype, pageable)
             level != null -> itemRepository.findByLevel(level, pageable)
-            equippable != null -> itemRepository.findByEquippable(equippable, pageable)
-            usable != null -> itemRepository.findByUsable(usable, pageable)
-            stackable != null -> itemRepository.findByStackable(stackable, pageable)
+            tradable != null -> itemRepository.findByTradable(tradable, pageable)
             slot != null -> itemRepository.findBySlot(slot, pageable)
             else -> itemRepository.findAll(pageable)
         }
-        
+
         return ArtifactsArrayResponseBody(result.map({ it -> convertToItemDetails(it) }).toList(),
-            result.totalElements.toInt(),result.totalPages, result.size, result.totalPages)
+            result.totalElements.toInt(), page, result.size, result.totalPages)
     }
-    
+
     /**
      * Get item details by item code.
      * This method mimics the behavior of ItemClient.getItemDetails but fetches from the database.
@@ -61,10 +57,10 @@ class DatabaseClient(private val itemRepository: ItemRepository) {
     fun getItemDetails(itemCode: String): ArtifactsResponseBody<ItemDetails> {
         val itemDocument = itemRepository.findById(itemCode)
             .orElseThrow { NoSuchElementException("Item with code $itemCode not found") }
-        
+
         return ArtifactsResponseBody(convertToItemDetails(itemDocument))
     }
-    
+
     /**
      * Convert ItemDocument to ItemDetails.
      */
@@ -74,58 +70,43 @@ class DatabaseClient(private val itemRepository: ItemRepository) {
             name = itemDocument.name,
             description = itemDocument.description,
             type = itemDocument.type,
-            rarity = itemDocument.rarity,
+            subtype = itemDocument.subtype,
             level = itemDocument.level,
-            value = itemDocument.value,
-            weight = itemDocument.weight,
-            stackable = itemDocument.stackable,
-            usable = itemDocument.usable,
-            equippable = itemDocument.equippable,
+            tradable = itemDocument.tradable,
             slot = itemDocument.slot,
-            stats = itemDocument.stats?.let { convertToItemStats(it) },
-            recipe = itemDocument.recipe?.let { convertToItemRecipe(it) }
+            effect = itemDocument.effect?.let { convertToItemEffect(it) },
+            craft = itemDocument.craft?.let { convertToItemCraft(it) }
         )
     }
-    
+
     /**
-     * Convert ItemStatsDocument to ItemStats.
+     * Convert ItemEffectDocument to ItemEffect.
      */
-    private fun convertToItemStats(statsDocument: com.tellenn.artifacts.db.documents.ItemStatsDocument): com.tellenn.artifacts.clients.models.ItemStats {
-        return com.tellenn.artifacts.clients.models.ItemStats(
-            hp = statsDocument.hp,
-            attackFire = statsDocument.attackFire,
-            attackEarth = statsDocument.attackEarth,
-            attackWater = statsDocument.attackWater,
-            attackAir = statsDocument.attackAir,
-            dmgFire = statsDocument.dmgFire,
-            dmgEarth = statsDocument.dmgEarth,
-            dmgWater = statsDocument.dmgWater,
-            dmgAir = statsDocument.dmgAir,
-            resFire = statsDocument.resFire,
-            resEarth = statsDocument.resEarth,
-            resWater = statsDocument.resWater,
-            resAir = statsDocument.resAir
+    private fun convertToItemEffect(effectDocument: com.tellenn.artifacts.db.documents.ItemEffectDocument): com.tellenn.artifacts.clients.models.ItemEffect {
+        return com.tellenn.artifacts.clients.models.ItemEffect(
+            code = effectDocument.code,
+            value = effectDocument.value
         )
     }
-    
+
     /**
-     * Convert ItemRecipeDocument to ItemRecipe.
+     * Convert ItemCraftDocument to ItemCraft.
      */
-    private fun convertToItemRecipe(recipeDocument: com.tellenn.artifacts.db.documents.ItemRecipeDocument): com.tellenn.artifacts.clients.models.ItemRecipe {
-        return com.tellenn.artifacts.clients.models.ItemRecipe(
-            skill = recipeDocument.skill,
-            level = recipeDocument.level,
-            ingredients = recipeDocument.ingredients.map { convertToRecipeIngredient(it) }
+    private fun convertToItemCraft(craftDocument: com.tellenn.artifacts.db.documents.ItemCraftDocument): com.tellenn.artifacts.clients.models.ItemCraft {
+        return com.tellenn.artifacts.clients.models.ItemCraft(
+            skill = craftDocument.skill,
+            level = craftDocument.level,
+            ingredients = craftDocument.ingredients.map { convertToRecipeIngredient(it) },
+            quantity = craftDocument.quantity
         )
     }
-    
+
     /**
      * Convert RecipeIngredientDocument to RecipeIngredient.
      */
     private fun convertToRecipeIngredient(ingredientDocument: com.tellenn.artifacts.db.documents.RecipeIngredientDocument): com.tellenn.artifacts.clients.models.RecipeIngredient {
         return com.tellenn.artifacts.clients.models.RecipeIngredient(
             code = ingredientDocument.code,
-            name = ingredientDocument.name,
             quantity = ingredientDocument.quantity
         )
     }

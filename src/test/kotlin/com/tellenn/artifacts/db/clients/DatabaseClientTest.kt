@@ -29,48 +29,36 @@ class DatabaseClientTest {
             name = "Test Sword",
             description = "A test sword for testing",
             type = "weapon",
-            rarity = "common",
+            subtype = "sword",
             level = 1,
-            value = 100,
-            weight = 5,
-            stackable = false,
-            usable = false,
-            equippable = true,
+            tradable = true,
             slot = "hand",
-            stats = null,
-            recipe = null
+            effect = null,
+            craft = null
         ),
         ItemDocument(
             code = "TEST_POTION_1",
             name = "Test Potion",
             description = "A test potion for testing",
             type = "consumable",
-            rarity = "uncommon",
+            subtype = "potion",
             level = 5,
-            value = 50,
-            weight = 1,
-            stackable = true,
-            usable = true,
-            equippable = false,
+            tradable = true,
             slot = null,
-            stats = null,
-            recipe = null
+            effect = null,
+            craft = null
         ),
         ItemDocument(
             code = "TEST_ARMOR_1",
             name = "Test Armor",
             description = "A test armor for testing",
             type = "armor",
-            rarity = "rare",
+            subtype = "body",
             level = 10,
-            value = 500,
-            weight = 20,
-            stackable = false,
-            usable = false,
-            equippable = true,
+            tradable = false,
             slot = "body",
-            stats = null,
-            recipe = null
+            effect = null,
+            craft = null
         )
     )
 
@@ -91,7 +79,7 @@ class DatabaseClientTest {
     fun `should get all items`() {
         // When
         val response = databaseClient.getItems()
-        
+
         // Then
         assertEquals(3, response.total)
         assertEquals(3, response.data.size)
@@ -104,7 +92,7 @@ class DatabaseClientTest {
     fun `should get items with pagination`() {
         // When
         val response = databaseClient.getItems(page = 1, size = 2)
-        
+
         // Then
         assertEquals(3, response.total)
         assertEquals(2, response.data.size)
@@ -116,7 +104,7 @@ class DatabaseClientTest {
     fun `should get items by name`() {
         // When
         val response = databaseClient.getItems(name = "sword")
-        
+
         // Then
         assertEquals(1, response.total)
         assertEquals("TEST_SWORD_1", response.data[0].code)
@@ -127,17 +115,17 @@ class DatabaseClientTest {
     fun `should get items by type`() {
         // When
         val response = databaseClient.getItems(type = "weapon")
-        
+
         // Then
         assertEquals(1, response.total)
         assertEquals("TEST_SWORD_1", response.data[0].code)
     }
 
     @Test
-    fun `should get items by rarity`() {
+    fun `should get items by subtype`() {
         // When
-        val response = databaseClient.getItems(rarity = "rare")
-        
+        val response = databaseClient.getItems(subtype = "body")
+
         // Then
         assertEquals(1, response.total)
         assertEquals("TEST_ARMOR_1", response.data[0].code)
@@ -147,48 +135,28 @@ class DatabaseClientTest {
     fun `should get items by level`() {
         // When
         val response = databaseClient.getItems(level = 5)
-        
+
         // Then
         assertEquals(1, response.total)
         assertEquals("TEST_POTION_1", response.data[0].code)
     }
 
     @Test
-    fun `should get items by equippable`() {
+    fun `should get items by tradable`() {
         // When
-        val response = databaseClient.getItems(equippable = true)
-        
+        val response = databaseClient.getItems(tradable = true)
+
         // Then
         assertEquals(2, response.total)
         assertTrue(response.data.any { it.code == "TEST_SWORD_1" })
-        assertTrue(response.data.any { it.code == "TEST_ARMOR_1" })
-    }
-
-    @Test
-    fun `should get items by usable`() {
-        // When
-        val response = databaseClient.getItems(usable = true)
-        
-        // Then
-        assertEquals(1, response.total)
-        assertEquals("TEST_POTION_1", response.data[0].code)
-    }
-
-    @Test
-    fun `should get items by stackable`() {
-        // When
-        val response = databaseClient.getItems(stackable = true)
-        
-        // Then
-        assertEquals(1, response.total)
-        assertEquals("TEST_POTION_1", response.data[0].code)
+        assertTrue(response.data.any { it.code == "TEST_POTION_1" })
     }
 
     @Test
     fun `should get items by slot`() {
         // When
         val response = databaseClient.getItems(slot = "body")
-        
+
         // Then
         assertEquals(1, response.total)
         assertEquals("TEST_ARMOR_1", response.data[0].code)
@@ -198,20 +166,18 @@ class DatabaseClientTest {
     fun `should get item details by code`() {
         // When
         val response = databaseClient.getItemDetails("TEST_SWORD_1")
-        
+
         // Then
         assertEquals("TEST_SWORD_1", response.data.code)
         assertEquals("Test Sword", response.data.name)
         assertEquals("A test sword for testing", response.data.description)
         assertEquals("weapon", response.data.type)
-        assertEquals("common", response.data.rarity)
+        assertEquals("sword", response.data.subtype)
         assertEquals(1, response.data.level)
-        assertEquals(100, response.data.value)
-        assertEquals(5, response.data.weight)
-        assertFalse(response.data.stackable)
-        assertFalse(response.data.usable)
-        assertTrue(response.data.equippable)
+        assertTrue(response.data.tradable)
         assertEquals("hand", response.data.slot)
+        assertNull(response.data.effect)
+        assertNull(response.data.craft)
     }
 
     @Test
