@@ -57,8 +57,8 @@ class MapSyncServiceTest {
             mapDocument.skin == "default" &&
             mapDocument.x == 0 &&
             mapDocument.y == 0 &&
-            mapDocument.content.type == "monster" &&
-            mapDocument.content.code == "dragon"
+            mapDocument.content?.type == "monster" &&
+            mapDocument.content?.code == "dragon"
         })
     }
 

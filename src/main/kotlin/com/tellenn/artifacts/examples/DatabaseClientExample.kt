@@ -52,9 +52,8 @@ class DatabaseClientExample(private val databaseClient: DatabaseClient) : Comman
             logger.info("Type: ${item.type}")
             logger.info("Subtype: ${item.subtype}")
             logger.info("Level: ${item.level}")
-            logger.info("Tradable: ${item.tradable}")
-            logger.info("Slot: ${item.slot ?: "N/A"}")
-            logger.info("Effect: ${if (item.effect != null) "${item.effect.code}: ${item.effect.value}" else "N/A"}")
+            logger.info("Tradable: ${item.tradeable}")
+            logger.info("Effect: ${if (item.effects != null) "${item.effects}: ${item.effects}" else "N/A"}")
             logger.info("Craft: ${if (item.craft != null) "${item.craft.skill} (level ${item.craft.level})" else "N/A"}")
         } catch (e: Exception) {
             logger.error("Error getting item details", e)

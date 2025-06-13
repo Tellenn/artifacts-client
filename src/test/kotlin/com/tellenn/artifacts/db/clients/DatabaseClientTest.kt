@@ -31,9 +31,8 @@ class DatabaseClientTest {
             type = "weapon",
             subtype = "sword",
             level = 1,
-            tradable = true,
-            slot = "hand",
-            effect = null,
+            tradeable = true,
+            effects = null,
             craft = null
         ),
         ItemDocument(
@@ -43,9 +42,8 @@ class DatabaseClientTest {
             type = "consumable",
             subtype = "potion",
             level = 5,
-            tradable = true,
-            slot = null,
-            effect = null,
+            tradeable = true,
+            effects = null,
             craft = null
         ),
         ItemDocument(
@@ -55,9 +53,8 @@ class DatabaseClientTest {
             type = "armor",
             subtype = "body",
             level = 10,
-            tradable = false,
-            slot = "body",
-            effect = null,
+            tradeable = false,
+            effects = null,
             craft = null
         )
     )
@@ -144,22 +141,12 @@ class DatabaseClientTest {
     @Test
     fun `should get items by tradable`() {
         // When
-        val response = databaseClient.getItems(tradable = true)
+        val response = databaseClient.getItems(tradeable = true)
 
         // Then
         assertEquals(2, response.total)
         assertTrue(response.data.any { it.code == "TEST_SWORD_1" })
         assertTrue(response.data.any { it.code == "TEST_POTION_1" })
-    }
-
-    @Test
-    fun `should get items by slot`() {
-        // When
-        val response = databaseClient.getItems(slot = "body")
-
-        // Then
-        assertEquals(1, response.total)
-        assertEquals("TEST_ARMOR_1", response.data[0].code)
     }
 
     @Test
@@ -174,9 +161,8 @@ class DatabaseClientTest {
         assertEquals("weapon", response.data.type)
         assertEquals("sword", response.data.subtype)
         assertEquals(1, response.data.level)
-        assertTrue(response.data.tradable)
-        assertEquals("hand", response.data.slot)
-        assertNull(response.data.effect)
+        assertTrue(response.data.tradeable)
+        assertNull(response.data.effects)
         assertNull(response.data.craft)
     }
 

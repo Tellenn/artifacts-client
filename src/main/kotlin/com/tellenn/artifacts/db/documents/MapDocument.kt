@@ -15,17 +15,18 @@ data class MapDocument(
     val skin: String,
     val x: Int,
     val y: Int,
-    val content: MapContentDocument
+    val content: MapContentDocument?
 ) {
     companion object {
         fun fromMapData(mapData: MapData): MapDocument {
+            val content = mapData.content?.let { MapContentDocument.fromMapContent(it) }
             return MapDocument(
                 id = "${mapData.x}_${mapData.y}",
                 name = mapData.name,
                 skin = mapData.skin,
                 x = mapData.x,
                 y = mapData.y,
-                content = MapContentDocument.fromMapContent(mapData.content)
+                content = content
             )
         }
     }

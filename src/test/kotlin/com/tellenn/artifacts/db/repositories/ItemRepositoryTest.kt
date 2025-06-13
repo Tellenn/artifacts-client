@@ -28,9 +28,8 @@ class ItemRepositoryTest {
             type = "weapon",
             subtype = "sword",
             level = 1,
-            tradable = true,
-            slot = "hand",
-            effect = null,
+            tradeable = true,
+            effects = null,
             craft = null
         ),
         ItemDocument(
@@ -40,9 +39,8 @@ class ItemRepositoryTest {
             type = "consumable",
             subtype = "potion",
             level = 5,
-            tradable = true,
-            slot = null,
-            effect = null,
+            tradeable = true,
+            effects = null,
             craft = null
         ),
         ItemDocument(
@@ -52,9 +50,8 @@ class ItemRepositoryTest {
             type = "armor",
             subtype = "body",
             level = 10,
-            tradable = false,
-            slot = "body",
-            effect = null,
+            tradeable = false,
+            effects = null,
             craft = null
         )
     )
@@ -143,22 +140,11 @@ class ItemRepositoryTest {
     fun `should find items by tradable`() {
         // When
         val pageable = PageRequest.of(0, 10)
-        val items = itemRepository.findByTradable(true, pageable)
+        val items = itemRepository.findByTradeable(true, pageable)
 
         // Then
         assertEquals(2, items.totalElements)
         assertTrue(items.content.any { it.code == "TEST_SWORD_1" })
         assertTrue(items.content.any { it.code == "TEST_POTION_1" })
-    }
-
-    @Test
-    fun `should find items by slot`() {
-        // When
-        val pageable = PageRequest.of(0, 10)
-        val items = itemRepository.findBySlot("body", pageable)
-
-        // Then
-        assertEquals(1, items.totalElements)
-        assertEquals("TEST_ARMOR_1", items.content[0].code)
     }
 }

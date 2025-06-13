@@ -76,18 +76,23 @@ class MonsterSyncServiceTest {
 
         // Verify that the repository's save method was called with a MonsterDocument
         verify(monsterRepository).save(Mockito.argThat { monsterDocument ->
-            monsterDocument.id == "monster1" &&
+            monsterDocument.code == "monster1" &&
             monsterDocument.name == "Goblin" &&
             monsterDocument.level == 1 &&
             monsterDocument.hp == 100 &&
-            monsterDocument.attack == 10 &&
-            monsterDocument.defense == 5 &&
-            monsterDocument.speed == 8 &&
-            monsterDocument.xpReward == 20 &&
-            monsterDocument.goldReward == 10 &&
+            monsterDocument.attackFire == 10 &&
+            monsterDocument.attackWater == 10 &&
+            monsterDocument.attackEarth == 10 &&
+            monsterDocument.attackAir == 10 &&
+            monsterDocument.defenseFire == 5 &&
+            monsterDocument.defenseWater == 5 &&
+            monsterDocument.defenseEarth == 5 &&
+            monsterDocument.defenseAir == 5 &&
+            monsterDocument.minGold == 10 &&
+            monsterDocument.maxGold == 10 &&
             monsterDocument.drops?.size == 1 &&
-            monsterDocument.drops?.get(0)?.itemId == "item1" &&
-            monsterDocument.drops?.get(0)?.chance == 0.5
+            monsterDocument.drops?.get(0)?.code == "item1" &&
+            monsterDocument.drops?.get(0)?.rate == 5
         })
     }
 
@@ -139,21 +144,30 @@ class MonsterSyncServiceTest {
         verify(monsterRepository, times(0)).save(Mockito.any())
     }
 
-    private fun createTestMonsterData(id: String, name: String, level: Int): MonsterData {
+    private fun createTestMonsterData(code: String, name: String, level: Int): MonsterData {
         return MonsterData(
-            id = id,
+            code = code,
             name = name,
             level = level,
             hp = 100,
-            attack = 10,
-            defense = 5,
-            speed = 8,
-            xpReward = 20,
-            goldReward = 10,
+            attackFire = 10,
+            attackWater = 10,
+            attackEarth = 10,
+            attackAir = 10,
+            defenseFire = 5,
+            defenseWater = 5,
+            defenseEarth = 5,
+            defenseAir = 5,
+            minGold = 10,
+            maxGold = 10,
+            criticalStrike = 2,
+            effects = emptyList(),
             drops = listOf(
                 MonsterDrop(
-                    itemId = "item1",
-                    chance = 0.5
+                    code = "item1",
+                    rate = 5,
+                    minQuantity = 1,
+                    maxQuantity = 1
                 )
             )
         )

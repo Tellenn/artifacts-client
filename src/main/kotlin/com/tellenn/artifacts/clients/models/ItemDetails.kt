@@ -10,13 +10,12 @@ class ItemDetails(
     @JsonAlias("type") val type: String,
     @JsonAlias("subtype") val subtype: String,
     @JsonAlias("level") val level: Int,
-    @JsonAlias("tradable") val tradable: Boolean,
-    @JsonAlias("slot") val slot: String?,
+    @JsonAlias("tradeable") val tradeable: Boolean,
     @JsonAlias("craft") val craft: ItemCraft?,
-    @JsonAlias("effect") val effect: ItemEffect?
+    @JsonAlias("effects") val effects: List<Effect>?
 )
 
-class ItemEffect(
+class Effect(
     @JsonAlias("code") val code: String,
     @JsonAlias("value") val value: Int
 )
@@ -24,7 +23,7 @@ class ItemEffect(
 class ItemCraft(
     @JsonAlias("skill") val skill: String,
     @JsonAlias("level") val level: Int,
-    @JsonAlias("ingredients") val ingredients: List<RecipeIngredient>,
+    @JsonAlias("items") val items: List<RecipeIngredient>,
     @JsonAlias("quantity") val quantity: Int
 )
 

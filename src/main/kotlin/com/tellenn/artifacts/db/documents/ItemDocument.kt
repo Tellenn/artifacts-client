@@ -2,8 +2,9 @@ package com.tellenn.artifacts.db.documents
 
 import com.tellenn.artifacts.clients.models.ItemDetails
 import com.tellenn.artifacts.clients.models.ItemCraft
-import com.tellenn.artifacts.clients.models.ItemEffect
+import com.tellenn.artifacts.clients.models.Effect
 import com.tellenn.artifacts.clients.models.RecipeIngredient
+import com.tellenn.artifacts.db.documents.ItemEffectDocument.Companion.fromItemEffect
 import org.springframework.data.annotation.Id
 import org.springframework.data.mongodb.core.mapping.Document
 
@@ -16,9 +17,8 @@ data class ItemDocument(
     val type: String,
     val subtype: String,
     val level: Int,
-    val tradable: Boolean,
-    val slot: String?,
-    val effect: ItemEffectDocument?,
+    val tradeable: Boolean,
+    val effects: List<ItemEffectDocument>?,
     val craft: ItemCraftDocument?
 ) {
     companion object {
@@ -30,9 +30,8 @@ data class ItemDocument(
                 type = itemDetails.type,
                 subtype = itemDetails.subtype,
                 level = itemDetails.level,
-                tradable = itemDetails.tradable,
-                slot = itemDetails.slot,
-                effect = itemDetails.effect?.let { ItemEffectDocument.fromItemEffect(it) },
+                tradeable = itemDetails.tradeable,
+                effects = itemDetails.effects?.map { i -> fromItemEffect(i) }?.toList(),
                 craft = itemDetails.craft?.let { ItemCraftDocument.fromItemCraft(it) }
             )
         }
@@ -44,7 +43,7 @@ data class ItemEffectDocument(
     val value: Int
 ) {
     companion object {
-        fun fromItemEffect(itemEffect: ItemEffect): ItemEffectDocument {
+        fun fromItemEffect(itemEffect: Effect): ItemEffectDocument {
             return ItemEffectDocument(
                 code = itemEffect.code,
                 value = itemEffect.value
@@ -56,7 +55,7 @@ data class ItemEffectDocument(
 data class ItemCraftDocument(
     val skill: String,
     val level: Int,
-    val ingredients: List<RecipeIngredientDocument>,
+    val items: List<RecipeIngredientDocument>,
     val quantity: Int
 ) {
     companion object {
@@ -64,7 +63,7 @@ data class ItemCraftDocument(
             return ItemCraftDocument(
                 skill = itemCraft.skill,
                 level = itemCraft.level,
-                ingredients = itemCraft.ingredients.map { RecipeIngredientDocument.fromRecipeIngredient(it) },
+                items = itemCraft.items.map { RecipeIngredientDocument.fromRecipeIngredient(it) },
                 quantity = itemCraft.quantity
             )
         }

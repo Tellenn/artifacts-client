@@ -25,8 +25,7 @@ class DatabaseClient(private val itemRepository: ItemRepository) {
         type: String? = null,
         subtype: String? = null,
         level: Int? = null,
-        tradable: Boolean? = null,
-        slot: String? = null,
+        tradeable: Boolean? = null,
         page: Int = 1,
         size: Int = 50
     ): ArtifactsArrayResponseBody<ItemDetails> {
@@ -41,8 +40,7 @@ class DatabaseClient(private val itemRepository: ItemRepository) {
             type != null -> itemRepository.findByType(type, pageable)
             subtype != null -> itemRepository.findBySubtype(subtype, pageable)
             level != null -> itemRepository.findByLevel(level, pageable)
-            tradable != null -> itemRepository.findByTradable(tradable, pageable)
-            slot != null -> itemRepository.findBySlot(slot, pageable)
+            tradeable != null -> itemRepository.findByTradeable(tradeable, pageable)
             else -> itemRepository.findAll(pageable)
         }
 
@@ -72,9 +70,8 @@ class DatabaseClient(private val itemRepository: ItemRepository) {
             type = itemDocument.type,
             subtype = itemDocument.subtype,
             level = itemDocument.level,
-            tradable = itemDocument.tradable,
-            slot = itemDocument.slot,
-            effect = itemDocument.effect?.let { convertToItemEffect(it) },
+            tradeable = itemDocument.tradeable,
+            effects = itemDocument.effects?.map { i -> convertToItemEffect(i) }?.toList(),
             craft = itemDocument.craft?.let { convertToItemCraft(it) }
         )
     }
@@ -82,8 +79,8 @@ class DatabaseClient(private val itemRepository: ItemRepository) {
     /**
      * Convert ItemEffectDocument to ItemEffect.
      */
-    private fun convertToItemEffect(effectDocument: com.tellenn.artifacts.db.documents.ItemEffectDocument): com.tellenn.artifacts.clients.models.ItemEffect {
-        return com.tellenn.artifacts.clients.models.ItemEffect(
+    private fun convertToItemEffect(effectDocument: com.tellenn.artifacts.db.documents.ItemEffectDocument): com.tellenn.artifacts.clients.models.Effect {
+        return com.tellenn.artifacts.clients.models.Effect(
             code = effectDocument.code,
             value = effectDocument.value
         )
@@ -96,7 +93,7 @@ class DatabaseClient(private val itemRepository: ItemRepository) {
         return com.tellenn.artifacts.clients.models.ItemCraft(
             skill = craftDocument.skill,
             level = craftDocument.level,
-            ingredients = craftDocument.ingredients.map { convertToRecipeIngredient(it) },
+            items = craftDocument.items.map { convertToRecipeIngredient(it) },
             quantity = craftDocument.quantity
         )
     }

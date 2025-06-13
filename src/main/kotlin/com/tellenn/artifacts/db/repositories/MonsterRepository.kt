@@ -19,7 +19,7 @@ interface MonsterRepository : MongoRepository<MonsterDocument, String> {
     fun findByLevelBetween(minLevel: Int, maxLevel: Int, pageable: Pageable): Page<MonsterDocument>
     
     // Find monsters that drop a specific item
-    @Query("{ 'drops.itemId': ?0 }")
+    @Query("{ 'drops.code': ?0 }")
     fun findByDropItemId(itemId: String, pageable: Pageable): Page<MonsterDocument>
     
     // Custom query to find monsters with multiple criteria

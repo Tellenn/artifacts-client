@@ -9,18 +9,28 @@ import com.tellenn.artifacts.clients.models.GEOrderHistory
 import com.tellenn.artifacts.clients.requests.ChangePasswordRequest
 import com.tellenn.artifacts.clients.responses.ArtifactsArrayResponseBody
 import com.tellenn.artifacts.clients.responses.ArtifactsResponseBody
+import com.tellenn.artifacts.db.documents.BankDocument
+import com.tellenn.artifacts.db.repositories.BankRepository
 import lombok.extern.slf4j.Slf4j
 import org.springframework.stereotype.Component
 
 @Slf4j
 @Component
-class AccountClient : BaseArtifactsClient() {
+class AccountClient(private val bankRepository: BankRepository) : BaseArtifactsClient() {
 
     fun getBankDetails(): ArtifactsResponseBody<BankDetails> {
-        return sendGetRequest("/my/bank").use { response ->
+        val result = sendGetRequest("/my/bank").use { response ->
             val responseBody = response.body!!.string()
             objectMapper.readValue<ArtifactsResponseBody<BankDetails>>(responseBody)
         }
+
+        // Sync with repository if data is available
+        if (result.data != null) {
+            val bankDocument = BankDocument.fromBankDetails(result.data)
+            bankRepository.save(bankDocument)
+        }
+
+        return result
     }
 
     fun getBankItems(itemCode: String? = null, page: Int = 1, size: Int = 50): ArtifactsArrayResponseBody<BankItem> {
@@ -80,7 +90,7 @@ class AccountClient : BaseArtifactsClient() {
         val queryParams = params
             .filter { it.second != null }
             .joinToString("&") { "${it.first}=${it.second}" }
-        
+
         return if (queryParams.isNotEmpty()) "?$queryParams" else ""
     }
 }

@@ -21,11 +21,8 @@ interface ItemRepository : MongoRepository<ItemDocument, String> {
     // Find by level
     fun findByLevel(level: Int, pageable: Pageable): Page<ItemDocument>
 
-    // Find by tradable
-    fun findByTradable(tradable: Boolean, pageable: Pageable): Page<ItemDocument>
-
-    // Find by slot
-    fun findBySlot(slot: String, pageable: Pageable): Page<ItemDocument>
+    // Find by tradeable
+    fun findByTradeable(tradable: Boolean, pageable: Pageable): Page<ItemDocument>
 
     // Custom query to find items with multiple criteria
     @Query("{}")

@@ -30,6 +30,7 @@ abstract class BaseArtifactsClient() {
     fun sendGetRequest(path : String) : Response {
         val getRequest = Request.Builder()
             .url(url+path)
+            .header("Authorization", "Bearer $key")
             .build()
 
         return client.newCall(getRequest).execute().also { response ->
