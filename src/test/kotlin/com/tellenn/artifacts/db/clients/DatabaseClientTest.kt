@@ -10,11 +10,10 @@ import org.junit.jupiter.api.Assertions.*
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.boot.test.context.SpringBootTest
 import org.springframework.context.annotation.Import
-import org.testcontainers.junit.jupiter.Testcontainers
+import org.springframework.data.mongodb.core.MongoTemplate
 
 @SpringBootTest
 @Import(MongoTestConfiguration::class)
-@Testcontainers
 class DatabaseClientTest {
 
     @Autowired
@@ -22,6 +21,7 @@ class DatabaseClientTest {
 
     @Autowired
     private lateinit var itemRepository: ItemRepository
+
 
     private val testItems = listOf(
         ItemDocument(
@@ -59,9 +59,12 @@ class DatabaseClientTest {
         )
     )
 
+
+
     @BeforeEach
     fun setup() {
-        // Clear the repository and insert test data
+
+        // Clear the repository and insert test data`
         itemRepository.deleteAll()
         itemRepository.saveAll(testItems)
     }

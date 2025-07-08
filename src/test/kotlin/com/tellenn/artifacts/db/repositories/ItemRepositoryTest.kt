@@ -1,20 +1,15 @@
 package com.tellenn.artifacts.db.repositories
 
-import com.tellenn.artifacts.config.MongoTestConfiguration
 import com.tellenn.artifacts.db.documents.ItemDocument
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.Assertions.*
 import org.springframework.beans.factory.annotation.Autowired
-import org.springframework.boot.test.autoconfigure.data.mongo.DataMongoTest
-import org.springframework.context.annotation.Import
+import org.springframework.boot.test.context.SpringBootTest
 import org.springframework.data.domain.PageRequest
-import org.testcontainers.junit.jupiter.Testcontainers
 
-@DataMongoTest
-@Import(MongoTestConfiguration::class)
-@Testcontainers
+@SpringBootTest
 class ItemRepositoryTest {
 
     @Autowired
