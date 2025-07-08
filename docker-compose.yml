@@ -1,0 +1,29 @@
+version: '3.8'
+
+services:
+  app:
+    build: .
+    ports:
+      - "8080:8080"
+    environment:
+      - SPRING_DATA_MONGODB_URI=mongodb://mongo:27017/tellenn-artifacts
+    depends_on:
+      - mongo
+    networks:
+      - tellenn-network
+
+  mongo:
+    image: mongo:6.0
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongo-data:/data/db
+    networks:
+      - tellenn-network
+
+networks:
+  tellenn-network:
+    driver: bridge
+
+volumes:
+  mongo-data:

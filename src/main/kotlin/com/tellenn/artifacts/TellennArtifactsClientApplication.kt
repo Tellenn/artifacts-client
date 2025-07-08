@@ -9,7 +9,7 @@ class TellennArtifactsClientApplication
 
 
 object AppConfig {
-	var maxLevel: Int = 0// Default value, can be of any type you need
+	var maxLevel: Int = 0
 }
 
 fun main(args: Array<String>) {

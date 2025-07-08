@@ -140,6 +140,38 @@ The example will query items from the database and log the results.
 ./mvnw clean install
 ```
 
+### Running with Docker
+
+The application can be containerized using Docker. The project includes a Dockerfile and docker-compose.yml for easy deployment.
+
+#### Building the Docker Image
+
+```bash
+docker build -t tellenn-artifacts-client .
+```
+
+#### Running with Docker Compose
+
+The docker-compose.yml file sets up both the application and a MongoDB instance:
+
+```bash
+docker-compose up
+```
+
+This will:
+1. Build the application image if it doesn't exist
+2. Start a MongoDB container
+3. Start the application container connected to MongoDB
+4. Map port 8080 for the application and 27017 for MongoDB
+
+#### Environment Variables
+
+The following environment variables can be configured:
+
+- `SPRING_DATA_MONGODB_URI`: MongoDB connection URI (default: mongodb://mongo:27017/tellenn-artifacts)
+
+You can override these in the docker-compose.yml file or by setting environment variables.
+
 ### Running Tests
 
 ```bash
