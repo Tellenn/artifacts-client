@@ -4,6 +4,12 @@ import com.fasterxml.jackson.databind.ObjectMapper
 import com.tellenn.artifacts.clients.ServerStatusClient
 import com.tellenn.artifacts.clients.models.ArtifactsCharacter
 import com.tellenn.artifacts.config.CharacterConfig
+import com.tellenn.artifacts.exceptions.UnknownJobException
+import com.tellenn.artifacts.jobs.runAlchemistFunction
+import com.tellenn.artifacts.jobs.runCrafterFunction
+import com.tellenn.artifacts.jobs.runFighterFunction
+import com.tellenn.artifacts.jobs.runMinerFunction
+import com.tellenn.artifacts.jobs.runWoodworkerFunction
 import com.tellenn.artifacts.services.CharacterSyncService
 import com.tellenn.artifacts.services.ItemSyncService
 import com.tellenn.artifacts.services.MapSyncService
@@ -201,7 +207,7 @@ class MainRuntime(
 
     /**
      * Placeholder function that will be executed by each character thread.
-     * Currently just logs information about the character.
+     * Calls the appropriate function based on the character's job.
      * Handles interruption by checking Thread.currentThread().isInterrupted.
      * If an exception occurs, the character thread will be restarted.
      *
@@ -209,24 +215,20 @@ class MainRuntime(
      * @param character The character object
      */
     private fun runCharacterPlaceholderFunction(config: CharacterConfig, character: ArtifactsCharacter) {
-        log.info("Running placeholder function for character: ${character.name}")
+        log.info("Running function for character: ${character.name}")
         log.info("Character details - Name: ${character.name}, Level: ${character.level}, Job: ${config.job}")
 
         try {
-            // This is a placeholder function that will be expanded in the future
-            // For now, we'll just have it run in a loop until interrupted
-            while (!Thread.currentThread().isInterrupted) {
-                // Simulate some work
-                log.info("Character ${character.name} is performing work...")
-
-                try {
-                    // Sleep for a bit to simulate work and allow for interruption
-                    Thread.sleep(5000) // 5 seconds
-                } catch (e: InterruptedException) {
-                    // Restore the interrupted status
-                    Thread.currentThread().interrupt()
-                    log.info("Character ${character.name} thread was interrupted during sleep")
-                    break
+            // Call the appropriate function based on the character's job
+            when (config.job.lowercase()) {
+                "crafter" -> runCrafterFunction(config, character)
+                "fighter" -> runFighterFunction(config, character)
+                "alchemist" -> runAlchemistFunction(config, character)
+                "miner" -> runMinerFunction(config, character)
+                "woodworker" -> runWoodworkerFunction(config, character)
+                else -> {
+                    log.error("Unknown job '${config.job}' for character ${character.name}")
+                    throw UnknownJobException(config.job, character.name)
                 }
             }
         } catch (e: Exception) {
@@ -246,6 +248,7 @@ class MainRuntime(
             webSocketService.removeCharacterThread(character.name)
         }
     }
+
 
     /**
      * Cleans up resources when the application is shutting down.
