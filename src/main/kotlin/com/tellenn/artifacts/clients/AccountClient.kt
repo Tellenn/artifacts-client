@@ -3,10 +3,12 @@ package com.tellenn.artifacts.clients
 import com.fasterxml.jackson.module.kotlin.readValue
 import com.tellenn.artifacts.clients.models.BankDetails
 import com.tellenn.artifacts.clients.models.AccountDetails
+import com.tellenn.artifacts.clients.models.ArtifactsCharacter
 import com.tellenn.artifacts.clients.models.BankItem
 import com.tellenn.artifacts.clients.models.GEOrder
 import com.tellenn.artifacts.clients.models.GEOrderHistory
 import com.tellenn.artifacts.clients.requests.ChangePasswordRequest
+import com.tellenn.artifacts.clients.requests.CreateCharacterRequest
 import com.tellenn.artifacts.clients.responses.ArtifactsArrayResponseBody
 import com.tellenn.artifacts.clients.responses.ArtifactsResponseBody
 import com.tellenn.artifacts.db.documents.BankDocument
@@ -92,5 +94,21 @@ class AccountClient(private val bankRepository: BankRepository) : BaseArtifactsC
             .joinToString("&") { "${it.first}=${it.second}" }
 
         return if (queryParams.isNotEmpty()) "?$queryParams" else ""
+    }
+
+    fun createCharacter(name: String, skin: String): ArtifactsResponseBody<ArtifactsCharacter> {
+        val request = CreateCharacterRequest(name, skin)
+        val requestBody = objectMapper.writeValueAsString(request)
+        return sendPostRequest("/characters/create", requestBody).use { response ->
+            val responseBody = response.body!!.string()
+            objectMapper.readValue<ArtifactsResponseBody<ArtifactsCharacter>>(responseBody)
+        }
+    }
+
+    fun getCharacter(name: String): ArtifactsResponseBody<ArtifactsCharacter> {
+        return sendGetRequest("/characters/$name").use { response ->
+            val responseBody = response.body!!.string()
+            objectMapper.readValue<ArtifactsResponseBody<ArtifactsCharacter>>(responseBody)
+        }
     }
 }

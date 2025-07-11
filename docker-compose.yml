@@ -13,7 +13,7 @@ services:
       - tellenn-network
 
   mongo:
-    image: mongo:6.0
+    image: mongo:8.0
     ports:
       - "27017:27017"
     volumes:
