@@ -37,6 +37,21 @@ data class ItemDocument(
                 craft = itemDetails.craft?.let { ItemCraftDocument.fromItemCraft(it) }
             )
         }
+
+        fun toItemDetails(itemDocument: ItemDocument): ItemDetails {
+            return ItemDetails(
+                code = itemDocument.code,
+                name = itemDocument.name,
+                description = itemDocument.description,
+                type = itemDocument.type,
+                subtype = itemDocument.subtype,
+                level = itemDocument.level,
+                tradeable = itemDocument.tradeable,
+                effects = itemDocument.effects?.map { ItemEffectDocument.toEffect(it) }?.toList(),
+                craft = itemDocument.craft?.let { ItemCraftDocument.toItemCraft(it) },
+                conditions = itemDocument.conditions?.map { ItemConditionDocument.toItemCondition(it) }?.toList()
+            )
+        }
     }
 }
 
@@ -51,6 +66,14 @@ data class ItemEffectDocument(
                 code = itemEffect.code,
                 value = itemEffect.value,
                 description = itemEffect.description
+            )
+        }
+
+        fun toEffect(effectDocument: ItemEffectDocument): Effect {
+            return Effect(
+                code = effectDocument.code,
+                value = effectDocument.value,
+                description = effectDocument.description
             )
         }
     }
@@ -71,6 +94,15 @@ data class ItemCraftDocument(
                 quantity = itemCraft.quantity
             )
         }
+
+        fun toItemCraft(craftDocument: ItemCraftDocument): ItemCraft {
+            return ItemCraft(
+                skill = craftDocument.skill,
+                level = craftDocument.level,
+                items = craftDocument.items.map { RecipeIngredientDocument.toRecipeIngredient(it) },
+                quantity = craftDocument.quantity
+            )
+        }
     }
 }
 
@@ -87,6 +119,14 @@ data class ItemConditionDocument(
                 value = itemCondition.value
             )
         }
+
+        fun toItemCondition(itemConditionDocument: ItemConditionDocument): ItemCondition {
+            return ItemCondition(
+                code = itemConditionDocument.code,
+                operator = itemConditionDocument.operator,
+                value = itemConditionDocument.value
+            )
+        }
     }
 }
 
@@ -99,6 +139,13 @@ data class RecipeIngredientDocument(
             return RecipeIngredientDocument(
                 code = recipeIngredient.code,
                 quantity = recipeIngredient.quantity
+            )
+        }
+
+        fun toRecipeIngredient(ingredientDocument: RecipeIngredientDocument): RecipeIngredient {
+            return RecipeIngredient(
+                code = ingredientDocument.code,
+                quantity = ingredientDocument.quantity
             )
         }
     }

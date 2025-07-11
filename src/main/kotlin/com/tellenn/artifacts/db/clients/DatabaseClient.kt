@@ -1,10 +1,8 @@
 package com.tellenn.artifacts.db.clients
 
-import com.tellenn.artifacts.clients.models.ItemCondition
 import com.tellenn.artifacts.clients.models.ItemDetails
 import com.tellenn.artifacts.clients.responses.ArtifactsArrayResponseBody
 import com.tellenn.artifacts.clients.responses.ArtifactsResponseBody
-import com.tellenn.artifacts.db.documents.ItemConditionDocument
 import com.tellenn.artifacts.db.documents.ItemDocument
 import com.tellenn.artifacts.db.repositories.ItemRepository
 import org.springframework.data.domain.PageRequest
@@ -62,64 +60,9 @@ class DatabaseClient(private val itemRepository: ItemRepository) {
     }
 
     /**
-     * Convert ItemDocument to ItemDetails.
+     * Convert ItemDocument to ItemDetails using the mapper in ItemDocument.
      */
     private fun convertToItemDetails(itemDocument: ItemDocument): ItemDetails {
-        return ItemDetails(
-            code = itemDocument.code,
-            name = itemDocument.name,
-            description = itemDocument.description,
-            type = itemDocument.type,
-            subtype = itemDocument.subtype,
-            level = itemDocument.level,
-            tradeable = itemDocument.tradeable,
-            effects = itemDocument.effects?.map { i -> convertToItemEffect(i) }?.toList(),
-            craft = itemDocument.craft?.let { convertToItemCraft(it) },
-            conditions = itemDocument.conditions?.map { convertToItemCondition(it) }?.toList(),
-        )
-    }
-
-    /**
-     * Convert ItemEffectDocument to ItemEffect.
-     */
-    private fun convertToItemEffect(effectDocument: com.tellenn.artifacts.db.documents.ItemEffectDocument): com.tellenn.artifacts.clients.models.Effect {
-        return com.tellenn.artifacts.clients.models.Effect(
-            code = effectDocument.code,
-            value = effectDocument.value,
-            description = effectDocument.description
-        )
-    }
-
-    /**
-     * Convert ItemCraftDocument to ItemCraft.
-     */
-    private fun convertToItemCraft(craftDocument: com.tellenn.artifacts.db.documents.ItemCraftDocument): com.tellenn.artifacts.clients.models.ItemCraft {
-        return com.tellenn.artifacts.clients.models.ItemCraft(
-            skill = craftDocument.skill,
-            level = craftDocument.level,
-            items = craftDocument.items.map { convertToRecipeIngredient(it) },
-            quantity = craftDocument.quantity
-        )
-    }
-
-    /**
-     * Convert ItemConditionDocument to ItemCondition
-     */
-    private fun convertToItemCondition(itemConditionDocument: ItemConditionDocument): ItemCondition {
-        return ItemCondition(
-            code = itemConditionDocument.code,
-            value = itemConditionDocument.value,
-            operator = itemConditionDocument.operator,
-        )
-    }
-
-    /**
-     * Convert RecipeIngredientDocument to RecipeIngredient.
-     */
-    private fun convertToRecipeIngredient(ingredientDocument: com.tellenn.artifacts.db.documents.RecipeIngredientDocument): com.tellenn.artifacts.clients.models.RecipeIngredient {
-        return com.tellenn.artifacts.clients.models.RecipeIngredient(
-            code = ingredientDocument.code,
-            quantity = ingredientDocument.quantity
-        )
+        return ItemDocument.toItemDetails(itemDocument)
     }
 }

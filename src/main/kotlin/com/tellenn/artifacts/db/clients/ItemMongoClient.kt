@@ -1,10 +1,8 @@
 package com.tellenn.artifacts.db.clients
 
-import com.tellenn.artifacts.clients.models.ItemCondition
 import com.tellenn.artifacts.clients.models.ItemDetails
 import com.tellenn.artifacts.clients.responses.ArtifactsArrayResponseBody
 import com.tellenn.artifacts.clients.responses.ArtifactsResponseBody
-import com.tellenn.artifacts.db.documents.ItemConditionDocument
 import com.tellenn.artifacts.db.documents.ItemDocument
 import com.tellenn.artifacts.db.repositories.ItemRepository
 import org.springframework.data.domain.PageRequest
@@ -45,14 +43,14 @@ class ItemMongoClient(
         // If we have complex filtering with level ranges, use MongoTemplate with Query
         if (minLevel != null || maxLevel != null) {
             val query = Query()
-            
+
             // Add criteria for each filter
             name?.let { query.addCriteria(Criteria.where("name").regex(it, "i")) }
             type?.let { query.addCriteria(Criteria.where("type").`is`(it)) }
             subtype?.let { query.addCriteria(Criteria.where("subtype").`is`(it)) }
             level?.let { query.addCriteria(Criteria.where("level").`is`(it)) }
             tradeable?.let { query.addCriteria(Criteria.where("tradeable").`is`(it)) }
-            
+
             // Add level range criteria
             if (minLevel != null || maxLevel != null) {
                 val levelCriteria = Criteria.where("level")
@@ -60,14 +58,14 @@ class ItemMongoClient(
                 maxLevel?.let { levelCriteria.lte(it) }
                 query.addCriteria(levelCriteria)
             }
-            
+
             // Apply pagination
             query.with(pageable)
-            
+
             // Execute query
             val items = mongoTemplate.find(query, ItemDocument::class.java)
             val count = mongoTemplate.count(query.skip(-1).limit(-1), ItemDocument::class.java)
-            
+
             return ArtifactsArrayResponseBody(
                 items.map { convertToItemDetails(it) },
                 count.toInt(),
@@ -107,66 +105,9 @@ class ItemMongoClient(
     }
 
     /**
-     * Convert ItemDocument to ItemDetails.
+     * Convert ItemDocument to ItemDetails using the mapper in ItemDocument.
      */
     private fun convertToItemDetails(itemDocument: ItemDocument): ItemDetails {
-        return ItemDetails(
-            code = itemDocument.code,
-            name = itemDocument.name,
-            description = itemDocument.description,
-            type = itemDocument.type,
-            subtype = itemDocument.subtype,
-            level = itemDocument.level,
-            tradeable = itemDocument.tradeable,
-            effects = itemDocument.effects?.map { convertToItemEffect(it) }?.toList(),
-            craft = itemDocument.craft?.let { convertToItemCraft(it) },
-            conditions = itemDocument.conditions?.map { convertToItemCondition(it) }?.toList()
-        )
-    }
-
-    /**
-     * Convert ItemEffectDocument to Effect.
-     */
-    private fun convertToItemEffect(effectDocument: com.tellenn.artifacts.db.documents.ItemEffectDocument): com.tellenn.artifacts.clients.models.Effect {
-        return com.tellenn.artifacts.clients.models.Effect(
-            code = effectDocument.code,
-            value = effectDocument.value,
-            description = effectDocument.description
-        )
-    }
-
-
-    /**
-     * Convert ItemConditionDocument to ItemCondition
-     */
-    private fun convertToItemCondition(itemConditionDocument: ItemConditionDocument): ItemCondition {
-        return ItemCondition(
-            code = itemConditionDocument.code,
-            value = itemConditionDocument.value,
-            operator = itemConditionDocument.operator,
-        )
-    }
-
-
-    /**
-     * Convert ItemCraftDocument to ItemCraft.
-     */
-    private fun convertToItemCraft(craftDocument: com.tellenn.artifacts.db.documents.ItemCraftDocument): com.tellenn.artifacts.clients.models.ItemCraft {
-        return com.tellenn.artifacts.clients.models.ItemCraft(
-            skill = craftDocument.skill,
-            level = craftDocument.level,
-            items = craftDocument.items.map { convertToRecipeIngredient(it) },
-            quantity = craftDocument.quantity
-        )
-    }
-
-    /**
-     * Convert RecipeIngredientDocument to RecipeIngredient.
-     */
-    private fun convertToRecipeIngredient(ingredientDocument: com.tellenn.artifacts.db.documents.RecipeIngredientDocument): com.tellenn.artifacts.clients.models.RecipeIngredient {
-        return com.tellenn.artifacts.clients.models.RecipeIngredient(
-            code = ingredientDocument.code,
-            quantity = ingredientDocument.quantity
-        )
+        return ItemDocument.toItemDetails(itemDocument)
     }
 }
