@@ -38,7 +38,6 @@ class ItemSyncService(
             logger.info("Fetching items page $currentPage of $totalPages")
             try {
                 val response = itemClient.getItems(page = currentPage, size = pageSize)
-                val itemsResponse = response.data
                 totalPages = response.pages
 
                 // Convert ItemDetails to ItemDocument and save to MongoDB

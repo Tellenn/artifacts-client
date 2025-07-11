@@ -7,12 +7,12 @@ import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.Assertions.*
 import org.springframework.beans.factory.annotation.Autowired
-import org.springframework.boot.test.autoconfigure.data.mongo.DataMongoTest
+import org.springframework.boot.test.context.SpringBootTest
 import org.springframework.context.annotation.Import
 import org.springframework.data.domain.PageRequest
 import org.testcontainers.junit.jupiter.Testcontainers
 
-@DataMongoTest
+@SpringBootTest
 @Import(MongoTestConfiguration::class)
 @Testcontainers
 class ItemRepositoryTest {

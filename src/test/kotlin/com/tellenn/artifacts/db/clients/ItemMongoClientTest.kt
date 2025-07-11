@@ -1,6 +1,6 @@
 package com.tellenn.artifacts.db.clients
 
-import com.tellenn.artifacts.config.MongoTestConfiguration
+import com.tellenn.artifacts.config.MongoTestBase
 import com.tellenn.artifacts.db.documents.ItemDocument
 import com.tellenn.artifacts.db.repositories.ItemRepository
 import org.junit.jupiter.api.AfterEach
@@ -8,14 +8,8 @@ import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.Assertions.*
 import org.springframework.beans.factory.annotation.Autowired
-import org.springframework.boot.test.context.SpringBootTest
-import org.springframework.context.annotation.Import
-import org.testcontainers.junit.jupiter.Testcontainers
 
-@SpringBootTest
-@Import(MongoTestConfiguration::class)
-@Testcontainers
-class ItemMongoClientTest {
+class ItemMongoClientTest : MongoTestBase() {
 
     @Autowired
     private lateinit var itemMongoClient: ItemMongoClient

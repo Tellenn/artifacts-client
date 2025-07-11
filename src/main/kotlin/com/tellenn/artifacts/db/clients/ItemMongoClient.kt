@@ -1,8 +1,10 @@
 package com.tellenn.artifacts.db.clients
 
+import com.tellenn.artifacts.clients.models.ItemCondition
 import com.tellenn.artifacts.clients.models.ItemDetails
 import com.tellenn.artifacts.clients.responses.ArtifactsArrayResponseBody
 import com.tellenn.artifacts.clients.responses.ArtifactsResponseBody
+import com.tellenn.artifacts.db.documents.ItemConditionDocument
 import com.tellenn.artifacts.db.documents.ItemDocument
 import com.tellenn.artifacts.db.repositories.ItemRepository
 import org.springframework.data.domain.PageRequest
@@ -117,7 +119,8 @@ class ItemMongoClient(
             level = itemDocument.level,
             tradeable = itemDocument.tradeable,
             effects = itemDocument.effects?.map { convertToItemEffect(it) }?.toList(),
-            craft = itemDocument.craft?.let { convertToItemCraft(it) }
+            craft = itemDocument.craft?.let { convertToItemCraft(it) },
+            conditions = itemDocument.conditions?.map { convertToItemCondition(it) }?.toList()
         )
     }
 
@@ -127,9 +130,23 @@ class ItemMongoClient(
     private fun convertToItemEffect(effectDocument: com.tellenn.artifacts.db.documents.ItemEffectDocument): com.tellenn.artifacts.clients.models.Effect {
         return com.tellenn.artifacts.clients.models.Effect(
             code = effectDocument.code,
-            value = effectDocument.value
+            value = effectDocument.value,
+            description = effectDocument.description
         )
     }
+
+
+    /**
+     * Convert ItemConditionDocument to ItemCondition
+     */
+    private fun convertToItemCondition(itemConditionDocument: ItemConditionDocument): ItemCondition {
+        return ItemCondition(
+            code = itemConditionDocument.code,
+            value = itemConditionDocument.value,
+            operator = itemConditionDocument.operator,
+        )
+    }
+
 
     /**
      * Convert ItemCraftDocument to ItemCraft.
