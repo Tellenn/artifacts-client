@@ -5,11 +5,11 @@ import com.tellenn.artifacts.clients.ServerStatusClient
 import com.tellenn.artifacts.clients.models.ArtifactsCharacter
 import com.tellenn.artifacts.config.CharacterConfig
 import com.tellenn.artifacts.exceptions.UnknownJobException
-import com.tellenn.artifacts.jobs.runAlchemistFunction
-import com.tellenn.artifacts.jobs.runCrafterFunction
-import com.tellenn.artifacts.jobs.runFighterFunction
-import com.tellenn.artifacts.jobs.runMinerFunction
-import com.tellenn.artifacts.jobs.runWoodworkerFunction
+import com.tellenn.artifacts.jobs.AlchemistJob
+import com.tellenn.artifacts.jobs.CrafterJob
+import com.tellenn.artifacts.jobs.FighterJob
+import com.tellenn.artifacts.jobs.MinerJob
+import com.tellenn.artifacts.jobs.WoodworkerJob
 import com.tellenn.artifacts.services.CharacterSyncService
 import com.tellenn.artifacts.services.ItemSyncService
 import com.tellenn.artifacts.services.MapSyncService
@@ -26,7 +26,12 @@ import jakarta.annotation.PreDestroy
 @Slf4j
 @Component
 class MainRuntime(
-    private val serverClient: ServerStatusClient,
+    private val alchemistJob: AlchemistJob,
+    private val crafterJob: CrafterJob,
+    private val fighterJob: FighterJob,
+    private val minerJob: MinerJob,
+    private val woodworkerJob: WoodworkerJob,
+    private val serverStatusClient: ServerStatusClient,
     private val objectMapper: ObjectMapper,
     private val timeSync: TimeSync,
     private val itemSyncService: ItemSyncService,
@@ -40,7 +45,7 @@ class MainRuntime(
 
     override fun run(args: ApplicationArguments?) {
         // Call the server to get the information
-        val serverStatus = serverClient.getServerStatus()
+        val serverStatus = serverStatusClient.getServerStatus()
         timeSync.syncWithServerTime(serverStatus.data.serverTime)
         log.info("Time synchronized with server. Offset: ${timeSync.currentOffset}")
 
@@ -219,13 +224,13 @@ class MainRuntime(
         log.info("Character details - Name: ${character.name}, Level: ${character.level}, Job: ${config.job}")
 
         try {
-            // Call the appropriate function based on the character's job
+            // Create and run the appropriate job based on the character's job type
             when (config.job.lowercase()) {
-                "crafter" -> runCrafterFunction(config, character)
-                "fighter" -> runFighterFunction(config, character)
-                "alchemist" -> runAlchemistFunction(config, character)
-                "miner" -> runMinerFunction(config, character)
-                "woodworker" -> runWoodworkerFunction(config, character)
+                "crafter" -> crafterJob.run(character)
+                "fighter" -> fighterJob.run(character)
+                "alchemist" -> alchemistJob.run(character)
+                "miner" -> minerJob.run(character)
+                "woodworker" -> woodworkerJob.run(character)
                 else -> {
                     log.error("Unknown job '${config.job}' for character ${character.name}")
                     throw UnknownJobException(config.job, character.name)

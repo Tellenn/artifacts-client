@@ -11,13 +11,14 @@ import com.tellenn.artifacts.clients.requests.ChangePasswordRequest
 import com.tellenn.artifacts.clients.requests.CreateCharacterRequest
 import com.tellenn.artifacts.clients.responses.ArtifactsArrayResponseBody
 import com.tellenn.artifacts.clients.responses.ArtifactsResponseBody
+import com.tellenn.artifacts.config.CharacterConfig
 import com.tellenn.artifacts.db.documents.BankDocument
 import com.tellenn.artifacts.db.repositories.BankRepository
 import lombok.extern.slf4j.Slf4j
-import org.springframework.stereotype.Component
+import org.springframework.stereotype.Service
 
 @Slf4j
-@Component
+@Service
 class AccountClient(private val bankRepository: BankRepository) : BaseArtifactsClient() {
 
     fun getBankDetails(): ArtifactsResponseBody<BankDetails> {

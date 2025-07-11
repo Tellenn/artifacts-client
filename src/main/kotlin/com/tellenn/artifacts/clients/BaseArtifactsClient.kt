@@ -2,6 +2,7 @@ package com.tellenn.artifacts.clients
 
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule
 import com.fasterxml.jackson.module.kotlin.jacksonObjectMapper
+import com.tellenn.artifacts.config.CharacterConfig
 import lombok.extern.slf4j.Slf4j
 import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.OkHttpClient

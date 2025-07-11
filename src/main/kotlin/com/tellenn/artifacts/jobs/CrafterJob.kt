@@ -1,32 +1,25 @@
 package com.tellenn.artifacts.jobs
 
+import com.tellenn.artifacts.clients.MovementClient
 import com.tellenn.artifacts.clients.models.ArtifactsCharacter
 import com.tellenn.artifacts.config.CharacterConfig
-import org.apache.logging.log4j.LogManager
-
-private val log = LogManager.getLogger("CrafterJob")
+import com.tellenn.artifacts.services.MapProximityService
+import org.springframework.context.ApplicationContext
+import org.springframework.stereotype.Component
 
 /**
- * Function for characters with the "crafter" job.
- *
- * @param config The character configuration
- * @param character The character object
+ * Job implementation for characters with the "crafter" job.
  */
-fun runCrafterFunction(config: CharacterConfig, character: ArtifactsCharacter) {
-    log.info("Running crafter function for character: ${character.name}")
+@Component
+class CrafterJob(
+    mapProximityService: MapProximityService,
+    applicationContext: ApplicationContext,
+    movementClient: MovementClient
+) : GenericJob(mapProximityService, applicationContext, movementClient) {
 
-    while (!Thread.currentThread().isInterrupted) {
-        // Simulate crafter-specific work
-        log.info("Crafter ${character.name} is crafting items...")
+    lateinit var character: ArtifactsCharacter
 
-        try {
-            // Sleep for a bit to simulate work and allow for interruption
-            Thread.sleep(5000) // 5 seconds
-        } catch (e: InterruptedException) {
-            // Restore the interrupted status
-            Thread.currentThread().interrupt()
-            log.info("Crafter ${character.name} thread was interrupted during sleep")
-            break
-        }
+    fun run(initCharacter: ArtifactsCharacter) {
+        character = init(initCharacter)
     }
 }
