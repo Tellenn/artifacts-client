@@ -2,6 +2,7 @@ package com.tellenn.artifacts.clients.models
 
 import com.fasterxml.jackson.annotation.JsonAlias
 import com.tellenn.artifacts.AppConfig
+import java.time.Instant
 import kotlin.math.min
 
 @Suppress("unused")
@@ -84,7 +85,7 @@ class ArtifactsCharacter(
     @JsonAlias("utility2_slot") val utility2Slot: String?,
     @JsonAlias("utility2_slot_quantity") val utility2SlotQuantity: Int,
     @JsonAlias("bag_slot") val bagSlot: String?,
-    @JsonAlias("cooldown_expiration") val cooldownExpiration: Int?
+    @JsonAlias("cooldown_expiration") val cooldownExpiration: Instant?
 ) {
     fun position(): String {
         return "{\"x\": " + this.x + " , \"y\": " + this.y + "}"

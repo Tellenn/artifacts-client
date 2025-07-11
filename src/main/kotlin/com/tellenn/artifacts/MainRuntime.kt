@@ -94,7 +94,7 @@ class MainRuntime(
                 val thread = Thread {
                     runCharacterPlaceholderFunction(config, character)
                 }
-                thread.name = "Character-Thread-${character.name}"
+                thread.name = "${character.name}"
 
                 // Store the thread reference in the WebSocketService
                 webSocketService.addCharacterThread(character.name, thread)
@@ -113,7 +113,7 @@ class MainRuntime(
                     val newThread = Thread {
                         runCharacterPlaceholderFunction(config, character)
                     }
-                    newThread.name = "Character-Thread-${character.name}-Restarted"
+                    newThread.name = "${character.name}"
 
                     // Store the thread reference in the WebSocketService
                     webSocketService.addCharacterThread(character.name, newThread)
