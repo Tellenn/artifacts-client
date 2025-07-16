@@ -36,10 +36,10 @@ class MapProximityService(
 
         // Fetch maps from the database
         val mapsResponse = mapMongoClient.getMaps(
-            content_type = contentType,
-            content_code = contentCode,
             page = 1,
-            size = 100 // Fetch a reasonable number of maps to compare
+            size = 100, // Fetch a reasonable number of maps to compare
+            content_type = contentType.takeIf { it != null },
+            content_code = contentCode.takeIf { it != null }
         )
 
         if (mapsResponse.data.isEmpty()) {

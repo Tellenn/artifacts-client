@@ -1,9 +1,10 @@
 package com.tellenn.artifacts.jobs
 
-import com.tellenn.artifacts.clients.MovementClient
 import com.tellenn.artifacts.clients.models.ArtifactsCharacter
 import com.tellenn.artifacts.config.CharacterConfig
+import com.tellenn.artifacts.services.BankService
 import com.tellenn.artifacts.services.MapProximityService
+import com.tellenn.artifacts.services.MovementService
 import org.springframework.context.ApplicationContext
 import org.springframework.stereotype.Component
 
@@ -14,8 +15,9 @@ import org.springframework.stereotype.Component
 class AlchemistJob(
     mapProximityService: MapProximityService,
     applicationContext: ApplicationContext,
-    movementClient: MovementClient
-) : GenericJob(mapProximityService, applicationContext, movementClient) {
+    movementService: MovementService,
+    bankService: BankService
+) : GenericJob(mapProximityService, applicationContext, movementService, bankService) {
 
     lateinit var character: ArtifactsCharacter
 

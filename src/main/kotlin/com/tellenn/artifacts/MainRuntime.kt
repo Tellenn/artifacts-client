@@ -225,7 +225,6 @@ class MainRuntime(
      * @param character The character object
      */
     private fun runCharacterPlaceholderFunction(config: CharacterConfig, character: ArtifactsCharacter) {
-        log.info("Running function for character: ${character.name}")
         log.info("Character details - Name: ${character.name}, Level: ${character.level}, Job: ${config.job}")
 
         try {

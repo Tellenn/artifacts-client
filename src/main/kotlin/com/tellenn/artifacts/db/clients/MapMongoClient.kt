@@ -38,25 +38,19 @@ class MapMongoClient(
         // Create pageable object for Spring Data
         val pageable = PageRequest.of(page - 1, size, Sort.by(Sort.Direction.ASC, "name"))
 
-        // If we have complex filtering, use MongoTemplate with Query
-        if (content_type != null || content_code != null) {
+        // If we have complex filtering or need to use content filters, use MongoTemplate with Query
+        if (content_type != null || content_code != null || name != null || x != null || y != null) {
             val query = Query()
 
-            // Add criteria for each filter
+            // Add name, x, y criteria if specified
             name?.let { query.addCriteria(Criteria.where("name").regex(it, "i")) }
             x?.let { query.addCriteria(Criteria.where("x").`is`(it)) }
             y?.let { query.addCriteria(Criteria.where("y").`is`(it)) }
-            
-            // Add content criteria
+
+            // Add content criteria if at least one content filter is specified
             if (content_type != null || content_code != null) {
-                val contentCriteria = Criteria.where("content")
-                if (content_type != null) {
-                    contentCriteria.and("type").`is`(content_type)
-                }
-                if (content_code != null) {
-                    contentCriteria.and("code").`is`(content_code)
-                }
-                query.addCriteria(contentCriteria)
+                content_type?.let { query.addCriteria(Criteria.where("content.type").`is`(it)) }
+                content_code?.let { query.addCriteria(Criteria.where("content.code").`is`(it)) }
             }
 
             // Apply pagination
@@ -109,7 +103,6 @@ class MapMongoClient(
      */
     private fun convertToMapData(mapDocument: MapDocument): MapData {
         return MapData(
-            name = mapDocument.name,
             skin = mapDocument.skin,
             x = mapDocument.x,
             y = mapDocument.y,

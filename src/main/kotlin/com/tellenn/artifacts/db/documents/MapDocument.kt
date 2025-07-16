@@ -33,20 +33,17 @@ data class MapDocument(
 }
 
 data class MapCellDocument(
-    val x: Int,
-    val y: Int,
+    val x: Int = 0,
+    val y: Int = 0,
     val type: String,
     val content: MapContentDocument?,
-    val characters: List<MapCharacterDocument>?
+    val characters: List<MapCharacterDocument>? = null
 ) {
     companion object {
         fun fromMapCell(mapCell: MapCell): MapCellDocument {
             return MapCellDocument(
-                x = mapCell.x,
-                y = mapCell.y,
                 type = mapCell.type,
-                content = mapCell.content?.let { MapContentDocument.fromMapContent(it) },
-                characters = mapCell.characters?.map { MapCharacterDocument.fromArtifactsCharacter(it) }
+                content = mapCell.content?.let { MapContentDocument.fromMapContent(it) }
             )
         }
     }

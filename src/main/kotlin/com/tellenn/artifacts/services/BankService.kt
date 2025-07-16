@@ -22,13 +22,16 @@ class BankService(
 
         val inventory = character.inventory
         inventory?.forEach { item ->
-            if(bankRepository.findByCode(item.code, Pageable.unpaged()).isEmpty){
-                bankRepository.insert<BankItemDocument>(BankItemDocument.fromItemDetails(ItemDocument.toItemDetails(itemRepository.findByCode(item.code, Pageable.unpaged()).first()), item.quantity))
-            }else{
-                val existingBankItem = bankRepository.findByCode(item.code, Pageable.unpaged()).first()
-                val updatedQuantity = existingBankItem.quantity + item.quantity
-                val updatedBankItem = existingBankItem.copy(quantity = updatedQuantity)
-                bankRepository.save(updatedBankItem)
+            val itemsFound = itemRepository.findByCode(item.code, Pageable.unpaged())
+            if (!itemsFound.isEmpty) {
+                if(bankRepository.findByCode(item.code, Pageable.unpaged()).isEmpty){
+                    bankRepository.insert<BankItemDocument>(BankItemDocument.fromItemDetails(ItemDocument.toItemDetails(itemsFound.first()), item.quantity))
+                }else{
+                    val existingBankItem = bankRepository.findByCode(item.code, Pageable.unpaged()).first()
+                    val updatedQuantity = existingBankItem.quantity + item.quantity
+                    val updatedBankItem = existingBankItem.copy(quantity = updatedQuantity)
+                    bankRepository.save(updatedBankItem)
+                }
             }
         }
 
