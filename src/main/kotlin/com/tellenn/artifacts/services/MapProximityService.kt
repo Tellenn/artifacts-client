@@ -21,7 +21,7 @@ class MapProximityService(
 
     /**
      * Finds the closest map to a character.
-     * 
+     *
      * @param character The character to find the closest map to
      * @param contentType Optional filter for map content type
      * @param contentCode Optional filter for map content code
@@ -33,7 +33,7 @@ class MapProximityService(
         contentCode: String? = null
     ): MapData {
         logger.info("Finding closest map to character ${character.name} at position (${character.x}, ${character.y})")
-        
+
         // Fetch maps from the database
         val mapsResponse = mapMongoClient.getMaps(
             content_type = contentType,
@@ -41,23 +41,23 @@ class MapProximityService(
             page = 1,
             size = 100 // Fetch a reasonable number of maps to compare
         )
-        
+
         if (mapsResponse.data.isEmpty()) {
             logger.warn("No maps found with the specified criteria")
             throw UnknownMapException(contentType, contentCode)
         }
-        
+
         // Find the closest map
         val closestMap = findClosestMapToCharacter(character, mapsResponse.data)
 
-        
+
         logger.info("Closest map to character ${character.name} is at position (${closestMap.x}, ${closestMap.y})")
         return closestMap
     }
-    
+
     /**
      * Calculates the Euclidean distance between a character and a map.
-     * 
+     *
      * @param character The character
      * @param map The map
      * @return The distance between the character and the map
@@ -67,10 +67,10 @@ class MapProximityService(
         val dy = (character.y - map.y).toDouble()
         return sqrt(dx.pow(2) + dy.pow(2))
     }
-    
+
     /**
      * Finds the closest map to a character from a list of maps.
-     * 
+     *
      * @param character The character
      * @param maps The list of maps to search
      * @return The closest map, or null if the list is empty
