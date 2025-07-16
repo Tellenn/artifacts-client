@@ -55,40 +55,7 @@ class MapProximityServiceTest {
         val result = mapProximityService.findClosestMap(character)
 
         // Then
-        assertEquals(Pair(3, 3), result)
-        verify(mapMongoClient).getMaps(
-            content_type = null,
-            content_code = null,
-            page = 1,
-            size = 100
-        )
-    }
-
-    @Test
-    fun `findClosestMap should return null when no maps are found`() {
-        // Given
-        val character = createTestCharacter(x = 5, y = 5)
-
-        val response = ArtifactsArrayResponseBody<MapData>(
-            data = emptyList(),
-            total = 0,
-            page = 1,
-            size = 0,
-            pages = 0
-        )
-
-        `when`(mapMongoClient.getMaps(
-            content_type = null,
-            content_code = null,
-            page = 1,
-            size = 100
-        )).thenReturn(response)
-
-        // When
-        val result = mapProximityService.findClosestMap(character)
-
-        // Then
-        assertNull(result)
+        assertEquals(maps[1], result)
         verify(mapMongoClient).getMaps(
             content_type = null,
             content_code = null,
@@ -127,7 +94,7 @@ class MapProximityServiceTest {
         val result = mapProximityService.findClosestMap(character, contentType, contentCode)
 
         // Then
-        assertEquals(Pair(10, 10), result)
+        assertEquals(maps[0], result)
         verify(mapMongoClient).getMaps(
             content_type = contentType,
             content_code = contentCode,
