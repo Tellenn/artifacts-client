@@ -10,6 +10,7 @@ import com.tellenn.artifacts.jobs.CrafterJob
 import com.tellenn.artifacts.jobs.FighterJob
 import com.tellenn.artifacts.jobs.MinerJob
 import com.tellenn.artifacts.jobs.WoodworkerJob
+import com.tellenn.artifacts.services.BankItemSyncService
 import com.tellenn.artifacts.services.CharacterSyncService
 import com.tellenn.artifacts.services.ItemSyncService
 import com.tellenn.artifacts.services.MapSyncService
@@ -38,7 +39,8 @@ class MainRuntime(
     private val mapSyncService: MapSyncService,
     private val monsterSyncService: MonsterSyncService,
     private val characterSyncService: CharacterSyncService,
-    private val webSocketService: WebSocketService
+    private val webSocketService: WebSocketService,
+    private val bankItemSyncService: BankItemSyncService
 ) : ApplicationRunner {
 
     private val log = LogManager.getLogger(MainRuntime::class.java)
@@ -57,6 +59,9 @@ class MainRuntime(
         // Synchronize items from the server
         val syncedItemsCount = itemSyncService.syncAllItems()
         log.info("Items synchronized with server. Total items: $syncedItemsCount")
+
+        bankItemSyncService.syncAllItems()
+        log.info("Bank items syncronized")
 
         // Synchronize maps from the server
         val syncedMapChunksCount = mapSyncService.syncWholeMap()
@@ -105,7 +110,7 @@ class MainRuntime(
                 val thread = Thread {
                     runCharacterPlaceholderFunction(config, character)
                 }
-                thread.name = "${character.name}"
+                thread.name = character.name
 
                 // Store the thread reference in the WebSocketService
                 webSocketService.addCharacterThread(character.name, thread)
@@ -124,7 +129,7 @@ class MainRuntime(
                     val newThread = Thread {
                         runCharacterPlaceholderFunction(config, character)
                     }
-                    newThread.name = "${character.name}"
+                    newThread.name = character.name
 
                     // Store the thread reference in the WebSocketService
                     webSocketService.addCharacterThread(character.name, newThread)

@@ -1,6 +1,7 @@
 package com.tellenn.artifacts.jobs
 
 import com.tellenn.artifacts.MainRuntime
+import com.tellenn.artifacts.clients.AccountClient
 import com.tellenn.artifacts.clients.MovementClient
 import com.tellenn.artifacts.clients.models.ArtifactsCharacter
 import com.tellenn.artifacts.services.MapProximityService
@@ -27,9 +28,8 @@ open class GenericJob(
     fun init(character: ArtifactsCharacter) : ArtifactsCharacter{
         log.info("Character details - Name: ${character.name}, Level: ${character.level}")
         var tempCharacter : ArtifactsCharacter
-        val closestBank = mapProximityService.findClosestMap(character = character)
+        val closestBank = mapProximityService.findClosestMap(character = character, contentCode = "bank")
         tempCharacter = movementClient.moveCharacterToCell(character.name, closestBank.x, closestBank.y).data.character
-
         return tempCharacter
     }
 

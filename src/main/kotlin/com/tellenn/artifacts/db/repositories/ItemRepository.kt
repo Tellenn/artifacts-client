@@ -15,6 +15,9 @@ interface ItemRepository : MongoRepository<ItemDocument, String> {
     // Find by type
     fun findByType(type: String, pageable: Pageable): Page<ItemDocument>
 
+    // Find by code
+    fun findByCode(code: String, pageable: Pageable): Page<ItemDocument>
+
     // Find by subtype
     fun findBySubtype(subtype: String, pageable: Pageable): Page<ItemDocument>
 
