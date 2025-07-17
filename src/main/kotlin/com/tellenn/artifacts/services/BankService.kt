@@ -2,10 +2,10 @@ package com.tellenn.artifacts.services
 
 import com.tellenn.artifacts.clients.BankClient
 import com.tellenn.artifacts.clients.models.ArtifactsCharacter
+import com.tellenn.artifacts.clients.models.SimpleItem
 import com.tellenn.artifacts.db.documents.BankItemDocument
 import com.tellenn.artifacts.db.documents.ItemDocument
 import com.tellenn.artifacts.db.repositories.BankItemRepository
-import com.tellenn.artifacts.db.repositories.BankRepository
 import com.tellenn.artifacts.db.repositories.ItemRepository
 import org.apache.logging.log4j.LogManager
 import org.springframework.data.domain.Pageable
@@ -46,22 +46,78 @@ class BankService(
     }
 
     fun emptyInventory(character: ArtifactsCharacter) : ArtifactsCharacter{
+        val inventory = character.inventory ?: return character
 
-        val inventory = character.inventory
-        inventory?.forEach { item ->
-            val itemsFound = itemRepository.findByCode(item.code, Pageable.unpaged())
-            if (!itemsFound.isEmpty) {
-                if(bankRepository.findByCode(item.code, Pageable.unpaged()).isEmpty){
-                    bankRepository.insert<BankItemDocument>(BankItemDocument.fromItemDetails(ItemDocument.toItemDetails(itemsFound.first()), item.quantity))
-                }else{
-                    val existingBankItem = bankRepository.findByCode(item.code, Pageable.unpaged()).first()
-                    val updatedQuantity = existingBankItem.quantity + item.quantity
-                    val updatedBankItem = existingBankItem.copy(quantity = updatedQuantity)
-                    bankRepository.save(updatedBankItem)
+        // Store original bank state for potential rollback
+        val originalBankItems = mutableMapOf<String, BankItemDocument>()
+        val newBankItems = mutableListOf<BankItemDocument>()
+
+        try {
+            // Process inventory items and update database
+            val itemsToDeposit = mutableListOf<SimpleItem>()
+
+            inventory.forEach { item ->
+                val itemsFound = itemRepository.findByCode(item.code, Pageable.unpaged())
+                if (!itemsFound.isEmpty) {
+                    if(bankRepository.findByCode(item.code, Pageable.unpaged()).isEmpty){
+                        val newBankItem = BankItemDocument.fromItemDetails(ItemDocument.toItemDetails(itemsFound.first()), item.quantity)
+                        bankRepository.insert(newBankItem)
+                        newBankItems.add(newBankItem)
+                    }else{
+                        val existingBankItem = bankRepository.findByCode(item.code, Pageable.unpaged()).first()
+                        originalBankItems[item.code] = existingBankItem
+                        val updatedQuantity = existingBankItem.quantity + item.quantity
+                        val updatedBankItem = existingBankItem.copy(quantity = updatedQuantity)
+                        bankRepository.save(updatedBankItem)
+                    }
+
+                    // Add item to the list for API call
+                    itemsToDeposit.add(SimpleItem(item.code, item.quantity))
                 }
             }
+
+            // Make the API call to deposit items
+            if (itemsToDeposit.isNotEmpty()) {
+                bankClient.depositItems(character.name, itemsToDeposit)
+            }
+
+        } catch (e: Exception) {
+            log.error("Failed to deposit items to bank: ${e.message}")
+
+            // Rollback database changes
+            newBankItems.forEach { 
+                try {
+                    bankRepository.delete(it)
+                } catch (ex: Exception) {
+                    log.error("Failed to rollback new bank item ${it.code}: ${ex.message}")
+                }
+            }
+
+            originalBankItems.forEach { (_, originalItem) ->
+                try {
+                    bankRepository.save(originalItem)
+                } catch (ex: Exception) {
+                    log.error("Failed to rollback bank item ${originalItem.code}: ${ex.message}")
+                }
+            }
+
+            // Re-throw the exception or handle it as needed
+            // throw e
         }
 
         return character
+    }
+
+    fun fetchItems(item: String?, quantityLeft: Int, newCharacter: ArtifactsCharacter): ArtifactsCharacter {
+        // Implementation for fetching items from the bank
+        return newCharacter
+    }
+
+    fun isInBank(item: String?, quantityLeft: Int = 1): Boolean {
+        val bankedItem = bankClient.getBankedItems(item).data.firstOrNull()
+        if(bankedItem == null){
+            return false
+        }
+        return bankedItem.quantity >= quantityLeft
     }
 }

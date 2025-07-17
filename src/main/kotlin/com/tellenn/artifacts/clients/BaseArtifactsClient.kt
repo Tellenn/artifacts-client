@@ -7,6 +7,7 @@ import com.tellenn.artifacts.clients.models.Cooldown
 import com.tellenn.artifacts.clients.responses.ArtifactsResponseBody
 import com.tellenn.artifacts.config.CharacterConfig
 import com.tellenn.artifacts.exceptions.*
+import com.tellenn.artifacts.services.ClientErrorService
 import lombok.extern.slf4j.Slf4j
 import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.OkHttpClient
@@ -14,6 +15,7 @@ import okhttp3.Request
 import okhttp3.RequestBody.Companion.toRequestBody
 import okhttp3.Response
 import org.slf4j.LoggerFactory
+import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.beans.factory.annotation.Value
 import org.springframework.stereotype.Component
 
@@ -22,6 +24,9 @@ import org.springframework.stereotype.Component
 abstract class BaseArtifactsClient() {
 
     private val logger = LoggerFactory.getLogger(BaseArtifactsClient::class.java)
+
+    @Autowired
+    private lateinit var clientErrorService: ClientErrorService
 
     @Value("\${artifacts.api.url}")
     lateinit var url: String
@@ -153,26 +158,63 @@ abstract class BaseArtifactsClient() {
             .header("Authorization", "Bearer $key")
             .build()
 
-        val response = client.newCall(getRequest).execute()
-        if (!response.isSuccessful) {
-            throw mapResponseCodeToException(response.code, "Request failed with status code ${response.code}")
+        val clientType = this.javaClass.simpleName
+        val requestMethod = "GET"
+        val requestParams = path
+        val requestBody = null
+
+        try {
+            val response = client.newCall(getRequest).execute()
+            if (!response.isSuccessful) {
+                // Get the response body as a string for error logging
+                val responseBodyString = response.body?.string() ?: ""
+
+                // Log the error to the database
+                clientErrorService.logError(
+                    clientType = clientType,
+                    endpoint = path,
+                    requestMethod = requestMethod,
+                    requestParams = requestParams,
+                    requestBody = requestBody,
+                    responseBody = responseBodyString,
+                    errorCode = response.code,
+                    errorMessage = "Request failed with status code ${response.code}"
+                )
+
+                throw mapResponseCodeToException(response.code, "Request failed with status code ${response.code}")
+            }
+
+            // Get the response body as a string
+            val responseBodyString = response.body?.string() ?: ""
+
+            // Check for cooldown in the response
+            handleCooldown(responseBodyString)
+
+            // Create a new response with the same body since we've consumed it
+            val mediaType = "application/json; charset=utf-8".toMediaType()
+            val responseBody = responseBodyString.toByteArray().let { 
+                okhttp3.ResponseBody.create(mediaType, it) 
+            }
+
+            return response.newBuilder()
+                .body(responseBody)
+                .build()
+        } catch (e: Exception) {
+            // Log any other exceptions that might occur
+            if (e !is ArtifactsApiException) {  // Only log if not already logged as an API exception
+                clientErrorService.logError(
+                    clientType = clientType,
+                    endpoint = path,
+                    requestMethod = requestMethod,
+                    requestParams = requestParams,
+                    requestBody = requestBody,
+                    responseBody = null,
+                    errorCode = 500,  // Internal error
+                    errorMessage = "Exception during request: ${e.message}"
+                )
+            }
+            throw e
         }
-
-        // Get the response body as a string
-        val responseBodyString = response.body?.string() ?: ""
-
-        // Check for cooldown in the response
-        handleCooldown(responseBodyString)
-
-        // Create a new response with the same body since we've consumed it
-        val mediaType = "application/json; charset=utf-8".toMediaType()
-        val responseBody = responseBodyString.toByteArray().let { 
-            okhttp3.ResponseBody.create(mediaType, it) 
-        }
-
-        return response.newBuilder()
-            .body(responseBody)
-            .build()
     }
 
     fun sendPostRequest(path : String, body: String) : Response {
@@ -186,27 +228,63 @@ abstract class BaseArtifactsClient() {
             .header("Authorization", "Bearer $key")
             .build()
 
-        val response = client.newCall(postRequest).execute()
-        if (!response.isSuccessful) {
-            throw mapResponseCodeToException(response.code, "Request failed with status code ${response.code}")
+        val clientType = this.javaClass.simpleName
+        val requestMethod = "POST"
+        val requestParams = path
+
+        try {
+            val response = client.newCall(postRequest).execute()
+            if (!response.isSuccessful) {
+                // Get the response body as a string for error logging
+                val responseBodyString = response.body?.string() ?: ""
+
+                // Log the error to the database
+                clientErrorService.logError(
+                    clientType = clientType,
+                    endpoint = path,
+                    requestMethod = requestMethod,
+                    requestParams = requestParams,
+                    requestBody = postBody,
+                    responseBody = responseBodyString,
+                    errorCode = response.code,
+                    errorMessage = "Request failed with status code ${response.code}"
+                )
+
+                throw mapResponseCodeToException(response.code, "Request failed with status code ${response.code}")
+            }
+
+            // Get the response body as a string
+            val responseBodyString = response.body?.string() ?: ""
+
+            // Check for cooldown in the response
+            handleCooldown(responseBodyString)
+
+            // Log the response
+            println("Réponse POST: $responseBodyString")
+
+            // Create a new response with the same body since we've consumed it
+            val responseBody = responseBodyString.toByteArray().let { 
+                okhttp3.ResponseBody.create(mediaType, it) 
+            }
+
+            return response.newBuilder()
+                .body(responseBody)
+                .build()
+        } catch (e: Exception) {
+            // Log any other exceptions that might occur
+            if (e !is ArtifactsApiException) {  // Only log if not already logged as an API exception
+                clientErrorService.logError(
+                    clientType = clientType,
+                    endpoint = path,
+                    requestMethod = requestMethod,
+                    requestParams = requestParams,
+                    requestBody = postBody,
+                    responseBody = null,
+                    errorCode = 500,  // Internal error
+                    errorMessage = "Exception during request: ${e.message}"
+                )
+            }
+            throw e
         }
-
-        // Get the response body as a string
-        val responseBodyString = response.body?.string() ?: ""
-
-        // Check for cooldown in the response
-        handleCooldown(responseBodyString)
-
-        // Log the response
-        println("Réponse POST: $responseBodyString")
-
-        // Create a new response with the same body since we've consumed it
-        val responseBody = responseBodyString.toByteArray().let { 
-            okhttp3.ResponseBody.create(mediaType, it) 
-        }
-
-        return response.newBuilder()
-            .body(responseBody)
-            .build()
     }
 }

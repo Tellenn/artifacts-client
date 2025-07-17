@@ -13,7 +13,8 @@ import org.springframework.stereotype.Service
  */
 @Service
 class MovementService(
-    private val movementClient: MovementClient
+    private val movementClient: MovementClient,
+    private val mapProximityService: MapProximityService
 ) {
     private val logger = LoggerFactory.getLogger(MovementService::class.java)
 
@@ -35,5 +36,15 @@ class MovementService(
         }
 
         return movementClient.makeMovementCall(character.name, x, y).data.character
+    }
+
+    fun moveCharacterToMaster(masterType: String, character: ArtifactsCharacter): ArtifactsCharacter {
+        val map = mapProximityService.findClosestMap(
+            character = character,
+            contentType = "tasks_master",
+            contentCode = masterType
+        )
+
+        return moveCharacterToCell(map.x, map.y, character)
     }
 }

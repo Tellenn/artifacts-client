@@ -1,7 +1,6 @@
 package com.tellenn.artifacts.jobs
 
 import com.tellenn.artifacts.MainRuntime
-import com.tellenn.artifacts.clients.AccountClient
 import com.tellenn.artifacts.clients.models.ArtifactsCharacter
 import com.tellenn.artifacts.services.BankService
 import com.tellenn.artifacts.services.CharacterService
