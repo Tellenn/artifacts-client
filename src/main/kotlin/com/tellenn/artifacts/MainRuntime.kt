@@ -1,6 +1,8 @@
 package com.tellenn.artifacts
 
 import com.fasterxml.jackson.databind.ObjectMapper
+import com.tellenn.artifacts.clients.AccountClient
+import com.tellenn.artifacts.clients.CharacterClient
 import com.tellenn.artifacts.clients.ServerStatusClient
 import com.tellenn.artifacts.clients.models.ArtifactsCharacter
 import com.tellenn.artifacts.config.CharacterConfig
@@ -15,6 +17,8 @@ import com.tellenn.artifacts.services.CharacterSyncService
 import com.tellenn.artifacts.services.ItemSyncService
 import com.tellenn.artifacts.services.MapSyncService
 import com.tellenn.artifacts.services.MonsterSyncService
+import com.tellenn.artifacts.services.ResourceSyncService
+import com.tellenn.artifacts.services.ServerVersionService
 import com.tellenn.artifacts.services.WebSocketService
 import com.tellenn.artifacts.utils.TimeSync
 import lombok.extern.slf4j.Slf4j
@@ -23,6 +27,7 @@ import org.springframework.boot.ApplicationArguments
 import org.springframework.boot.ApplicationRunner
 import org.springframework.stereotype.Component
 import jakarta.annotation.PreDestroy
+import java.lang.Thread.sleep
 import java.util.Collections
 
 @Slf4j
@@ -41,7 +46,11 @@ class MainRuntime(
     private val monsterSyncService: MonsterSyncService,
     private val characterSyncService: CharacterSyncService,
     private val webSocketService: WebSocketService,
-    private val bankItemSyncService: BankItemSyncService
+    private val bankItemSyncService: BankItemSyncService,
+    private val characterClient: CharacterClient,
+    private val accountClient: AccountClient,
+    private val resourceSyncService: ResourceSyncService,
+    private val serverVersionService: ServerVersionService
 ) : ApplicationRunner {
 
     private val log = LogManager.getLogger(MainRuntime::class.java)
@@ -59,28 +68,50 @@ class MainRuntime(
         AppConfig.maxLevel = serverStatus.data.maxLevel
 
         log.info(objectMapper.writeValueAsString(AppConfig))
+        
+        // Get command line arguments
+        val forceSync = args?.containsOption("force-sync") ?: false
+        log.info("Force sync: $forceSync")
+        
+        // Check if sync is needed based on server version
+        val syncNeeded = serverVersionService.isSyncNeeded(forceSync)
+        
+        if (syncNeeded) {
+            log.info("Server version changed or force sync requested, performing all syncs")
+            
+            // Synchronize items from the server
+            val syncedItemsCount = itemSyncService.syncAllItems()
+            log.info("Items synchronized with server. Total items: $syncedItemsCount")
+            sleep(1000)
+            
+            // Synchronize maps from the server
+            val syncedMapChunksCount = mapSyncService.syncWholeMap()
+            log.info("Maps synchronized with server. Total map chunks: $syncedMapChunksCount")
+            sleep(1000)
+            
+            // Synchronize monsters from the server
+            val syncedMonstersCount = monsterSyncService.syncAllMonsters()
+            log.info("Monsters synchronized with server. Total monsters: $syncedMonstersCount")
+            sleep(1000)
+            
+            // Synchronize resources from the server
+            val syncedResourceCount = resourceSyncService.syncAllResources()
+            log.info("Resources synchronized with server. Total resources: $syncedResourceCount")
+            sleep(1000)
+            
+            // Update the server version after all syncs are completed
+            serverVersionService.updateServerVersion()
+            log.info("Server version updated after all syncs completed")
+        } else {
+            log.info("Server version unchanged, skipping syncs (except bank)")
+        }
 
-        // Synchronize items from the server
-        val syncedItemsCount = itemSyncService.syncAllItems()
-        log.info("Items synchronized with server. Total items: $syncedItemsCount")
 
-        bankItemSyncService.syncAllItems()
-        log.info("Bank items syncronized")
-
-        // Synchronize maps from the server
-        val syncedMapChunksCount = mapSyncService.syncWholeMap()
-        log.info("Maps synchronized with server. Total map chunks: $syncedMapChunksCount")
-
-        // Synchronize monsters from the server
-        val syncedMonstersCount = monsterSyncService.syncAllMonsters()
-        log.info("Monsters synchronized with server. Total monsters: $syncedMonstersCount")
-
-        // Synchronize characters from config
-        val characterMap = characterSyncService.syncPredefinedCharacters()
-        log.info("Characters synchronized with config. Total characters: ${characterMap.size}")
-
-        // Start a thread for each character
-        startCharacterThreads(characterMap)
+        
+        // Bank sync is always performed regardless of server version
+        val syncedBankItemsCount = bankItemSyncService.syncAllItems()
+        log.info("Bank items synchronized. Total items: $syncedBankItemsCount")
+        sleep(1000)
 
         // Connect to the WebSocket server
         log.info("Connecting to WebSocket server...")
@@ -90,6 +121,10 @@ class MainRuntime(
         } else {
             log.error("Failed to connect to WebSocket server")
         }
+
+        // Start threads for existing characters
+        startCharacterThreads(characterSyncService.syncPredefinedCharacters())
+
     }
 
     /**
@@ -112,7 +147,7 @@ class MainRuntime(
                 }
 
                 val thread = Thread {
-                    runCharacter(config, character)
+                    runCharacter(config)
                 }
                 thread.name = character.name
 
@@ -131,7 +166,7 @@ class MainRuntime(
 
                     // Create a new thread and start it
                     val newThread = Thread {
-                        runCharacter(config, character)
+                        runCharacter(config)
                     }
                     newThread.name = character.name
 
@@ -171,7 +206,7 @@ class MainRuntime(
 
         // Create and start a new thread
         val newThread = Thread {
-            runCharacter(config, character)
+            runCharacter(config)
         }
         newThread.name = "Character-Thread-$characterName"
 
@@ -204,7 +239,7 @@ class MainRuntime(
 
             // Create and start a new thread
             val newThread = Thread {
-                runCharacter(config, character)
+                runCharacter(config)
             }
             newThread.name = "Character-Thread-${character.name}"
 
@@ -228,14 +263,15 @@ class MainRuntime(
      * @param config The character configuration
      * @param character The character object
      */
-    private fun runCharacter(config: CharacterConfig, character: ArtifactsCharacter) {
+    private fun runCharacter(config: CharacterConfig) {
+        var character = accountClient.getCharacter(config.name).data
         log.info("Character details - Name: ${character.name}, Level: ${character.level}, Job: ${config.job}")
 
         try {
             // Create and run the appropriate job based on the character's job type
             when (config.job.lowercase()) {
-                "crafter" -> crafterJob.run(character)
-                "fighter" -> fighterJob.run(character)
+                "crafter" -> alchemistJob.run(character)
+                "fighter" -> alchemistJob.run(character)
                 "alchemist" -> alchemistJob.run(character)
                 "miner" -> minerJob.run(character)
                 "woodworker" -> woodworkerJob.run(character)

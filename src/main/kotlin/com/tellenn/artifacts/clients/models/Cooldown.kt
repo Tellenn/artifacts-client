@@ -7,7 +7,7 @@ import java.time.Instant
 class Cooldown(
     @JsonAlias("total_seconds") totalSeconds : Int,
     @JsonAlias("remaining_seconds") remainingSeconds : Int,
-    @JsonAlias("startedAt") startedAt : Instant,
+    @JsonAlias("started_at") startedAt : Instant,
     @JsonAlias("expiration") expiration : Instant,
     @JsonAlias("reason") reason : String,
 ) {

@@ -380,14 +380,12 @@ class BattleSimulatorService(
         fun getItemInfo(itemCode: String?): ItemInformation? {
             if (itemCode == null || itemCode.isEmpty()) return null
 
-            val itemPage = itemRepository.findByCode(itemCode, PageRequest.of(0, 1))
-            if (itemPage.isEmpty) return null
+            val item = itemRepository.findByCode(itemCode)
 
-            val itemDocument = itemPage.content[0]
             return ItemInformation(
-                code = itemDocument.code,
-                name = itemDocument.name,
-                effects = itemDocument.effects?.map { 
+                code = item.code,
+                name = item.name,
+                effects = item.effects?.map {
                     Effect(
                         code = it.code,
                         value = it.value,

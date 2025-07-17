@@ -4,6 +4,7 @@ import com.tellenn.artifacts.clients.MapClient
 import com.tellenn.artifacts.clients.models.MapData
 import com.tellenn.artifacts.clients.models.MapContent
 import com.tellenn.artifacts.clients.responses.ArtifactsArrayResponseBody
+import com.tellenn.artifacts.db.documents.ServerVersionDocument
 import com.tellenn.artifacts.db.repositories.MapRepository
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
@@ -18,15 +19,17 @@ class MapSyncServiceTest {
     private lateinit var mapSyncService: MapSyncService
     private lateinit var mapRepository: MapRepository
     private lateinit var mapClient: MapClient
+    private lateinit var serverVersionService: ServerVersionService
 
     @BeforeEach
     fun setup() {
         // Create mocks
         mapRepository = Mockito.mock(MapRepository::class.java)
         mapClient = Mockito.mock(MapClient::class.java)
+        serverVersionService = Mockito.mock(ServerVersionService::class.java)
 
         // Create the service with mocked dependencies
-        mapSyncService = MapSyncService(mapClient, mapRepository)
+        mapSyncService = MapSyncService(mapClient, mapRepository, serverVersionService)
     }
 
     @Test
@@ -60,7 +63,12 @@ class MapSyncServiceTest {
             mapDocument.content?.type == "monster" &&
             mapDocument.content?.code == "dragon"
         })
+
+        // Verify that the server version was updated after successful sync
+        verify(serverVersionService).updateServerVersion()
     }
+    
+    // These tests are no longer needed as server version checking is now done in MainRuntime
 
     @Test
     fun `should sync the whole map`() {
@@ -91,7 +99,12 @@ class MapSyncServiceTest {
 
         // Verify that saveAll was called with the list of map documents
         verify(mapRepository).saveAll(Mockito.anyList())
+        
+        // Verify that the server version was updated after successful sync
+        verify(serverVersionService).updateServerVersion()
     }
+    
+    // These tests are no longer needed as server version checking is now done in MainRuntime
 
     @Test
     fun `should sync multiple map chunks in an area using deprecated method`() {
@@ -122,6 +135,9 @@ class MapSyncServiceTest {
 
         // Verify that saveAll was called with the list of map documents
         verify(mapRepository).saveAll(Mockito.anyList())
+        
+        // Verify that the server version was updated after successful sync
+        verify(serverVersionService).updateServerVersion()
     }
 
     @Test
@@ -181,6 +197,33 @@ class MapSyncServiceTest {
 
         // Verify that saveAll was called for the successful map chunks
         verify(mapRepository).saveAll(Mockito.anyList())
+        
+        // Verify that the server version was updated even with partial success
+        verify(serverVersionService).updateServerVersion()
+    }
+    
+    @Test
+    fun `should handle API error when syncing map chunk and not update version`() {
+        // Given
+        `when`(mapClient.getMaps(
+            name = "map_0_0",
+            content_type = null,
+            content_code = null,
+            page = 1,
+            size = 1
+        )).thenThrow(RuntimeException("API Error"))
+
+        // When
+        val result = mapSyncService.syncMapChunk(0, 0, "map_0_0", "default")
+
+        // Then
+        assertFalse(result)
+
+        // Verify that save was never called
+        verify(mapRepository, times(0)).save(Mockito.any())
+        
+        // Verify that the server version was not updated due to error
+        verify(serverVersionService, times(0)).updateServerVersion()
     }
 
     private fun createTestMapData(x: Int, y: Int, name: String = "default", skin: String = "default"): MapData {

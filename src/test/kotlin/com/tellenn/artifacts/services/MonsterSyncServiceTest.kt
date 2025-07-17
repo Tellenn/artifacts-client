@@ -20,15 +20,17 @@ class MonsterSyncServiceTest {
     private lateinit var monsterSyncService: MonsterSyncService
     private lateinit var monsterRepository: MonsterRepository
     private lateinit var monsterClient: MonsterClient
+    private lateinit var serverVersionService: ServerVersionService
 
     @BeforeEach
     fun setup() {
         // Create mocks
         monsterRepository = Mockito.mock(MonsterRepository::class.java)
         monsterClient = Mockito.mock(MonsterClient::class.java)
+        serverVersionService = Mockito.mock(ServerVersionService::class.java)
 
         // Create the service with mocked dependencies
-        monsterSyncService = MonsterSyncService(monsterClient, monsterRepository)
+        monsterSyncService = MonsterSyncService(monsterClient, monsterRepository, serverVersionService)
     }
 
     @Test

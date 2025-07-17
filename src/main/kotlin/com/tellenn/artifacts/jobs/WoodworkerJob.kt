@@ -29,8 +29,11 @@ class WoodworkerJob(
     fun run(initCharacter: ArtifactsCharacter) {
         character = init(initCharacter)
 
-        val map = resourceService.findClosestMapWithResource(character, "woodcutting")
-        character = movementService.moveCharacterToCell(map.x, map.y, character)
-        character = gatheringService.gatherUntilInventoryFull(character)
+        do{
+            val map = resourceService.findClosestMapWithResource(character, "woodcutting")
+            character = movementService.moveCharacterToCell(map.x, map.y, character)
+            character = gatheringService.gatherUntilInventoryFull(character)
+            character = bankService.emptyInventory(character)
+        }while(true)
     }
 }

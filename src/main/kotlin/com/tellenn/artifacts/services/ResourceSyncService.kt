@@ -3,10 +3,12 @@ package com.tellenn.artifacts.services
 import com.tellenn.artifacts.clients.ResourceClient
 import com.tellenn.artifacts.clients.models.Resource
 import com.tellenn.artifacts.db.documents.ResourceDocument
+import com.tellenn.artifacts.db.documents.ServerVersionDocument
 import com.tellenn.artifacts.db.repositories.ResourceRepository
 import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
+import java.lang.Thread.sleep
 
 /**
  * Service for synchronizing resources between the API and the local database.
@@ -14,7 +16,8 @@ import org.springframework.transaction.annotation.Transactional
 @Service
 class ResourceSyncService(
     private val resourceClient: ResourceClient,
-    private val resourceRepository: ResourceRepository
+    private val resourceRepository: ResourceRepository,
+    private val serverVersionService: ServerVersionService
 ) {
     private val logger = LoggerFactory.getLogger(ResourceSyncService::class.java)
 
@@ -23,14 +26,15 @@ class ResourceSyncService(
      * This method will delete all existing resources in the database and replace them with the latest data from the API.
      *
      * @param pageSize The number of resources to fetch per page (default: 50)
-     * @return The number of resources synced
+     * @param forceSync Whether to force the sync regardless of server version (default: false)
+     * @return The number of resources synced, or 0 if sync was not needed
      */
     @Transactional
-    fun syncAllResources(pageSize: Int = 50): Int {
+    fun syncAllResources(pageSize: Int = 50, forceSync: Boolean = false): Int {
         logger.info("Starting resource sync process")
         
         // Empty the database
-        logger.info("Emptying resources collection")
+        logger.debug("Emptying resources collection")
         resourceRepository.deleteAll()
         
         var currentPage = 1
@@ -39,7 +43,7 @@ class ResourceSyncService(
         
         // Fetch all pages of resources
         do {
-            logger.info("Fetching resources page $currentPage of $totalPages")
+            logger.debug("Fetching resources page $currentPage of $totalPages")
             
             try {
                 val response = resourceClient.getResources(
@@ -54,8 +58,8 @@ class ResourceSyncService(
                 resourceRepository.saveAll(resourceDocuments)
                 
                 totalResourcesProcessed += dataPage.size
-                logger.info("Processed ${dataPage.size} resources from page $currentPage")
-                
+                logger.debug("Processed ${dataPage.size} resources from page $currentPage")
+                sleep(500)
                 currentPage++
             } catch (e: Exception) {
                 logger.error("Failed to fetch resources page $currentPage", e)
@@ -63,7 +67,9 @@ class ResourceSyncService(
             }
         } while (currentPage <= totalPages)
         
-        logger.info("Resource sync completed. Total resources synced: $totalResourcesProcessed")
+        // Save the server version after successful sync
+        serverVersionService.updateServerVersion()
+        logger.info("Resource sync completed and server version updated. Total resources synced: $totalResourcesProcessed")
         return totalResourcesProcessed
     }
     
@@ -72,10 +78,11 @@ class ResourceSyncService(
      *
      * @param skill The skill to sync resources for (e.g., "mining", "woodcutting")
      * @param pageSize The number of resources to fetch per page (default: 50)
-     * @return The number of resources synced
+     * @param forceSync Whether to force the sync regardless of server version (default: false)
+     * @return The number of resources synced, or 0 if sync was not needed
      */
     @Transactional
-    fun syncResourcesBySkill(skill: String, pageSize: Int = 50): Int {
+    fun syncResourcesBySkill(skill: String, pageSize: Int = 50, forceSync: Boolean = false): Int {
         logger.info("Starting resource sync process for skill: $skill")
         
         // Delete existing resources for this skill
@@ -113,7 +120,9 @@ class ResourceSyncService(
             }
         } while (currentPage <= totalPages)
         
-        logger.info("$skill resource sync completed. Total resources synced: $totalResourcesProcessed")
+        // Save the server version after successful sync
+        serverVersionService.updateServerVersion()
+        logger.info("$skill resource sync completed and server version updated. Total resources synced: $totalResourcesProcessed")
         return totalResourcesProcessed
     }
     
@@ -121,10 +130,11 @@ class ResourceSyncService(
      * Syncs a single resource from the API to the database.
      *
      * @param resourceCode The code of the resource to sync
-     * @return True if the sync was successful, false otherwise
+     * @param forceSync Whether to force the sync regardless of server version (default: false)
+     * @return True if the sync was successful, false if it failed or wasn't needed
      */
     @Transactional
-    fun syncResource(resourceCode: String): Boolean {
+    fun syncResource(resourceCode: String, forceSync: Boolean = false): Boolean {
         logger.info("Syncing resource with code: $resourceCode")
         
         try {
@@ -142,7 +152,9 @@ class ResourceSyncService(
             val resourceDocument = ResourceDocument.fromResource(resource)
             resourceRepository.save(resourceDocument)
             
-            logger.info("Successfully synced resource with code: $resourceCode")
+            // Save the server version after successful sync
+            serverVersionService.updateServerVersion()
+            logger.info("Successfully synced resource with code: $resourceCode and updated server version")
             return true
         } catch (e: Exception) {
             logger.error("Failed to sync resource with code: $resourceCode", e)

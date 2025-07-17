@@ -3,15 +3,18 @@ package com.tellenn.artifacts.services
 import com.tellenn.artifacts.clients.MapClient
 import com.tellenn.artifacts.clients.models.MapData
 import com.tellenn.artifacts.db.documents.MapDocument
+import com.tellenn.artifacts.db.documents.ServerVersionDocument
 import com.tellenn.artifacts.db.repositories.MapRepository
 import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
+import java.lang.Thread.sleep
 
 @Service
 class MapSyncService(
     private val mapClient: MapClient,
-    private val mapRepository: MapRepository
+    private val mapRepository: MapRepository,
+    private val serverVersionService: ServerVersionService
 ) {
     private val logger = LoggerFactory.getLogger(MapSyncService::class.java)
 
@@ -20,15 +23,16 @@ class MapSyncService(
      * Syncs the entire map using predefined boundaries.
      *
      * @param pageSize The number of map chunks to fetch per page (default: 50)
-     * @return The number of map chunks synced
+     * @param forceSync Whether to force the sync regardless of server version (default: false)
+     * @return The number of map chunks synced, or 0 if sync was not needed
      */
     @Transactional
-    fun syncWholeMap(pageSize: Int = 50): Int {
+    fun syncWholeMap(pageSize: Int = 50, forceSync: Boolean = false): Int {
         logger.info("Starting map sync process for the entire map")
         println("[DEBUG_LOG] Starting map sync process for the entire map")
 
         // Empty the database
-        logger.info("Emptying maps collection")
+        logger.debug("Emptying maps collection")
         println("[DEBUG_LOG] Emptying maps collection")
         mapRepository.deleteAll()
 
@@ -43,8 +47,7 @@ class MapSyncService(
 
         // Fetch all pages of map chunks
         do {
-            logger.info("Fetching maps page $currentPage of $totalPages")
-            println("[DEBUG_LOG] Fetching maps page $currentPage of $totalPages")
+            logger.debug("Fetching maps page $currentPage of $totalPages")
 
             try {
                 val response = mapClient.getMaps(
@@ -61,9 +64,8 @@ class MapSyncService(
                 mapRepository.saveAll(mapDocuments)
 
                 totalChunksProcessed += dataPage.size
-                logger.info("Processed ${dataPage.size} map chunks from page $currentPage")
-                println("[DEBUG_LOG] Processed ${dataPage.size} map chunks from page $currentPage")
-
+                logger.debug("Processed ${dataPage.size} map chunks from page $currentPage")
+                sleep(500)
                 currentPage++
             } catch (e: Exception) {
                 logger.error("Failed to fetch maps page $currentPage", e)
@@ -72,18 +74,10 @@ class MapSyncService(
             }
         } while (currentPage <= totalPages)
 
-        logger.info("Map sync completed. Total chunks synced: $totalChunksProcessed")
+        // Save the server version after successful sync
+        serverVersionService.updateServerVersion()
+        logger.debug("Map sync completed and server version updated. Total chunks synced: $totalChunksProcessed")
         return totalChunksProcessed
-    }
-
-    /**
-     * @deprecated Use syncWholeMap() instead. This method will be removed in a future release.
-     */
-    @Transactional
-    @Deprecated("Use syncWholeMap() instead", ReplaceWith("syncWholeMap(chunkSize)"))
-    fun syncMapArea(startX: Int, startY: Int, width: Int, height: Int, chunkSize: Int = 10): Int {
-        logger.info("syncMapArea is deprecated. Using syncWholeMap instead.")
-        return syncWholeMap(chunkSize)
     }
 
     /**
@@ -93,11 +87,13 @@ class MapSyncService(
      * @param y The Y coordinate
      * @param name The name of the map (default: "map_x_y")
      * @param skin The skin of the map (default: "default")
-     * @return True if the sync was successful, false otherwise
+     * @param forceSync Whether to force the sync regardless of server version (default: false)
+     * @return True if the sync was successful, false if it failed or wasn't needed
      */
     @Transactional
-    fun syncMapChunk(x: Int, y: Int, name: String = "map_${x}_${y}", skin: String = "default"): Boolean {
+    fun syncMapChunk(x: Int, y: Int, name: String = "map_${x}_${y}", skin: String = "default", forceSync: Boolean = false): Boolean {
         logger.info("Syncing map chunk at ($x,$y)")
+        
         try {
             // Use the batch API to get just one chunk
             val response = mapClient.getMaps(
@@ -134,7 +130,9 @@ class MapSyncService(
             val mapDocument = MapDocument.fromMapData(mapDataWithCorrectName)
             mapRepository.save(mapDocument)
 
-            logger.info("Successfully synced map chunk at ($x,$y)")
+            // Save the server version after successful sync
+            serverVersionService.updateServerVersion()
+            logger.info("Successfully synced map chunk at ($x,$y) and updated server version")
             return true
         } catch (e: Exception) {
             logger.error("Failed to sync map chunk at ($x,$y)", e)

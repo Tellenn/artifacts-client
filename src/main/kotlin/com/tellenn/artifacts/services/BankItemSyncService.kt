@@ -4,6 +4,7 @@ import com.tellenn.artifacts.clients.BankClient
 import com.tellenn.artifacts.clients.ItemClient
 import com.tellenn.artifacts.db.documents.BankItemDocument
 import com.tellenn.artifacts.db.documents.ItemDocument
+import com.tellenn.artifacts.db.documents.ServerVersionDocument
 import com.tellenn.artifacts.db.repositories.BankItemRepository
 import com.tellenn.artifacts.db.repositories.ItemRepository
 import org.slf4j.LoggerFactory
@@ -15,6 +16,7 @@ class BankItemSyncService(
     private val itemRepository: ItemRepository,
     private val bankClient: BankClient,
     private val bankRepository: BankItemRepository,
+    private val serverVersionService: ServerVersionService
 ) {
     private val logger = LoggerFactory.getLogger(BankItemSyncService::class.java)
 
@@ -22,14 +24,15 @@ class BankItemSyncService(
      * Empties the items collection in MongoDB and fills it with all items from the API.
      * Handles pagination to fetch all items.
      *
+     * @param forceSync Whether to force the sync regardless of server version (default: false)
      * @return The number of items synced
      */
     @Transactional
-    fun syncAllItems(): Int {
-        logger.info("Starting bank sync process")
+    fun syncAllItems(forceSync: Boolean = false): Int {
+        logger.debug("Starting bank sync process")
 
         // Empty the database
-        logger.info("Emptying bank  collection")
+        logger.debug("Emptying bank collection")
         bankRepository.deleteAll()
 
         var count = 0
@@ -42,6 +45,10 @@ class BankItemSyncService(
                 bankRepository.insert<BankItemDocument>(BankItemDocument.fromItemDetails(matchingItem, item.quantity))
                 count++
             }
+
+            // Save the server version after successful sync
+            serverVersionService.updateServerVersion()
+            logger.debug("Bank sync completed and server version updated")
 
         } catch (e: Exception) {
             logger.error("Failed to fetch bank items", e)

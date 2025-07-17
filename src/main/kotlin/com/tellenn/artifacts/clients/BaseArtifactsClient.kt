@@ -18,12 +18,13 @@ import org.slf4j.LoggerFactory
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.beans.factory.annotation.Value
 import org.springframework.stereotype.Component
+import java.util.concurrent.TimeUnit
 
 @Slf4j
 @Component
 abstract class BaseArtifactsClient() {
 
-    private val logger = LoggerFactory.getLogger(BaseArtifactsClient::class.java)
+    private val log = LoggerFactory.getLogger(BaseArtifactsClient::class.java)
 
     @Autowired
     private lateinit var clientErrorService: ClientErrorService
@@ -42,6 +43,10 @@ abstract class BaseArtifactsClient() {
 
     /**
      * Checks if the response contains cooldown information and sleeps the thread if it does.
+     * This handles cooldown information in the data field of successful responses.
+     * 
+     * For 499 error responses with cooldown information in the error field, see the special handling
+     * in sendGetRequest and sendPostRequest methods.
      * 
      * @param responseBody The response body as a string
      */
@@ -53,12 +58,12 @@ abstract class BaseArtifactsClient() {
 
             val remainingSeconds = cooldown["remaining_seconds"] as? Int ?: return
             if (remainingSeconds > 0) {
-                logger.info("Cooldown detected: $remainingSeconds seconds. Sleeping thread...")
+                log.debug("Cooldown detected: $remainingSeconds seconds. Sleeping thread...")
                 Thread.sleep(remainingSeconds * 1000L)
-                logger.info("Thread resumed after cooldown")
+                log.debug("Thread resumed after cooldown")
             }
         } catch (e: Exception) {
-            logger.warn("Failed to parse cooldown information: ${e.message}")
+            log.warn("Failed to parse cooldown information: ${e.message}")
         }
     }
 
@@ -152,6 +157,17 @@ abstract class BaseArtifactsClient() {
         }
     }
 
+    /**
+     * Sends a GET request to the specified path.
+     * 
+     * This method handles 499 (CHARACTER_IN_COOLDOWN) errors by:
+     * 1. Parsing the error response to extract the cooldown time
+     * 2. Sleeping for the remaining cooldown time
+     * 3. Automatically retrying the request after the cooldown period
+     * 
+     * @param path The path to send the request to
+     * @return The response from the server
+     */
     fun sendGetRequest(path : String) : Response {
         val getRequest = Request.Builder()
             .url(url+path)
@@ -168,6 +184,35 @@ abstract class BaseArtifactsClient() {
             if (!response.isSuccessful) {
                 // Get the response body as a string for error logging
                 val responseBodyString = response.body?.string() ?: ""
+
+                // Check if this is a 499 cooldown error
+                if (response.code == ErrorCodes.CHARACTER_IN_COOLDOWN) {
+                    try {
+                        // Parse the error response to extract the cooldown time
+                        val errorResponse = objectMapper.readValue<Map<String, Any>>(responseBodyString)
+                        val error = errorResponse["error"] as? Map<String, Any>
+                        val message = error?.get("message") as? String
+                        
+                        if (message != null && message.contains("cooldown")) {
+                            // Extract the cooldown time from the message
+                            val regex = """(\d+\.\d+|\d+) seconds remaining""".toRegex()
+                            val matchResult = regex.find(message)
+                            val cooldownSeconds = matchResult?.groupValues?.get(1)?.toDoubleOrNull()
+                            
+                            if (cooldownSeconds != null && cooldownSeconds > 0) {
+                                log.debug("Character in cooldown: $cooldownSeconds seconds remaining. Sleeping thread...")
+                                // Sleep for the cooldown time (convert to milliseconds)
+                                Thread.sleep((cooldownSeconds * 1000).toLong())
+                                log.debug("Thread resumed after cooldown. Retrying request...")
+                                
+                                // Retry the request
+                                return sendGetRequest(path)
+                            }
+                        }
+                    } catch (e: Exception) {
+                        log.warn("Failed to parse cooldown information: ${e.message}")
+                    }
+                }
 
                 // Log the error to the database
                 clientErrorService.logError(
@@ -217,6 +262,18 @@ abstract class BaseArtifactsClient() {
         }
     }
 
+    /**
+     * Sends a POST request to the specified path with the given body.
+     * 
+     * This method handles 499 (CHARACTER_IN_COOLDOWN) errors by:
+     * 1. Parsing the error response to extract the cooldown time
+     * 2. Sleeping for the remaining cooldown time
+     * 3. Automatically retrying the request after the cooldown period
+     * 
+     * @param path The path to send the request to
+     * @param body The request body as a JSON string
+     * @return The response from the server
+     */
     fun sendPostRequest(path : String, body: String) : Response {
         val postBody = body.trimIndent()
         val mediaType = "application/json; charset=utf-8".toMediaType()
@@ -237,6 +294,35 @@ abstract class BaseArtifactsClient() {
             if (!response.isSuccessful) {
                 // Get the response body as a string for error logging
                 val responseBodyString = response.body?.string() ?: ""
+
+                // Check if this is a 499 cooldown error
+                if (response.code == ErrorCodes.CHARACTER_IN_COOLDOWN) {
+                    try {
+                        // Parse the error response to extract the cooldown time
+                        val errorResponse = objectMapper.readValue<Map<String, Any>>(responseBodyString)
+                        val error = errorResponse["error"] as? Map<String, Any>
+                        val message = error?.get("message") as? String
+                        
+                        if (message != null && message.contains("cooldown")) {
+                            // Extract the cooldown time from the message
+                            val regex = """(\d+\.\d+|\d+) seconds remaining""".toRegex()
+                            val matchResult = regex.find(message)
+                            val cooldownSeconds = matchResult?.groupValues?.get(1)?.toDoubleOrNull()
+                            
+                            if (cooldownSeconds != null && cooldownSeconds > 0) {
+                                log.debug("Character in cooldown: $cooldownSeconds seconds remaining. Sleeping thread...")
+                                // Sleep for the cooldown time (convert to milliseconds)
+                                Thread.sleep((cooldownSeconds * 1000).toLong())
+                                log.debug("Thread resumed after cooldown. Retrying request...")
+                                
+                                // Retry the request
+                                return sendPostRequest(path, body)
+                            }
+                        }
+                    } catch (e: Exception) {
+                        log.warn("Failed to parse cooldown information: ${e.message}")
+                    }
+                }
 
                 // Log the error to the database
                 clientErrorService.logError(
@@ -260,7 +346,7 @@ abstract class BaseArtifactsClient() {
             handleCooldown(responseBodyString)
 
             // Log the response
-            println("Réponse POST: $responseBodyString")
+            log.debug("Réponse POST: $responseBodyString")
 
             // Create a new response with the same body since we've consumed it
             val responseBody = responseBodyString.toByteArray().let { 

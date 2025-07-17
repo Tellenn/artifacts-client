@@ -32,7 +32,7 @@ class MapProximityService(
         contentType: String? = null,
         contentCode: String? = null
     ): MapData {
-        logger.info("Finding closest map to character ${character.name} at position (${character.x}, ${character.y})")
+        logger.debug("Finding closest map to character ${character.name} at position (${character.x}, ${character.y})")
 
         // Fetch maps from the database
         val mapsResponse = mapMongoClient.getMaps(
@@ -51,7 +51,7 @@ class MapProximityService(
         val closestMap = findClosestMapToCharacter(character, mapsResponse.data)
 
 
-        logger.info("Closest map to character ${character.name} is at position (${closestMap.x}, ${closestMap.y})")
+        logger.debug("Closest map to character ${character.name} is at position (${closestMap.x}, ${closestMap.y})")
         return closestMap
     }
 

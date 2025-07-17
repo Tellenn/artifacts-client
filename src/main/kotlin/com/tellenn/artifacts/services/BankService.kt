@@ -57,14 +57,15 @@ class BankService(
             val itemsToDeposit = mutableListOf<SimpleItem>()
 
             inventory.forEach { item ->
-                val itemsFound = itemRepository.findByCode(item.code, Pageable.unpaged())
-                if (!itemsFound.isEmpty) {
-                    if(bankRepository.findByCode(item.code, Pageable.unpaged()).isEmpty){
-                        val newBankItem = BankItemDocument.fromItemDetails(ItemDocument.toItemDetails(itemsFound.first()), item.quantity)
+                if(item.code.isNotEmpty()){
+                    val itemsFound = itemRepository.findByCode(item.code)
+
+                    val existingBankItem = bankRepository.findByCode(item.code)
+                    if(existingBankItem == null){
+                        val newBankItem = BankItemDocument.fromItemDetails(ItemDocument.toItemDetails(itemsFound), item.quantity)
                         bankRepository.insert(newBankItem)
                         newBankItems.add(newBankItem)
                     }else{
-                        val existingBankItem = bankRepository.findByCode(item.code, Pageable.unpaged()).first()
                         originalBankItems[item.code] = existingBankItem
                         val updatedQuantity = existingBankItem.quantity + item.quantity
                         val updatedBankItem = existingBankItem.copy(quantity = updatedQuantity)

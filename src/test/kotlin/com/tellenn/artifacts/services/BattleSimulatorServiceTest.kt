@@ -354,11 +354,6 @@ class BattleSimulatorServiceTest {
         // Set up the mock repositories
         `when`(monsterRepository.findByCode("lifesteal_test_monster")).thenReturn(monster)
 
-        // Mock the item repository to return the lifesteal item for any code and page request
-        val pageRequest = PageRequest.of(0, 1)
-        `when`(itemRepository.findByCode("lifesteal_item", pageRequest)).thenReturn(
-            PageImpl(listOf(lifestealItem), pageRequest, 1)
-        )
 
         // Simulate battles
         val resultWithoutLifesteal = battleSimulatorService.simulate("lifesteal_test_monster", characterWithoutLifesteal)

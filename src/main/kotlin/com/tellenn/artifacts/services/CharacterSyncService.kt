@@ -3,12 +3,14 @@ package com.tellenn.artifacts.services
 import com.tellenn.artifacts.clients.AccountClient
 import com.tellenn.artifacts.clients.models.ArtifactsCharacter
 import com.tellenn.artifacts.config.CharacterConfig
+import com.tellenn.artifacts.db.documents.ServerVersionDocument
 import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Service
 
 @Service
 class CharacterSyncService(
-    private val accountClient: AccountClient
+    private val accountClient: AccountClient,
+    private val serverVersionService: ServerVersionService
 ) {
     private val logger = LoggerFactory.getLogger(CharacterSyncService::class.java)
 
@@ -20,17 +22,18 @@ class CharacterSyncService(
      * If a character doesn't exist, it will be created.
      * Returns a map of character configurations to character objects.
      *
+     * @param forceSync Whether to force the sync regardless of server version (default: false)
      * @return Map of CharacterConfig to ArtifactsCharacter
      */
-    fun syncPredefinedCharacters(): Map<CharacterConfig, ArtifactsCharacter> {
-        logger.info("Starting character sync process")
+    fun syncPredefinedCharacters(forceSync: Boolean = false): Map<CharacterConfig, ArtifactsCharacter> {
+        logger.debug("Starting character sync process")
 
         // Clear the existing map
         characterMap.clear()
 
         // Get predefined characters from config
         val predefinedCharacters = CharacterConfig.getPredefinedCharacters()
-        logger.info("Found ${predefinedCharacters.size} predefined characters in config")
+        logger.debug("Found ${predefinedCharacters.size} predefined characters in config")
 
         // Process each predefined character
         for (characterConfig in predefinedCharacters) {
@@ -40,11 +43,11 @@ class CharacterSyncService(
 
                 if (response.data != null) {
                     // Character exists, add to map
-                    logger.info("Character ${characterConfig.name} already exists")
+                    logger.debug("Character ${characterConfig.name} already exists")
                     characterMap[characterConfig] = response.data
                 } else {
                     // Character doesn't exist, create it
-                    logger.info("Character ${characterConfig.name} doesn't exist, creating...")
+                    logger.warn("Character ${characterConfig.name} doesn't exist, creating...")
                     val createResponse = accountClient.createCharacter(
                         name = characterConfig.name,
                         skin = characterConfig.skin
@@ -52,11 +55,11 @@ class CharacterSyncService(
 
                     if (createResponse.data != null) {
                         // Character created successfully, add to map
-                        logger.info("Character ${characterConfig.name} created successfully")
+                        logger.debug("Character ${characterConfig.name} created successfully")
                         characterMap[characterConfig] = createResponse.data
                     } else {
                         // Failed to create character
-                        logger.error("Failed to create character ${characterConfig.name}")
+                        logger.debug("Failed to create character ${characterConfig.name}")
                     }
                 }
             } catch (e: Exception) {
@@ -64,7 +67,9 @@ class CharacterSyncService(
             }
         }
 
-        logger.info("Character sync completed. Total characters synced: ${characterMap.size}")
+        // Save the server version after successful sync
+        serverVersionService.updateServerVersion()
+        logger.info("Character sync completed and server version updated. Total characters synced: ${characterMap.size}")
         return characterMap
     }
 

@@ -84,7 +84,7 @@ class WebSocketService(
             val listener = createWebSocketListener()
             webSocket = client.newWebSocket(request, listener)
 
-            logger.info("WebSocket connection initiated")
+            logger.debug("WebSocket connection initiated")
             return true
         } catch (e: Exception) {
             logger.error("Failed to connect to WebSocket", e)
@@ -184,7 +184,7 @@ class WebSocketService(
      * @return The previous thread associated with the character, or null if there was none
      */
     fun addCharacterThread(characterName: String, thread: Thread): Thread? {
-        logger.info("Adding thread for character: $characterName")
+        logger.debug("Adding thread for character: $characterName")
         return characterThreads.put(characterName, thread)
     }
 
@@ -195,7 +195,7 @@ class WebSocketService(
      * @return The thread that was removed, or null if there was none
      */
     fun removeCharacterThread(characterName: String): Thread? {
-        logger.info("Removing thread for character: $characterName")
+        logger.warn("Removing thread for character: $characterName")
         return characterThreads.remove(characterName)
     }
 
@@ -240,12 +240,12 @@ class WebSocketService(
     fun interruptAllCharacterThreads(): Int {
         logger.info("Interrupting all character threads")
         var count = 0
-
+/*
         characterThreads.forEach { (characterName, thread) ->
             thread.interrupt()
             logger.info("Interrupted thread for character: $characterName")
             count++
-        }
+        }*/
 
         return count
     }
@@ -383,7 +383,7 @@ class WebSocketService(
             val jsonMessage = objectMapper.writeValueAsString(subscriptionMessage)
             webSocket.send(jsonMessage)
 
-            logger.info("Sent initial subscription message")
+            logger.debug("Sent initial subscription message")
         } catch (e: Exception) {
             logger.error("Failed to send initial subscription", e)
         }

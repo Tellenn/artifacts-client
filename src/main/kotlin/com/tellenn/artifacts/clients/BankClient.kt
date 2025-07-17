@@ -2,10 +2,10 @@ package com.tellenn.artifacts.clients
 
 import com.fasterxml.jackson.module.kotlin.readValue
 import com.tellenn.artifacts.clients.models.ArtifactsCharacter
-import com.tellenn.artifacts.clients.models.ItemDetails
 import com.tellenn.artifacts.clients.models.SimpleItem
 import com.tellenn.artifacts.clients.responses.ArtifactsResponseBody
 import com.tellenn.artifacts.clients.responses.ArtifactsArrayResponseBody
+import com.tellenn.artifacts.clients.responses.BankItemTransaction
 import lombok.extern.slf4j.Slf4j
 import org.springframework.stereotype.Component
 
@@ -27,9 +27,9 @@ class BankClient : BaseArtifactsClient() {
     }
 
     fun depositItems(characterName: String, items : List<SimpleItem>){
-        return sendPostRequest("/my/$characterName/action/bank/deposit/item", items.toString()).use { response ->
+        return sendPostRequest("/my/$characterName/action/bank/deposit/item",  objectMapper.writeValueAsString(items)).use { response ->
             val responseBody = response.body!!.string()
-            objectMapper.readValue<ArtifactsResponseBody<ArtifactsCharacter>>(responseBody)
+            objectMapper.readValue<ArtifactsResponseBody<BankItemTransaction>>(responseBody)
         }
     }
 

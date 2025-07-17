@@ -22,14 +22,6 @@ class ResourceService(
 ) {
     private val logger = LoggerFactory.getLogger(ResourceService::class.java)
 
-    // Map of skill types to resource content types
-    private val skillToContentType = mapOf(
-        "mining" to "ore",
-        "woodcutting" to "tree",
-        "fishing" to "fishing_spot",
-        "alchemy" to "herb"
-    )
-
     /**
      * Finds the closest map with a resource of the specified skill type that the character can gather.
      * Returns the highest level resource that the character can gather, prioritizing higher level resources.
@@ -41,18 +33,12 @@ class ResourceService(
      * @throws UnknownMapException if no map with the specified resource is found
      */
     fun findClosestMapWithResource(character: ArtifactsCharacter, skillType: String): MapData {
-        logger.info("Finding closest map with ${skillType} resource for character ${character.name}")
+        logger.debug("Finding closest map with ${skillType} resource for character ${character.name}")
 
-        // Check if the skill type is supported
-        if (!skillToContentType.containsKey(skillType)) {
-            logger.error("Unsupported skill type: $skillType")
-            throw IllegalArgumentException("Unsupported skill type: $skillType")
-        }
 
-        val contentType = skillToContentType[skillType]
         val characterLevel = character.getLevelOf(skillType)
 
-        logger.info("Character ${character.name} has ${skillType} level $characterLevel")
+        logger.debug("Character ${character.name} has ${skillType} level $characterLevel")
 
         // Get all resources for this skill that the character can gather, sorted by level in descending order
         val availableResources = resourceRepository.findBySkillAndLevelLessThanEqual(skillType, characterLevel)
@@ -66,19 +52,19 @@ class ResourceService(
         // Try each resource in descending order of level (highest level first)
         for (resource in availableResources) {
             try {
-                logger.info("Trying to find map with resource: ${resource.code}")
-                val map = mapProximityService.findClosestMap(character, contentType, resource.code)
-                logger.info("Found map with resource ${resource.code} at (${map.x}, ${map.y})")
+                logger.debug("Trying to find map with resource: ${resource.code}")
+                val map = mapProximityService.findClosestMap(character = character, contentCode = resource.code)
+                logger.debug("Found map with resource ${resource.code} at (${map.x}, ${map.y})")
                 return map
             } catch (e: UnknownMapException) {
-                logger.info("No map found with resource: ${resource.code}, trying next resource")
+                logger.debug("No map found with resource: ${resource.code}, trying next resource")
                 continue
             }
         }
 
         // If we get here, no map was found for any resource level
         logger.error("No map found with any ${skillType} resource for character ${character.name}")
-        throw UnknownMapException(contentType, null)
+        throw UnknownMapException(skillType, null)
     }
 
     /**
