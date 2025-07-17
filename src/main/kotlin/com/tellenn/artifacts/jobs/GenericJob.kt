@@ -4,6 +4,7 @@ import com.tellenn.artifacts.MainRuntime
 import com.tellenn.artifacts.clients.AccountClient
 import com.tellenn.artifacts.clients.models.ArtifactsCharacter
 import com.tellenn.artifacts.services.BankService
+import com.tellenn.artifacts.services.CharacterService
 import com.tellenn.artifacts.services.MapProximityService
 import com.tellenn.artifacts.services.MovementService
 import org.apache.logging.log4j.LogManager
@@ -19,7 +20,8 @@ open class GenericJob(
     val mapProximityService: MapProximityService,
     val applicationContext: ApplicationContext,
     val movementService: MovementService,
-    val bankService: BankService
+    val bankService: BankService,
+    val characterService: CharacterService
 ) {
     val log = LogManager.getLogger(MainRuntime::class.java)
 
@@ -32,6 +34,9 @@ open class GenericJob(
         val closestBank = mapProximityService.findClosestMap(character = character, contentCode = "bank")
         tempCharacter = movementService.moveCharacterToCell(closestBank.x, closestBank.y, character)
         tempCharacter = bankService.emptyInventory(tempCharacter)
+        // Rest to recover HP if needed
+        tempCharacter = characterService.rest(tempCharacter)
+
         return tempCharacter
     }
 

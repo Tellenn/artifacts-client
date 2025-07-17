@@ -23,6 +23,7 @@ import org.springframework.boot.ApplicationArguments
 import org.springframework.boot.ApplicationRunner
 import org.springframework.stereotype.Component
 import jakarta.annotation.PreDestroy
+import java.util.Collections
 
 @Slf4j
 @Component
@@ -44,6 +45,9 @@ class MainRuntime(
 ) : ApplicationRunner {
 
     private val log = LogManager.getLogger(MainRuntime::class.java)
+
+    // Thread-safe list that can be safely accessed and modified by multiple threads
+    val sharedThreadList: MutableList<Any> = Collections.synchronizedList(ArrayList())
 
     override fun run(args: ApplicationArguments?) {
         // Call the server to get the information
@@ -108,7 +112,7 @@ class MainRuntime(
                 }
 
                 val thread = Thread {
-                    runCharacterPlaceholderFunction(config, character)
+                    runCharacter(config, character)
                 }
                 thread.name = character.name
 
@@ -127,7 +131,7 @@ class MainRuntime(
 
                     // Create a new thread and start it
                     val newThread = Thread {
-                        runCharacterPlaceholderFunction(config, character)
+                        runCharacter(config, character)
                     }
                     newThread.name = character.name
 
@@ -167,7 +171,7 @@ class MainRuntime(
 
         // Create and start a new thread
         val newThread = Thread {
-            runCharacterPlaceholderFunction(config, character)
+            runCharacter(config, character)
         }
         newThread.name = "Character-Thread-$characterName"
 
@@ -200,7 +204,7 @@ class MainRuntime(
 
             // Create and start a new thread
             val newThread = Thread {
-                runCharacterPlaceholderFunction(config, character)
+                runCharacter(config, character)
             }
             newThread.name = "Character-Thread-${character.name}"
 
@@ -224,7 +228,7 @@ class MainRuntime(
      * @param config The character configuration
      * @param character The character object
      */
-    private fun runCharacterPlaceholderFunction(config: CharacterConfig, character: ArtifactsCharacter) {
+    private fun runCharacter(config: CharacterConfig, character: ArtifactsCharacter) {
         log.info("Character details - Name: ${character.name}, Level: ${character.level}, Job: ${config.job}")
 
         try {
@@ -274,5 +278,28 @@ class MainRuntime(
         webSocketService.shutdown()
 
         log.info("Cleanup completed")
+    }
+
+    /**
+     * Adds an item to the shared thread-safe list.
+     * This method can be safely called from multiple threads.
+     *
+     * @param item The item to add to the shared list
+     * @return true if the item was added successfully
+     */
+    fun addToSharedList(item: Any): Boolean {
+        return sharedThreadList.add(item)
+    }
+
+    /**
+     * Gets a copy of the current contents of the shared thread-safe list.
+     * This method returns a new list to avoid concurrent modification issues.
+     *
+     * @return A copy of the current contents of the shared list
+     */
+    fun getSharedListContents(): List<Any> {
+        synchronized(sharedThreadList) {
+            return ArrayList(sharedThreadList)
+        }
     }
 }
