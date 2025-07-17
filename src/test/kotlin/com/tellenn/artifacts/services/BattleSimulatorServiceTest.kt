@@ -353,7 +353,7 @@ class BattleSimulatorServiceTest {
 
         // Set up the mock repositories
         `when`(monsterRepository.findByCode("lifesteal_test_monster")).thenReturn(monster)
-
+        `when`(itemRepository.findByCode("lifesteal_item")).thenReturn(lifestealItem)
 
         // Simulate battles
         val resultWithoutLifesteal = battleSimulatorService.simulate("lifesteal_test_monster", characterWithoutLifesteal)

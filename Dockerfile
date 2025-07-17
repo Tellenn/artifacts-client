@@ -1,4 +1,4 @@
-# Use Eclipse Temurin JRE as the base image
+ # Use Eclipse Temurin JRE as the base image
 FROM eclipse-temurin:17-jre
 
 # Set working directory

@@ -380,7 +380,7 @@ class BattleSimulatorService(
         fun getItemInfo(itemCode: String?): ItemInformation? {
             if (itemCode == null || itemCode.isEmpty()) return null
 
-            val item = itemRepository.findByCode(itemCode)
+            val item = itemRepository.findByCode(itemCode) ?: return null
 
             return ItemInformation(
                 code = item.code,
