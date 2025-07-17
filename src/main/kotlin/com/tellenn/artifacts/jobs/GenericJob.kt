@@ -31,12 +31,9 @@ open class GenericJob(
      */
     fun init(character: ArtifactsCharacter) : ArtifactsCharacter{
         var tempCharacter : ArtifactsCharacter
-        val closestBank = mapProximityService.findClosestMap(character = character, contentCode = "bank")
-        tempCharacter = movementService.moveCharacterToCell(closestBank.x, closestBank.y, character)
+        tempCharacter = bankService.moveToBank(character)
         tempCharacter = bankService.emptyInventory(tempCharacter)
-        // Rest to recover HP if needed
         tempCharacter = characterService.rest(tempCharacter)
-
         return tempCharacter
     }
 

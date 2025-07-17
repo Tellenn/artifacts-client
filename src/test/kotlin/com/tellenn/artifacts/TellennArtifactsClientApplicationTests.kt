@@ -1,5 +1,6 @@
 package com.tellenn.artifacts
 
+import com.tellenn.artifacts.config.MongoTestConfiguration
 import com.tellenn.artifacts.services.ItemSyncService
 import com.tellenn.artifacts.services.MapSyncService
 import com.tellenn.artifacts.services.MonsterSyncService
@@ -8,9 +9,13 @@ import org.mockito.Mockito
 import org.springframework.boot.test.context.SpringBootTest
 import org.springframework.boot.test.context.TestConfiguration
 import org.springframework.context.annotation.Bean
+import org.springframework.context.annotation.Import
 import org.springframework.context.annotation.Primary
+import org.testcontainers.junit.jupiter.Testcontainers
 
 @SpringBootTest
+@Import(MongoTestConfiguration::class)
+@Testcontainers
 class TellennArtifactsClientApplicationTests {
 
     @Suppress("EmptyMethod")

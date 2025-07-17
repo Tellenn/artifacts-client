@@ -3,6 +3,8 @@ package com.tellenn.artifacts.services
 import com.tellenn.artifacts.clients.BankClient
 import com.tellenn.artifacts.clients.models.ArtifactsCharacter
 import com.tellenn.artifacts.clients.models.InventorySlot
+import com.tellenn.artifacts.clients.models.MapContent
+import com.tellenn.artifacts.clients.models.MapData
 import com.tellenn.artifacts.config.MongoTestConfiguration
 import com.tellenn.artifacts.db.documents.BankItemDocument
 import com.tellenn.artifacts.db.documents.ItemDocument
@@ -13,6 +15,9 @@ import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.Assertions.*
 import org.mockito.Mockito
+import org.mockito.Mockito.`when`
+import org.mockito.Mockito.verify
+import org.mockito.Mockito.never
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.boot.test.context.SpringBootTest
 import org.springframework.context.annotation.Import
@@ -25,6 +30,8 @@ class BankServiceTest {
 
     private lateinit var bankService: BankService
     private lateinit var bankClient: BankClient
+    private lateinit var mapProximityService: MapProximityService
+    private lateinit var movementService: MovementService
 
     @Autowired
     private lateinit var bankRepository: BankItemRepository
@@ -34,15 +41,17 @@ class BankServiceTest {
 
     @BeforeEach
     fun setup() {
-        // Create mock for the client only
+        // Create mocks
         bankClient = Mockito.mock(BankClient::class.java)
+        mapProximityService = Mockito.mock(MapProximityService::class.java)
+        movementService = Mockito.mock(MovementService::class.java)
 
         // Clear repositories
         bankRepository.deleteAll()
         itemRepository.deleteAll()
 
-        // Create the service with real repositories and mocked client
-        bankService = BankService(bankClient, bankRepository, itemRepository)
+        // Create the service with real repositories and mocked clients
+        bankService = BankService(bankClient, bankRepository, itemRepository, mapProximityService, movementService)
     }
 
     @AfterEach
@@ -104,7 +113,53 @@ class BankServiceTest {
         assertEquals(15, bankItems[0].quantity)
     }
 
-    private fun createTestCharacter(inventory: Array<InventorySlot>?): ArtifactsCharacter {
+    @Test
+    fun `moveToBank should return original character when already at bank`() {
+        // Given
+        val bankX = 10
+        val bankY = 20
+        val characterAtBank = createTestCharacter(null, bankX, bankY)
+
+        val bankMapContent = MapContent(type = "building", code = "bank")
+        val bankMapData = MapData(name = "Bank", skin = "bank", x = bankX, y = bankY, content = bankMapContent)
+
+        `when`(mapProximityService.findClosestMap(characterAtBank, contentCode = "bank")).thenReturn(bankMapData)
+
+        // When
+        val result = bankService.moveToBank(characterAtBank)
+
+        // Then
+        assertEquals(characterAtBank, result)
+        verify(mapProximityService).findClosestMap(characterAtBank, contentCode = "bank")
+        verify(movementService, never()).moveCharacterToCell(bankX, bankY, characterAtBank)
+    }
+
+    @Test
+    fun `moveToBank should move character to bank when not at bank`() {
+        // Given
+        val characterX = 5
+        val characterY = 5
+        val bankX = 10
+        val bankY = 20
+        val characterNotAtBank = createTestCharacter(null, characterX, characterY)
+        val characterAfterMove = createTestCharacter(null, bankX, bankY)
+
+        val bankMapContent = MapContent(type = "building", code = "bank")
+        val bankMapData = MapData(name = "Bank", skin = "bank", x = bankX, y = bankY, content = bankMapContent)
+
+        `when`(mapProximityService.findClosestMap(characterNotAtBank, contentCode = "bank")).thenReturn(bankMapData)
+        `when`(movementService.moveCharacterToCell(bankX, bankY, characterNotAtBank)).thenReturn(characterAfterMove)
+
+        // When
+        val result = bankService.moveToBank(characterNotAtBank)
+
+        // Then
+        assertEquals(characterAfterMove, result)
+        verify(mapProximityService).findClosestMap(characterNotAtBank, contentCode = "bank")
+        verify(movementService).moveCharacterToCell(bankX, bankY, characterNotAtBank)
+    }
+
+    private fun createTestCharacter(inventory: Array<InventorySlot>?, x: Int = 0, y: Int = 0): ArtifactsCharacter {
         return ArtifactsCharacter(
             name = "TestCharacter",
             account = "TestAccount",
@@ -112,8 +167,8 @@ class BankServiceTest {
             gold = 100,
             hp = 100,
             maxHp = 100,
-            x = 0,
-            y = 0,
+            x = x,
+            y = y,
             inventory = inventory,
             cooldown = 0,
             skin = "default",
