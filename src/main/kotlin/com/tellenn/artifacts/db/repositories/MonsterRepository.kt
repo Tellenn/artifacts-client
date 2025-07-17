@@ -14,6 +14,9 @@ interface MonsterRepository : MongoRepository<MonsterDocument, String> {
     
     // Find by level
     fun findByLevel(level: Int, pageable: Pageable): Page<MonsterDocument>
+
+    // Find by level
+    fun findByCode(code: String): MonsterDocument?
     
     // Find by level range
     fun findByLevelBetween(minLevel: Int, maxLevel: Int, pageable: Pageable): Page<MonsterDocument>
