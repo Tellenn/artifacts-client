@@ -18,6 +18,16 @@ interface BankItemRepository : MongoRepository<BankItemDocument, String> {
     // Find By Item Code
     fun findByCode(code: String): BankItemDocument?
 
+    /**
+     * Find resources by skill type and with level less than or equal to the specified level.
+     *
+     * @param skill The skill type to filter by
+     * @param level The maximum level to filter by
+     * @return List of resources for the specified skill with level <= the specified level
+     */
+    fun findTypeUnderLevel(type: String, level: Int): List<BankItemDocument>
+
+
     // Find by subtype
     fun findBySubtype(subtype: String, pageable: Pageable): Page<BankItemDocument>
 

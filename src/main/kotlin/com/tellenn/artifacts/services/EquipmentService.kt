@@ -8,6 +8,8 @@ import com.tellenn.artifacts.clients.models.ItemDetails
 import com.tellenn.artifacts.clients.models.MonsterData
 import com.tellenn.artifacts.clients.responses.ArtifactsResponseBody
 import com.tellenn.artifacts.clients.responses.GatheringResponseBody
+import com.tellenn.artifacts.db.documents.ItemDocument
+import com.tellenn.artifacts.db.repositories.ItemRepository
 import org.apache.logging.log4j.LogManager
 import org.springframework.stereotype.Service
 
@@ -22,30 +24,52 @@ class EquipmentService(
     private val mapProximityService: MapProximityService,
     private val movementService: MovementService,
     private val bankService: BankService,
-    private val monsterClient: MonsterClient
+    private val monsterClient: MonsterClient,
+    private val itemRepository: ItemRepository
 ) {
     private val log = LogManager.getLogger(EquipmentService::class.java)
 
-    fun findBestEquipmentForMonsterInBank(character: ArtifactsCharacter, monsterCode: String) {
-        var availableEquipment = bankService.getAllEquipmentsUnderLevel(character.level)
-        // TODO : Add user equipment in the mix
-        var monster = monsterClient.getMonster(monsterCode).data
+    fun findBestEquipmentForMonsterInBank(character: ArtifactsCharacter, monsterCode: String) : HashMap<String, ItemDetails?>{
+        val storedEquipment = bankService.getAllEquipmentsUnderLevel(character.level)
+        val availableEquipment : MutableList<ItemDetails> = storedEquipment.toMutableList()
+        availableEquipment.addAll(getEquippedItems(character = character))
+        val monster = monsterClient.getMonster(monsterCode).data
         val bis = getHashMapSlot()
-        //TODO : DO weapon first, so that the rest of the equipment scaled
+        val bestWeapon = getBestScoreForItems(availableEquipment.filter { it -> it.type == "weapon" }, monster, null)
         for(slot in bis){
-            // TODO filter per equipmentSlot and do getBestScoreForItems
+            if(slot.key.equals("artifacts2")){
+                bis[slot.key] = getBestScoreForItems(
+                    availableEquipment
+                        .filter { it.type == slot.key }
+                        .filter { it.code != bis["artifacts1"]?.code },
+                    monster,
+                    bestWeapon)
+            }else if(slot.key.equals("artifacts3")){
+                bis[slot.key] = getBestScoreForItems(
+                    availableEquipment
+                        .filter { it.type == slot.key }
+                        .filter { it.code != bis["artifacts1"]?.code }
+                        .filter { it.code != bis["artifacts2"]?.code },
+                    monster,
+                    bestWeapon)
+            }else {
+                bis[slot.key] =
+                    getBestScoreForItems(availableEquipment.filter { it.type == slot.key }, monster, bestWeapon)
+            }
         }
+        return bis
+        // TODO : remember that you don't need to equip if you already have it equipped
+
     }
 
     fun getBestScoreForItems(items: List<ItemDetails>, monster: MonsterData, weapon: ItemDetails?) : ItemDetails {
         if(items.isEmpty()){
             throw IllegalArgumentException("Items list is empty")
         }
-
-        val attackAir = weapon?.effects?.filter { e -> e.code.equals("attack_air")}?.map { e -> e.value } ?.firstOrNull() ?: 0
-        val attackWater = weapon?.effects?.filter { e -> e.code.equals("attack_water")}?.map { e -> e.value } ?.firstOrNull() ?: 0
-        val attackEarth = weapon?.effects?.filter { e -> e.code.equals("attack_earth")}?.map { e -> e.value } ?.firstOrNull() ?: 0
-        val attackFire = weapon?.effects?.filter { e -> e.code.equals("attack_fire")}?.map { e -> e.value } ?.firstOrNull() ?: 0
+        val attackAir = weapon?.effects?.filter { it.code.equals("attack_air")}?.map { it.value } ?.firstOrNull() ?: 0
+        val attackWater = weapon?.effects?.filter { it.code.equals("attack_water")}?.map { it.value } ?.firstOrNull() ?: 0
+        val attackEarth = weapon?.effects?.filter { it.code.equals("attack_earth")}?.map { it.value } ?.firstOrNull() ?: 0
+        val attackFire = weapon?.effects?.filter { it.code.equals("attack_fire")}?.map { it.value } ?.firstOrNull() ?: 0
         val itemMap = HashMap<ItemDetails, Int>()
         for(item in items){
             var score = 0
@@ -66,10 +90,10 @@ class EquipmentService(
                         "dmg_fire" -> score += attackFire * (1 + effect.value / 100) - attackFire
                         "propecting" -> score += effect.value / 10
                         "haste" -> score += effect.value
-                        "res_air" -> score += effect.value * monster.attackAir / 100
-                        "res_water" -> score += effect.value * monster.attackWater / 100
-                        "res_earth" -> score += effect.value * monster.attackEarth / 100
-                        "res_fire" -> score += effect.value * monster.attackFire / 100
+                        "res_air" -> score += effect.value * monster.attackAir / 75
+                        "res_water" -> score += effect.value * monster.attackWater / 75
+                        "res_earth" -> score += effect.value * monster.attackEarth / 75
+                        "res_fire" -> score += effect.value * monster.attackFire / 75
                     }
                 }
             }
@@ -79,22 +103,39 @@ class EquipmentService(
         return itemMap.maxBy { it.value }.key
     }
 
-    fun getHashMapSlot() : HashMap<String, ItemDetails?>{
-
+    private fun getHashMapSlot() : HashMap<String, ItemDetails?>{
         val hashMap = HashMap<String, ItemDetails?>()
-        hashMap["rune_slot"] = null
-        hashMap["shield_slot"] = null
-        hashMap["helmet_slot"] = null
-        hashMap["body_armor_slot"] = null
-        hashMap["leg_armor_slot"] = null
-        hashMap["boots_slot"] = null
-        hashMap["ring1_slot"] = null
-        hashMap["ring2_slot"] = null
-        hashMap["amulet_slot"] = null
-        hashMap["artifact1_slot"] = null
-        hashMap["artifact2_slot"] = null
-        hashMap["artifact3_slot"] = null
-        hashMap["bag_slot"] = null
+        hashMap["rune"] = null
+        hashMap["shield"] = null
+        hashMap["helmet"] = null
+        hashMap["body_armor"] = null
+        hashMap["leg_armor"] = null
+        hashMap["boots"] = null
+        hashMap["ring1"] = null
+        hashMap["ring2"] = null
+        hashMap["amulet"] = null
+        hashMap["artifact1"] = null
+        hashMap["artifact2"] = null
+        hashMap["artifact3"] = null
+        hashMap["bag"] = null
         return hashMap
+    }
+
+    private fun getEquippedItems(character: ArtifactsCharacter) : List<ItemDetails>{
+        val equippedItems = mutableListOf<String>()
+        character.weaponSlot?.let { equippedItems.add(it) }
+        character.shieldSlot?.let { equippedItems.add(it) }
+        character.helmetSlot?.let { equippedItems.add(it) }
+        character.bodyArmorSlot?.let { equippedItems.add(it) }
+        character.legArmorSlot?.let { equippedItems.add(it) }
+        character.bootsSlot?.let { equippedItems.add(it) }
+        character.ring1Slot?.let { equippedItems.add(it) }
+        character.ring2Slot?.let { equippedItems.add(it) }
+        character.amuletSlot?.let { equippedItems.add(it) }
+        character.artifact1Slot?.let { equippedItems.add(it) }
+        character.artifact2Slot?.let { equippedItems.add(it) }
+        character.artifact3Slot?.let { equippedItems.add(it) }
+        character.bagSlot?.let { equippedItems.add(it) }
+        return itemRepository.findByCodeIn(equippedItems).map { ItemDocument.toItemDetails(it) }
     }
 }

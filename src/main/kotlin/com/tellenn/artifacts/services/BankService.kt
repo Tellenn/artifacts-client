@@ -2,13 +2,13 @@ package com.tellenn.artifacts.services
 
 import com.tellenn.artifacts.clients.BankClient
 import com.tellenn.artifacts.clients.models.ArtifactsCharacter
+import com.tellenn.artifacts.clients.models.ItemDetails
 import com.tellenn.artifacts.clients.models.SimpleItem
 import com.tellenn.artifacts.db.documents.BankItemDocument
 import com.tellenn.artifacts.db.documents.ItemDocument
 import com.tellenn.artifacts.db.repositories.BankItemRepository
 import com.tellenn.artifacts.db.repositories.ItemRepository
 import org.apache.logging.log4j.LogManager
-import org.springframework.data.domain.Pageable
 import org.springframework.stereotype.Service
 
 @Service
@@ -120,5 +120,10 @@ class BankService(
             return false
         }
         return bankedItem.quantity >= quantityLeft
+    }
+
+    fun getAllEquipmentsUnderLevel(level: Int) : List<ItemDetails>{
+        val dbItems = bankRepository.findTypeUnderLevel("equipment", level)
+        return dbItems.map { itemDocument -> BankItemDocument.toItemDetails(itemDocument) }
     }
 }
