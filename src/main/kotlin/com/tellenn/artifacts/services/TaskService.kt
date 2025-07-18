@@ -23,10 +23,42 @@ class TaskService(
 ) {
     private val log = LogManager.getLogger(TaskService::class.java)
 
-    // TODO : function to get a quest
+    fun getNewItemTask(character : ArtifactsCharacter): ArtifactsCharacter{
+        if(!character.taskType.isNullOrEmpty()){
+            throw IllegalStateException("Character ${character.name} already has a task")
+        }
+
+        movementService.moveCharacterToMaster("items", character)
+        return taskClient.acceptTask(character.name).data.character
+    }
+
+    fun getNewMonsterTask(character : ArtifactsCharacter): ArtifactsCharacter{
+        if(!character.taskType.isNullOrEmpty()){
+            throw IllegalStateException("Character ${character.name} already has a task")
+        }
+
+        movementService.moveCharacterToMaster("monsters", character)
+        return taskClient.acceptTask(character.name).data.character
+    }
 
 
-    // TODO : function to reset a quest
+    fun abandonItemTask(character : ArtifactsCharacter): ArtifactsCharacter{
+        if(character.taskType.isNullOrEmpty()){
+            throw IllegalStateException("Character ${character.name} already has no task")
+        }
+
+        movementService.moveCharacterToMaster("items", character)
+        return taskClient.abandonTask(character.name).data.character
+    }
+
+    fun abandonMonsterTask(character : ArtifactsCharacter): ArtifactsCharacter{
+        if(character.taskType.isNullOrEmpty()){
+            throw IllegalStateException("Character ${character.name} already has no task")
+        }
+
+        movementService.moveCharacterToMaster("monsters", character)
+        return taskClient.abandonTask(character.name).data.character
+    }
 
     fun doCharacterTask(character: ArtifactsCharacter): ArtifactsCharacter {
         log.info("Character ${character.name} is doing a task")
