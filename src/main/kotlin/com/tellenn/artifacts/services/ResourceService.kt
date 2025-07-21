@@ -49,21 +49,13 @@ class ResourceService(
         }
 
         // Determine the content type based on the skill type
-        val contentType = when (skillType) {
-            "mining" -> "ore"
-            "woodcutting" -> "tree"
-            "fishing" -> "fishing_spot"
-            "alchemy" -> "herb"
-            else -> throw IllegalArgumentException("Unsupported skill type: $skillType")
-        }
-
         // Try each resource in descending order of level (highest level first)
         for (resource in availableResources) {
             try {
                 logger.debug("Trying to find map with resource: ${resource.code}")
                 val map = mapProximityService.findClosestMap(
                     character = character, 
-                    contentType = contentType, 
+                    contentType = "resource",
                     contentCode = resource.code
                 )
                 logger.debug("Found map with resource ${resource.code} at (${map.x}, ${map.y})")
@@ -76,7 +68,7 @@ class ResourceService(
 
         // If we get here, no map was found for any resource level
         logger.error("No map found with any ${skillType} resource for character ${character.name}")
-        throw UnknownMapException(contentType, null)
+        throw UnknownMapException("resource", null)
     }
 
     /**

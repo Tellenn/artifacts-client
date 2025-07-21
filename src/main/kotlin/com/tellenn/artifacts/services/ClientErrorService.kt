@@ -39,7 +39,7 @@ class ClientErrorService(
         errorCode: Int,
         errorMessage: String
     ): ClientErrorDocument {
-        logger.error("Client error: [$clientType] $requestMethod $endpoint - $errorCode: $errorMessage")
+        logger.error("Client error: [$clientType] $requestMethod $endpoint - $errorCode: $responseBody")
         
         val errorDocument = ClientErrorDocument.fromErrorDetails(
             clientType = clientType,

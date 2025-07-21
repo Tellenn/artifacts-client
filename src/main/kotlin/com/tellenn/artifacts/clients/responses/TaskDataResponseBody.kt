@@ -17,8 +17,3 @@ class Task(
     @JsonAlias("total") val total: String,
     @JsonAlias("rewards") val rewards: Rewards
 )
-
-class Rewards(
-    @JsonAlias("items") val items: List<SimpleItem>,
-    @JsonAlias("gold") val gold: Int
-)

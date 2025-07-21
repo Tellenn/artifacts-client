@@ -47,7 +47,7 @@ class BankService(
 
     fun emptyInventory(character: ArtifactsCharacter) : ArtifactsCharacter{
         val inventory = character.inventory ?: return character
-
+        moveToBank(character)
         // Store original bank state for potential rollback
         val originalBankItems = mutableMapOf<String, BankItemDocument>()
         val newBankItems = mutableListOf<BankItemDocument>()
@@ -123,7 +123,7 @@ class BankService(
     }
 
     fun getAllEquipmentsUnderLevel(level: Int) : List<ItemDetails>{
-        val dbItems = bankRepository.findTypeUnderLevel("equipment", level)
+        val dbItems = bankRepository.findByTypeAndLevelIsLessThanEqual("equipment", level)
         return dbItems.map { itemDocument -> BankItemDocument.toItemDetails(itemDocument) }
     }
 }

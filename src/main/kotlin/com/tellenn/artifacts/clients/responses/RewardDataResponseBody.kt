@@ -10,8 +10,3 @@ class RewardDataResponseBody(
     @JsonAlias("character") val character: ArtifactsCharacter,
     @JsonAlias("rewards") val rewards: Rewards
 )
-
-class Rewards(
-    @JsonAlias("items") val items: List<SimpleItem>,
-    @JsonAlias("gold") val gold: Int
-)

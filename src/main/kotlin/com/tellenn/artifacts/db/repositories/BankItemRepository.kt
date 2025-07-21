@@ -25,7 +25,7 @@ interface BankItemRepository : MongoRepository<BankItemDocument, String> {
      * @param level The maximum level to filter by
      * @return List of resources for the specified skill with level <= the specified level
      */
-    fun findTypeUnderLevel(type: String, level: Int): List<BankItemDocument>
+    fun findByTypeAndLevelIsLessThanEqual(type: String, level: Int): List<BankItemDocument>
 
 
     // Find by subtype
