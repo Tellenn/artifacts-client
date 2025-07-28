@@ -20,14 +20,14 @@ class SecurityConfig {
                 requests.anyRequest().permitAll()
             }
             .csrf { it.disable() }
+            .cors { cors -> cors.configurationSource(corsConfigurationSource()) }
         return http.build()
     }
 
     @Bean
     fun corsConfigurationSource(): CorsConfigurationSource {
         val configuration = CorsConfiguration()
-        // Use explicit origin patterns instead of wildcard when allowCredentials is true
-        configuration.setAllowedOriginPatterns(listOf("*"))
+        configuration.allowedOrigins = listOf("http://localhost:8080","http://localhost:8081","https://ui.artifacts.tellenn.com")
         configuration.allowedMethods = listOf("GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH", "CONNECT")
         configuration.allowedHeaders = listOf("*")
         configuration.allowCredentials = true
@@ -36,9 +36,6 @@ class SecurityConfig {
         val source = UrlBasedCorsConfigurationSource()
         source.registerCorsConfiguration("/**", configuration)
         // Explicitly register configuration for WebSocket endpoints
-        source.registerCorsConfiguration("/ws/**", configuration)
-        // Explicitly register configuration for the /items endpoint
-        source.registerCorsConfiguration("/items", configuration)
         return source
     }
 }
