@@ -1,10 +1,9 @@
-package com.tellenn.artifacts.services
+package com.tellenn.artifacts.services.sync
 
 import com.tellenn.artifacts.clients.ResourceClient
-import com.tellenn.artifacts.clients.models.Resource
 import com.tellenn.artifacts.db.documents.ResourceDocument
-import com.tellenn.artifacts.db.documents.ServerVersionDocument
 import com.tellenn.artifacts.db.repositories.ResourceRepository
+import com.tellenn.artifacts.services.ServerVersionService
 import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional

@@ -1,9 +1,9 @@
-package com.tellenn.artifacts.services
+package com.tellenn.artifacts.services.sync
 
 import com.tellenn.artifacts.clients.AccountClient
 import com.tellenn.artifacts.clients.models.ArtifactsCharacter
 import com.tellenn.artifacts.config.CharacterConfig
-import com.tellenn.artifacts.db.documents.ServerVersionDocument
+import com.tellenn.artifacts.services.ServerVersionService
 import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Service
 

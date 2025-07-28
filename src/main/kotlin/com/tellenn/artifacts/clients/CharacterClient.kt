@@ -23,8 +23,8 @@ class CharacterClient : BaseArtifactsClient() {
         }
     }
 
-    fun equipItem(characterName: String, itemCode: String, slot: EquipmentSlot): ArtifactsResponseBody<EquipmentResponseBody> {
-        val request = EquipRequest(itemCode, slot.toString())
+    fun equipItem(characterName: String, itemCode: String, slot: String, quantity: Int): ArtifactsResponseBody<EquipmentResponseBody> {
+        val request = EquipRequest(itemCode, slot, quantity)
         val requestBody = objectMapper.writeValueAsString(request)
         return sendPostRequest("/my/$characterName/action/equip", requestBody).use { response ->
             val responseBody = response.body!!.string()

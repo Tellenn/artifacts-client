@@ -1,12 +1,11 @@
-package com.tellenn.artifacts.services
+package com.tellenn.artifacts.services.sync
 
 import com.tellenn.artifacts.clients.BankClient
-import com.tellenn.artifacts.clients.ItemClient
 import com.tellenn.artifacts.db.documents.BankItemDocument
 import com.tellenn.artifacts.db.documents.ItemDocument
-import com.tellenn.artifacts.db.documents.ServerVersionDocument
 import com.tellenn.artifacts.db.repositories.BankItemRepository
 import com.tellenn.artifacts.db.repositories.ItemRepository
+import com.tellenn.artifacts.services.ServerVersionService
 import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional

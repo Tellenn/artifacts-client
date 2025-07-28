@@ -51,7 +51,7 @@ class CharacterServiceTest {
             expiration = expiration,
             reason = "rest"
         )
-        val restResponseBody = RestResponseBody(cooldown, updatedCharacter)
+        val restResponseBody = RestResponseBody(cooldown, updatedCharacter, 50)
         val artifactsResponse = ArtifactsResponseBody(restResponseBody)
 
         `when`(characterClient.rest(originalCharacter.name)).thenReturn(artifactsResponse)

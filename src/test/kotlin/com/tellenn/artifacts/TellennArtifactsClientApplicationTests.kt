@@ -3,7 +3,7 @@ package com.tellenn.artifacts
 import com.tellenn.artifacts.config.MongoTestConfiguration
 import com.tellenn.artifacts.services.ItemSyncService
 import com.tellenn.artifacts.services.MapSyncService
-import com.tellenn.artifacts.services.MonsterSyncService
+import com.tellenn.artifacts.services.sync.MonsterSyncService
 import org.junit.jupiter.api.Test
 import org.mockito.Mockito
 import org.springframework.boot.test.context.SpringBootTest

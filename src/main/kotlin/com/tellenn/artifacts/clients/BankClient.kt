@@ -26,8 +26,15 @@ class BankClient : BaseArtifactsClient() {
         }
     }
 
-    fun depositItems(characterName: String, items : List<SimpleItem>){
+    fun depositItems(characterName: String, items : List<SimpleItem>) : ArtifactsResponseBody<BankItemTransaction>{
         return sendPostRequest("/my/$characterName/action/bank/deposit/item",  objectMapper.writeValueAsString(items)).use { response ->
+            val responseBody = response.body!!.string()
+            objectMapper.readValue<ArtifactsResponseBody<BankItemTransaction>>(responseBody)
+        }
+    }
+
+    fun withdrawItems(characterName: String, items : List<SimpleItem>) : ArtifactsResponseBody<BankItemTransaction>{
+        return sendPostRequest("/my/$characterName/action/bank/withdraw/item",  objectMapper.writeValueAsString(items)).use { response ->
             val responseBody = response.body!!.string()
             objectMapper.readValue<ArtifactsResponseBody<BankItemTransaction>>(responseBody)
         }

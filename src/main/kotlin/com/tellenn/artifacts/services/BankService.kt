@@ -46,8 +46,9 @@ class BankService(
     }
 
     fun emptyInventory(character: ArtifactsCharacter) : ArtifactsCharacter{
+        var newCharacter = character
         val inventory = character.inventory ?: return character
-        moveToBank(character)
+        newCharacter = moveToBank(newCharacter)
         // Store original bank state for potential rollback
         val originalBankItems = mutableMapOf<String, BankItemDocument>()
         val newBankItems = mutableListOf<BankItemDocument>()
@@ -106,11 +107,12 @@ class BankService(
             // throw e
         }
 
-        return character
+        return newCharacter
     }
 
-    fun fetchItems(item: String?, quantityLeft: Int, newCharacter: ArtifactsCharacter): ArtifactsCharacter {
+    fun withdrawOne(itemCode: String, quantity: Int, character: ArtifactsCharacter): ArtifactsCharacter {
         // Implementation for fetching items from the bank
+        val newCharacter = bankClient.withdrawItems(character.name, listOf(SimpleItem(itemCode, quantity))).data.character
         return newCharacter
     }
 
@@ -125,5 +127,13 @@ class BankService(
     fun getAllEquipmentsUnderLevel(level: Int) : List<ItemDetails>{
         val dbItems = bankRepository.findByTypeAndLevelIsLessThanEqual("equipment", level)
         return dbItems.map { itemDocument -> BankItemDocument.toItemDetails(itemDocument) }
+    }
+
+    fun withdrawMany(items: ArrayList<SimpleItem>, character: ArtifactsCharacter): ArtifactsCharacter {
+        if(items.isEmpty()){
+            return character
+        }
+        val newCharacter = bankClient.withdrawItems(character.name, items).data.character
+        return newCharacter
     }
 }

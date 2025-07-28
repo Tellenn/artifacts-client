@@ -9,12 +9,10 @@ import org.springframework.stereotype.Component
 
 @Slf4j
 @Component
-class CombatClient : BaseArtifactsClient() {
+class BattleClient : BaseArtifactsClient() {
 
-    fun attack(characterName: String, targetCode: String): ArtifactsResponseBody<CombatResponseBody> {
-        val request = SimpleItem(targetCode)
-        val requestBody = objectMapper.writeValueAsString(request)
-        return sendPostRequest("/my/$characterName/action/attack", requestBody).use { response ->
+    fun fight(characterName: String): ArtifactsResponseBody<CombatResponseBody> {
+        return sendPostRequest("/my/$characterName/action/fight", "{}").use { response ->
             val responseBody = response.body!!.string()
             objectMapper.readValue<ArtifactsResponseBody<CombatResponseBody>>(responseBody)
         }

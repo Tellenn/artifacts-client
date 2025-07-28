@@ -2,9 +2,13 @@ package com.tellenn.artifacts.services
 
 import com.tellenn.artifacts.clients.BankClient
 import com.tellenn.artifacts.clients.models.ArtifactsCharacter
+import com.tellenn.artifacts.clients.models.Cooldown
 import com.tellenn.artifacts.clients.models.InventorySlot
 import com.tellenn.artifacts.clients.models.MapContent
 import com.tellenn.artifacts.clients.models.MapData
+import com.tellenn.artifacts.clients.models.SimpleItem
+import com.tellenn.artifacts.clients.responses.ArtifactsResponseBody
+import com.tellenn.artifacts.clients.responses.BankItemTransaction
 import com.tellenn.artifacts.config.MongoTestConfiguration
 import com.tellenn.artifacts.db.documents.BankItemDocument
 import com.tellenn.artifacts.db.documents.ItemDocument
@@ -22,6 +26,7 @@ import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.boot.test.context.SpringBootTest
 import org.springframework.context.annotation.Import
 import org.testcontainers.junit.jupiter.Testcontainers
+import java.time.Instant
 
 @SpringBootTest
 @Import(MongoTestConfiguration::class)
@@ -72,6 +77,7 @@ class BankServiceTest {
         val bankMapContent = MapContent(type = "building", code = "bank")
         val bankMapData = MapData(name = "Bank", skin = "bank", x = 100, y = 100, content = bankMapContent)
         `when`(mapProximityService.findClosestMap(character, contentCode = "bank")).thenReturn(bankMapData)
+        `when`(movementService.moveCharacterToCell(bankMapData.x, bankMapData.y, character)).thenReturn(character)
         val itemDocument = createTestItemDocument("item1", "Test Item")
         itemRepository.save(itemDocument)
 
@@ -99,6 +105,7 @@ class BankServiceTest {
         val bankMapContent = MapContent(type = "building", code = "bank")
         val bankMapData = MapData(name = "Bank", skin = "bank", x = 100, y = 100, content = bankMapContent)
         `when`(mapProximityService.findClosestMap(character, contentCode = "bank")).thenReturn(bankMapData)
+        `when`(movementService.moveCharacterToCell(bankMapData.x, bankMapData.y, character)).thenReturn(character)
         val itemDocument = createTestItemDocument("item1", "Test Item")
         itemRepository.save(itemDocument)
 

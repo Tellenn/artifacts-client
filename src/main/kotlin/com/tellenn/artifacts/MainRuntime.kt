@@ -12,12 +12,12 @@ import com.tellenn.artifacts.jobs.CrafterJob
 import com.tellenn.artifacts.jobs.FighterJob
 import com.tellenn.artifacts.jobs.MinerJob
 import com.tellenn.artifacts.jobs.WoodworkerJob
-import com.tellenn.artifacts.services.BankItemSyncService
-import com.tellenn.artifacts.services.CharacterSyncService
+import com.tellenn.artifacts.services.sync.BankItemSyncService
+import com.tellenn.artifacts.services.sync.CharacterSyncService
 import com.tellenn.artifacts.services.ItemSyncService
 import com.tellenn.artifacts.services.MapSyncService
-import com.tellenn.artifacts.services.MonsterSyncService
-import com.tellenn.artifacts.services.ResourceSyncService
+import com.tellenn.artifacts.services.sync.MonsterSyncService
+import com.tellenn.artifacts.services.sync.ResourceSyncService
 import com.tellenn.artifacts.services.ServerVersionService
 import com.tellenn.artifacts.services.WebSocketService
 import com.tellenn.artifacts.utils.TimeSync
@@ -271,7 +271,7 @@ class MainRuntime(
             // Create and run the appropriate job based on the character's job type
             when (config.job.lowercase()) {
                 "crafter" -> alchemistJob.run(character)
-                "fighter" -> alchemistJob.run(character)
+                "fighter" -> fighterJob.run(character)
                 "alchemist" -> alchemistJob.run(character)
                 "miner" -> minerJob.run(character)
                 "woodworker" -> woodworkerJob.run(character)

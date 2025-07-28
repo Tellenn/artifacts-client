@@ -129,7 +129,7 @@ class ArtifactsCharacter(
             return "jewelrycrafting"
         }
 
-    fun get(equipmentType: String): String? {
+    operator fun get(equipmentType: String): String? {
         return when (equipmentType) {
             "weapon_slot" -> weaponSlot
             "shield_slot" -> shieldSlot

@@ -34,4 +34,42 @@ class CharacterService(
         // Return the updated character
         return response.data.character
     }
+
+    fun equip(character: ArtifactsCharacter, code: String, slot: String, quantity: Int): ArtifactsCharacter {
+        return characterClient.equipItem(character.name, code, slot, quantity).data.character
+    }
+
+    /**
+     * Counts the number of items in a character's inventory.
+     *
+     * @param character The character whose inventory to count
+     * @return The number of items in the inventory
+     */
+    fun countInventoryItems(character: ArtifactsCharacter): Int {
+        val inventory = character.inventory
+        var count = 0
+        if (inventory != null) {
+            for (slot in inventory){
+                if(slot.code != ""){
+                    count += slot.quantity
+                }
+            }
+        }else{
+            throw IllegalStateException("Character ${character.name} has no inventory")
+        }
+        return count
+    }
+
+
+    /**
+     * Checks if a character's inventory is full.
+     *
+     * @param character The character to check
+     * @return true if the inventory is full, false otherwise
+     */
+    fun isInventoryFull(character: ArtifactsCharacter): Boolean {
+        val inventoryCount = countInventoryItems(character)
+        return inventoryCount >= (character.inventoryMaxItems -5)
+    }
+
 }

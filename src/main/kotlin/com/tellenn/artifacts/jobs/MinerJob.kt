@@ -34,6 +34,8 @@ class MinerJob(
             character = movementService.moveCharacterToCell(map.x, map.y, character)
             character = gatheringService.gatherUntilInventoryFull(character)
             character = bankService.emptyInventory(character)
+
+            // TODO : Process the resources and drop it in bank
         }while(true)
     }
 }

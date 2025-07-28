@@ -29,6 +29,16 @@ data class MapDocument(
                 content = content
             )
         }
+
+        fun toMapData(mapDocument: MapDocument): MapData {
+            return MapData(
+                name = mapDocument.name,
+                skin = mapDocument.skin,
+                x = mapDocument.x,
+                y = mapDocument.y,
+                content = mapDocument.content?.let { MapContentDocument.toMapContent(it) }
+            )
+        }
     }
 }
 
@@ -58,6 +68,12 @@ data class MapContentDocument(
             return MapContentDocument(
                 type = mapContent.type,
                 code = mapContent.code
+            )
+        }
+        fun toMapContent(mapContentDocument: MapContentDocument): MapContent {
+            return MapContent(
+                type = mapContentDocument.type,
+                code = mapContentDocument.code
             )
         }
     }

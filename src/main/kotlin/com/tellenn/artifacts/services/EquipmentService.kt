@@ -6,6 +6,7 @@ import com.tellenn.artifacts.clients.MonsterClient
 import com.tellenn.artifacts.clients.models.ArtifactsCharacter
 import com.tellenn.artifacts.clients.models.ItemDetails
 import com.tellenn.artifacts.clients.models.MonsterData
+import com.tellenn.artifacts.clients.models.SimpleItem
 import com.tellenn.artifacts.clients.responses.ArtifactsResponseBody
 import com.tellenn.artifacts.clients.responses.GatheringResponseBody
 import com.tellenn.artifacts.db.documents.ItemDocument
@@ -25,9 +26,33 @@ class EquipmentService(
     private val movementService: MovementService,
     private val bankService: BankService,
     private val monsterClient: MonsterClient,
-    private val itemRepository: ItemRepository
+    private val itemRepository: ItemRepository,
+    private val characterService: CharacterService
 ) {
     private val log = LogManager.getLogger(EquipmentService::class.java)
+
+    fun equipBestAvailableEquipmentForMonsterInBank(character: ArtifactsCharacter, monsterCode: String) : ArtifactsCharacter{
+        val bis = findBestEquipmentForMonsterInBank(character, monsterCode)
+        var newCharacter = bankService.moveToBank(character)
+        val bankWithdraw = ArrayList<SimpleItem>()
+        bis.forEach { slot,item ->
+            if(item?.code != null) {
+                if(character.get(slot+"_slot") != item.code){
+                    bankWithdraw.add(SimpleItem(item.code, 1))
+                }
+            }
+        }
+        newCharacter = bankService.withdrawMany(bankWithdraw, newCharacter)
+        bis.forEach { slot,item ->
+            if(item?.code != null ) {
+                if(character.get(slot+"_slot") != item.code){
+                    newCharacter = characterService.equip(newCharacter, item.code, slot, 1)
+                }
+            }
+        }
+        newCharacter = bankService.emptyInventory(character)
+        return newCharacter
+    }
 
     fun findBestEquipmentForMonsterInBank(character: ArtifactsCharacter, monsterCode: String) : HashMap<String, ItemDetails?>{
         val storedEquipment = bankService.getAllEquipmentsUnderLevel(character.level)
@@ -37,14 +62,14 @@ class EquipmentService(
         val bis = getHashMapSlot()
         val bestWeapon = getBestScoreForItems(availableEquipment.filter { it -> it.type == "weapon" }, monster, null)
         for(slot in bis){
-            if(slot.key.equals("artifacts2")){
+            if(slot.key == "artifacts2"){
                 bis[slot.key] = getBestScoreForItems(
                     availableEquipment
                         .filter { it.type == slot.key }
                         .filter { it.code != bis["artifacts1"]?.code },
                     monster,
                     bestWeapon)
-            }else if(slot.key.equals("artifacts3")){
+            }else if(slot.key == "artifacts3"){
                 bis[slot.key] = getBestScoreForItems(
                     availableEquipment
                         .filter { it.type == slot.key }
@@ -57,14 +82,14 @@ class EquipmentService(
                     getBestScoreForItems(availableEquipment.filter { it.type == slot.key }, monster, bestWeapon)
             }
         }
+        bis["weapon"] = bestWeapon
         return bis
-        // TODO : remember that you don't need to equip if you already have it equipped
 
     }
 
-    fun getBestScoreForItems(items: List<ItemDetails>, monster: MonsterData, weapon: ItemDetails?) : ItemDetails {
+    fun getBestScoreForItems(items: List<ItemDetails>, monster: MonsterData, weapon: ItemDetails?) : ItemDetails? {
         if(items.isEmpty()){
-            throw IllegalArgumentException("Items list is empty")
+            return null
         }
         val attackAir = weapon?.effects?.filter { it.code.equals("attack_air")}?.map { it.value } ?.firstOrNull() ?: 0
         val attackWater = weapon?.effects?.filter { it.code.equals("attack_water")}?.map { it.value } ?.firstOrNull() ?: 0

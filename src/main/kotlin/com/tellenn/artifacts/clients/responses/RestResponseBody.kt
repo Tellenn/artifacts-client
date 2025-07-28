@@ -6,5 +6,6 @@ import com.tellenn.artifacts.clients.models.Cooldown
 
 class RestResponseBody(
     @JsonAlias("cooldown") val cooldown: Cooldown,
-    @JsonAlias("character") val character: ArtifactsCharacter
+    @JsonAlias("character") val character: ArtifactsCharacter,
+    @JsonAlias("hp_restored") val hpRestored: Int
 )

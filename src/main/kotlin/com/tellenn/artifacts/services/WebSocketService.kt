@@ -302,23 +302,12 @@ class WebSocketService(
                     val messageType = jsonNode.path("type").asText("")
 
                     if (messageType.isNotEmpty()) {
-                        logger.info("Processing message of type: $messageType")
+                        logger.debug("Processing message of type: $messageType")
 
                         // Handle interruption directly based on message type
                         when (messageType) {
                             "event_spawn", "event_removed", "grandexchange_sell", "grandexchange_neworder", "achievement_unlocked" -> {
-                                // Extract character name from the message if available
-                                val characterName = jsonNode.path("character").asText(null)
 
-                                if (characterName != null && characterName.isNotEmpty()) {
-                                    // Interrupt the specific character thread
-                                    logger.info("Interrupting character thread for $characterName due to $messageType event")
-                                    interruptCharacterThread(characterName)
-                                } else {
-                                    // If no specific character is mentioned, interrupt all character threads
-                                    logger.info("Interrupting all character threads due to $messageType event")
-                                    interruptAllCharacterThreads()
-                                }
                             }
                         }
 
