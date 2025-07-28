@@ -17,7 +17,7 @@ class MongoTestConfiguration {
 
     companion object {
         @Container
-        val mongoDBContainer = MongoDBContainer(DockerImageName.parse("mongo:8.0")).apply {
+        val mongoDBContainer = MongoDBContainer(DockerImageName.parse("mongo:4.0")).apply {
             start()
         }
     }

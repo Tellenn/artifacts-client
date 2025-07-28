@@ -69,6 +69,9 @@ class BankServiceTest {
         val character = createTestCharacter(inventoryArray)
 
         // Add test item to item repository
+        val bankMapContent = MapContent(type = "building", code = "bank")
+        val bankMapData = MapData(name = "Bank", skin = "bank", x = 100, y = 100, content = bankMapContent)
+        `when`(mapProximityService.findClosestMap(character, contentCode = "bank")).thenReturn(bankMapData)
         val itemDocument = createTestItemDocument("item1", "Test Item")
         itemRepository.save(itemDocument)
 
@@ -93,6 +96,9 @@ class BankServiceTest {
         val character = createTestCharacter(inventoryArray)
 
         // Add test item to item repository
+        val bankMapContent = MapContent(type = "building", code = "bank")
+        val bankMapData = MapData(name = "Bank", skin = "bank", x = 100, y = 100, content = bankMapContent)
+        `when`(mapProximityService.findClosestMap(character, contentCode = "bank")).thenReturn(bankMapData)
         val itemDocument = createTestItemDocument("item1", "Test Item")
         itemRepository.save(itemDocument)
 
