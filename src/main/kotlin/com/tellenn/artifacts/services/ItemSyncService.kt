@@ -2,7 +2,6 @@ package com.tellenn.artifacts.services
 
 import com.tellenn.artifacts.clients.ItemClient
 import com.tellenn.artifacts.db.documents.ItemDocument
-import com.tellenn.artifacts.db.documents.ServerVersionDocument
 import com.tellenn.artifacts.db.repositories.ItemRepository
 import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Service
