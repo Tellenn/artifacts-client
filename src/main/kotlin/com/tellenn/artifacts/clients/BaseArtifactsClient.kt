@@ -4,8 +4,8 @@ import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule
 import com.fasterxml.jackson.module.kotlin.jacksonObjectMapper
 import com.fasterxml.jackson.module.kotlin.readValue
 import com.tellenn.artifacts.exceptions.*
-import com.tellenn.artifacts.handler.CharactersWebSocketHandler
 import com.tellenn.artifacts.services.ClientErrorService
+import com.tellenn.artifacts.services.MessageService
 import lombok.extern.slf4j.Slf4j
 import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.OkHttpClient
@@ -27,7 +27,7 @@ abstract class BaseArtifactsClient() {
     private lateinit var clientErrorService: ClientErrorService
 
     @Autowired
-    private lateinit var messageService : CharactersWebSocketHandler
+    private lateinit var messageService : MessageService
 
     @Value("\${artifacts.api.url}")
     lateinit var url: String
@@ -52,7 +52,7 @@ abstract class BaseArtifactsClient() {
             val data = response["data"] as? Map<*, *> ?: return
             val character = data["character"] as? Map<*, *> ?: return
             if(character.isEmpty()) return
-            messageService.sendMessageToAll(character.toString());
+            messageService.sendCharacterMessage(character.toString());
         } catch (e: Exception) {
             log.warn("Failed to parse cooldown information: ${e.message}")
         }
