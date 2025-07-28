@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Native WebSocket Test</title>
+</head>
+<body>
+<h2>Native WebSocket Test</h2>
+<div id="status">Connecting...</div>
+<div id="messages"></div>
+
+<script>
+    // Change protocol to "wss" (WebSocket over HTTPS)
+    const socket = new WebSocket('wss://artifacts.tellenn.com/ws/characters');
+
+    socket.onopen = function () {
+        document.getElementById('status').textContent = 'Connected to WebSocket!';
+        console.log('WebSocket connection opened');
+    };
+
+    socket.onmessage = function (event) {
+        console.log('Message received:', event.data);
+
+        const messagesDiv = document.getElementById('messages');
+        const messageElem = document.createElement('div');
+        messageElem.textContent = event.data;
+        messagesDiv.appendChild(messageElem);
+    };
+
+    socket.onerror = function (error) {
+        console.error('WebSocket error:', error);
+    };
+
+    socket.onclose = function () {
+        document.getElementById('status').textContent = 'Disconnected';
+        console.log('WebSocket connection closed');
+    };
+</script>
+</body>
+</html>

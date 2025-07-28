@@ -3,10 +3,8 @@ package com.tellenn.artifacts.clients
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule
 import com.fasterxml.jackson.module.kotlin.jacksonObjectMapper
 import com.fasterxml.jackson.module.kotlin.readValue
-import com.tellenn.artifacts.clients.models.Cooldown
-import com.tellenn.artifacts.clients.responses.ArtifactsResponseBody
-import com.tellenn.artifacts.config.CharacterConfig
 import com.tellenn.artifacts.exceptions.*
+import com.tellenn.artifacts.handler.CharactersWebSocketHandler
 import com.tellenn.artifacts.services.ClientErrorService
 import lombok.extern.slf4j.Slf4j
 import okhttp3.MediaType.Companion.toMediaType
@@ -18,7 +16,6 @@ import org.slf4j.LoggerFactory
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.beans.factory.annotation.Value
 import org.springframework.stereotype.Component
-import java.util.concurrent.TimeUnit
 
 @Slf4j
 @Component
@@ -28,6 +25,9 @@ abstract class BaseArtifactsClient() {
 
     @Autowired
     private lateinit var clientErrorService: ClientErrorService
+
+    @Autowired
+    private lateinit var messageService : CharactersWebSocketHandler
 
     @Value("\${artifacts.api.url}")
     lateinit var url: String
@@ -39,6 +39,23 @@ abstract class BaseArtifactsClient() {
 
     val objectMapper = jacksonObjectMapper().apply {
         registerModule(JavaTimeModule())
+    }
+
+    /**
+     * Checks if the response contains character information and sends it to the websocket if it does.
+
+     * @param responseBody The response body as a string
+     */
+    private fun handleCharacter(responseBody: String) {
+        try {
+            val response = objectMapper.readValue<Map<String, Any>>(responseBody)
+            val data = response["data"] as? Map<*, *> ?: return
+            val character = data["character"] as? Map<*, *> ?: return
+            if(character.isEmpty()) return
+            messageService.sendMessageToAll(character.toString());
+        } catch (e: Exception) {
+            log.warn("Failed to parse cooldown information: ${e.message}")
+        }
     }
 
     /**
@@ -234,6 +251,7 @@ abstract class BaseArtifactsClient() {
 
             // Check for cooldown in the response
             handleCooldown(responseBodyString)
+            handleCharacter(responseBodyString)
 
             // Create a new response with the same body since we've consumed it
             val mediaType = "application/json; charset=utf-8".toMediaType()
@@ -344,6 +362,7 @@ abstract class BaseArtifactsClient() {
 
             // Check for cooldown in the response
             handleCooldown(responseBodyString)
+            handleCharacter(responseBodyString)
 
             // Log the response
             log.debug("Réponse POST: $responseBodyString")
