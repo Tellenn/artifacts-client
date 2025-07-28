@@ -3,8 +3,6 @@ package com.tellenn.artifacts.services
 import com.tellenn.artifacts.clients.models.ArtifactsCharacter
 import com.tellenn.artifacts.clients.models.MapContent
 import com.tellenn.artifacts.clients.models.MapData
-import com.tellenn.artifacts.clients.models.Resource
-import com.tellenn.artifacts.clients.models.ResourceDrop
 import com.tellenn.artifacts.config.MongoTestConfiguration
 import com.tellenn.artifacts.db.clients.MapMongoClient
 import com.tellenn.artifacts.db.documents.ResourceDocument

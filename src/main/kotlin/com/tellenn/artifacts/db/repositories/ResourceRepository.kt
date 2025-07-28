@@ -43,5 +43,7 @@ interface ResourceRepository : MongoRepository<ResourceDocument, String> {
      * @param code The resource code
      * @return The resource with the specified code, or null if not found
      */
-    fun findByCode(code: String): ResourceDocument?
+    fun findByCode(code: String): ResourceDocument
+
+    fun findByDropsCode(code: String): ResourceDocument
 }

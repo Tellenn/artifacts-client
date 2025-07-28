@@ -30,7 +30,9 @@ interface ItemRepository : MongoRepository<ItemDocument, String> {
     // Find by tradeable
     fun findByTradeable(tradable: Boolean, pageable: Pageable): Page<ItemDocument>
 
-    // Custom query to find items with multiple criteria
-    @Query("{}")
-    fun findByDynamicQuery(pageable: Pageable): Page<ItemDocument>
+    fun getByCode(code: String) : ItemDocument
+
+    fun findByCraftItemsCode(code: String) : List<ItemDocument>
+
+    fun findByCraftSkillAndSubtypeAndLevelLessThanEqualOrderByLevelDesc(skillType: String, subtype: String, maxLevel: Int) : List<ItemDocument>
 }

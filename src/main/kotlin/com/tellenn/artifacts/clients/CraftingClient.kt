@@ -14,25 +14,7 @@ class CraftingClient : BaseArtifactsClient() {
     fun craft(characterName: String, itemCode: String, quantity: Int = 1): ArtifactsResponseBody<CraftingResponseBody> {
         val request = SimpleItem(itemCode, quantity)
         val requestBody = objectMapper.writeValueAsString(request)
-        return sendPostRequest("/my/$characterName/action/craft", requestBody).use { response ->
-            val responseBody = response.body!!.string()
-            objectMapper.readValue<ArtifactsResponseBody<CraftingResponseBody>>(responseBody)
-        }
-    }
-
-    fun cook(characterName: String, itemCode: String, quantity: Int = 1): ArtifactsResponseBody<CraftingResponseBody> {
-        val request = SimpleItem(itemCode, quantity)
-        val requestBody = objectMapper.writeValueAsString(request)
-        return sendPostRequest("/my/$characterName/action/cook", requestBody).use { response ->
-            val responseBody = response.body!!.string()
-            objectMapper.readValue<ArtifactsResponseBody<CraftingResponseBody>>(responseBody)
-        }
-    }
-
-    fun brew(characterName: String, itemCode: String, quantity: Int = 1): ArtifactsResponseBody<CraftingResponseBody> {
-        val request = SimpleItem(itemCode, quantity)
-        val requestBody = objectMapper.writeValueAsString(request)
-        return sendPostRequest("/my/$characterName/action/brew", requestBody).use { response ->
+        return sendPostRequest("/my/$characterName/action/crafting", requestBody).use { response ->
             val responseBody = response.body!!.string()
             objectMapper.readValue<ArtifactsResponseBody<CraftingResponseBody>>(responseBody)
         }

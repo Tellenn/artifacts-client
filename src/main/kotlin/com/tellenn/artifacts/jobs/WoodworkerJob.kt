@@ -4,6 +4,7 @@ import com.tellenn.artifacts.clients.models.ArtifactsCharacter
 import com.tellenn.artifacts.services.BankService
 import com.tellenn.artifacts.services.CharacterService
 import com.tellenn.artifacts.services.GatheringService
+import com.tellenn.artifacts.services.ItemService
 import com.tellenn.artifacts.services.MapProximityService
 import com.tellenn.artifacts.services.MovementService
 import com.tellenn.artifacts.services.ResourceService
@@ -22,6 +23,7 @@ class WoodworkerJob(
     characterService: CharacterService,
     val resourceService: ResourceService,
     val gatheringService: GatheringService,
+    private val itemService: ItemService,
 ) : GenericJob(mapProximityService, applicationContext, movementService, bankService, characterService) {
 
     lateinit var character: ArtifactsCharacter
@@ -30,9 +32,11 @@ class WoodworkerJob(
         character = init(initCharacter)
 
         do{
-            val map = resourceService.findClosestMapWithResource(character, "woodcutting")
-            character = movementService.moveCharacterToCell(map.x, map.y, character)
-            character = gatheringService.gatherUntilInventoryFull(character)
+            val item = itemService.getBestCraftableItemsBySkillAndSubtypeAndMaxLevel("woodcutting","plank",character.woodcuttingLevel)
+            if(item == null){
+                throw Exception("No craftable item found")
+            }
+            character = gatheringService.craftOrGather(character, item.code, character.inventoryMaxItems / itemService.getInvSizeToCraft(item))
             character = bankService.emptyInventory(character)
         }while(true)
     }

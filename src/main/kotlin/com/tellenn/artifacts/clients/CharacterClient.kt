@@ -49,4 +49,5 @@ class CharacterClient : BaseArtifactsClient() {
             objectMapper.readValue<ArtifactsResponseBody<UseItemResponseBody>>(responseBody)
         }
     }
+
 }

@@ -8,6 +8,10 @@ import com.tellenn.artifacts.clients.models.SimpleItem
 class CraftingResponseBody(
     @JsonAlias("cooldown") val cooldown: Cooldown,
     @JsonAlias("character") val character: ArtifactsCharacter,
-    @JsonAlias("crafted") val crafted: SimpleItem?,
-    @JsonAlias("message") val message: String?
+    @JsonAlias("details") val details: Details
+)
+
+class Details (
+    @JsonAlias("xp") val xp: Int,
+    @JsonAlias("items") val items: List<SimpleItem>,
 )
