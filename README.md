@@ -147,7 +147,7 @@ The application can be containerized using Docker. The project includes a Docker
 #### Building the Docker Image
 
 ```bash
-docker build --platform linux/arm64/v8 -t tellenn/tellenn-artifacts-client:latest .
+docker build --platform linux/arm64/v8 llenn/tellenn-artifacts-client:latest .
 ```
 
 #### Running with Docker Compose
