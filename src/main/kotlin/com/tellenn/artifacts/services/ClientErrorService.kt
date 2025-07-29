@@ -1,7 +1,11 @@
 package com.tellenn.artifacts.services
 
+import com.tellenn.artifacts.clients.AccountClient
+import com.tellenn.artifacts.clients.CharacterClient
+import com.tellenn.artifacts.clients.models.ArtifactsCharacter
 import com.tellenn.artifacts.db.documents.ClientErrorDocument
 import com.tellenn.artifacts.db.repositories.ClientErrorRepository
+import okhttp3.Request
 import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Service
 import java.time.Instant
@@ -37,10 +41,12 @@ class ClientErrorService(
         requestBody: String?,
         responseBody: String?,
         errorCode: Int,
-        errorMessage: String
+        errorMessage: String,
+        character: ArtifactsCharacter?,
+        stackTrace: String
     ): ClientErrorDocument {
         logger.error("Client error: [$clientType] $requestMethod $endpoint - $errorCode: $responseBody")
-        
+
         val errorDocument = ClientErrorDocument.fromErrorDetails(
             clientType = clientType,
             endpoint = endpoint,
@@ -49,7 +55,9 @@ class ClientErrorService(
             requestBody = requestBody,
             responseBody = responseBody,
             errorCode = errorCode,
-            errorMessage = errorMessage
+            errorMessage = errorMessage,
+            character = character,
+            stackTrace = stackTrace
         )
         
         return clientErrorRepository.save(errorDocument)

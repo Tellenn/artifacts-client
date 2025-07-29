@@ -3,6 +3,8 @@ package com.tellenn.artifacts.clients
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule
 import com.fasterxml.jackson.module.kotlin.jacksonObjectMapper
 import com.fasterxml.jackson.module.kotlin.readValue
+import com.tellenn.artifacts.clients.models.ArtifactsCharacter
+import com.tellenn.artifacts.clients.responses.ArtifactsResponseBody
 import com.tellenn.artifacts.exceptions.*
 import com.tellenn.artifacts.services.ClientErrorService
 import com.tellenn.artifacts.services.MessageService
@@ -230,20 +232,7 @@ abstract class BaseArtifactsClient() {
                         log.warn("Failed to parse cooldown information: ${e.message}")
                     }
                 }
-
-                // Log the error to the database
-                clientErrorService.logError(
-                    clientType = clientType,
-                    endpoint = path,
-                    requestMethod = requestMethod,
-                    requestParams = requestParams,
-                    requestBody = requestBody,
-                    responseBody = responseBodyString,
-                    errorCode = response.code,
-                    errorMessage = "Request failed with status code ${response.code}"
-                )
-
-                throw mapResponseCodeToException(response.code, "Request failed with status code ${response.code}")
+                logAndThrowError(response, clientType, path, requestMethod, requestParams, requestBody, responseBodyString)
             }
 
             // Get the response body as a string
@@ -265,16 +254,7 @@ abstract class BaseArtifactsClient() {
         } catch (e: Exception) {
             // Log any other exceptions that might occur
             if (e !is ArtifactsApiException) {  // Only log if not already logged as an API exception
-                clientErrorService.logError(
-                    clientType = clientType,
-                    endpoint = path,
-                    requestMethod = requestMethod,
-                    requestParams = requestParams,
-                    requestBody = requestBody,
-                    responseBody = null,
-                    errorCode = 500,  // Internal error
-                    errorMessage = "Exception during request: ${e.message}"
-                )
+                logAndThrowError(null, clientType, path, requestMethod, requestParams, requestBody, "")
             }
             throw e
         }
@@ -341,20 +321,16 @@ abstract class BaseArtifactsClient() {
                         log.warn("Failed to parse cooldown information: ${e.message}")
                     }
                 }
+                try{
 
-                // Log the error to the database
-                clientErrorService.logError(
-                    clientType = clientType,
-                    endpoint = path,
-                    requestMethod = requestMethod,
-                    requestParams = requestParams,
-                    requestBody = postBody,
-                    responseBody = responseBodyString,
-                    errorCode = response.code,
-                    errorMessage = "Request failed with status code ${response.code}"
-                )
+                    throw mapResponseCodeToException(response.code, "Request failed with status code ${response.code}")
+                }catch (e: ArtifactsApiException){
+                    // Log the error to the database
+                    logAndThrowError(response, clientType, path, requestMethod, requestParams, null, responseBodyString)
+                }
 
-                throw mapResponseCodeToException(response.code, "Request failed with status code ${response.code}")
+
+
             }
 
             // Get the response body as a string
@@ -378,18 +354,57 @@ abstract class BaseArtifactsClient() {
         } catch (e: Exception) {
             // Log any other exceptions that might occur
             if (e !is ArtifactsApiException) {  // Only log if not already logged as an API exception
-                clientErrorService.logError(
-                    clientType = clientType,
-                    endpoint = path,
-                    requestMethod = requestMethod,
-                    requestParams = requestParams,
-                    requestBody = postBody,
-                    responseBody = null,
-                    errorCode = 500,  // Internal error
-                    errorMessage = "Exception during request: ${e.message}"
-                )
+                logAndThrowError(null, clientType, path, requestMethod, requestParams, null, "")
             }
             throw e
+        }
+    }
+
+    private fun logAndThrowError(
+        response: Response?,
+        clientType: String,
+        path: String,
+        requestMethod: String,
+        requestParams: String,
+        requestBody: Nothing?,
+        responseBodyString: String
+    ): Nothing {
+        try {
+            throw mapResponseCodeToException(response?.code ?: 500, "Request failed with status code ${response?.code ?: 500}")
+        } catch (e: ArtifactsApiException) {
+
+            var character: ArtifactsCharacter? = null
+            if(path.contains("Kepo")){
+                character = getCharacterForError("Kepo").data
+            } else if(path.contains("Renoir")){
+                character = getCharacterForError("Renoir").data
+            }else if(path.contains("Gustave")){
+                character = getCharacterForError("Gustave").data
+            }else if(path.contains("Cloud")){
+                character = getCharacterForError("Cloud").data
+            }else if(path.contains("Aerith")){
+                character = getCharacterForError("Aerith").data
+            }
+            clientErrorService.logError(
+                clientType = clientType,
+                endpoint = path,
+                requestMethod = requestMethod,
+                requestParams = requestParams,
+                requestBody = requestBody,
+                responseBody = responseBodyString,
+                errorCode = response?.code ?: 500,
+                errorMessage = "Request failed with status code ${response?.code ?: 500}",
+                character = character,
+                stackTrace = e.stackTraceToString()
+            )
+            throw e
+        }
+    }
+
+    private fun getCharacterForError(name: String): ArtifactsResponseBody<ArtifactsCharacter> {
+        return sendGetRequest("/characters/$name").use { response ->
+            val responseBody = response.body!!.string()
+            objectMapper.readValue<ArtifactsResponseBody<ArtifactsCharacter>>(responseBody)
         }
     }
 }

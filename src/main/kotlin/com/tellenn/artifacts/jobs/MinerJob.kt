@@ -37,7 +37,7 @@ class MinerJob(
             if(item == null){
                 throw Exception("No craftable item found")
             }
-            character = gatheringService.craftOrGather(character, item.code, character.inventoryMaxItems / itemService.getInvSizeToCraft(item))
+            character = gatheringService.craftOrGather(character, item.code, (character.inventoryMaxItems -10 ) / itemService.getInvSizeToCraft(item))
             character = bankService.emptyInventory(character)
 
         }while(true)

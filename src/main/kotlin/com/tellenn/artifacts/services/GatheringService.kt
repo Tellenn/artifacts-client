@@ -47,18 +47,9 @@ class GatheringService(
         // Continue gathering until inventory is full
         while (!characterService.isInventoryFull(currentCharacter)) {
             try {
-                val response = gatheringClient.gather(currentCharacter.name)
-
-                // Update character with the latest data
-                currentCharacter = response.data.character
-
+                currentCharacter = gatheringClient.gather(currentCharacter.name).data.character
                 log.debug("Character ${currentCharacter.name} gathered resource, inventory: ${characterService.countInventoryItems(currentCharacter)}/${currentCharacter.inventoryMaxItems}")
 
-                // If no items were gathered, break the loop
-                if (response.data.details.items.isNullOrEmpty()) {
-                    log.debug("Gathering stopped: No items gathered")
-                    break
-                }
             } catch (e: Exception) {
                 log.error("Error while gathering: ${e.message}")
                 break

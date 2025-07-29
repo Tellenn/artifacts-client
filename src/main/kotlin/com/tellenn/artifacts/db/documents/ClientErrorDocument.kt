@@ -1,5 +1,6 @@
 package com.tellenn.artifacts.db.documents
 
+import com.tellenn.artifacts.clients.models.ArtifactsCharacter
 import org.springframework.data.annotation.Id
 import org.springframework.data.mongodb.core.mapping.Document
 import java.time.Instant
@@ -21,6 +22,8 @@ data class ClientErrorDocument(
     val responseBody: String?,
     val errorCode: Int,
     val errorMessage: String,
+    val character: ArtifactsCharacter?,
+    val stackTrace: String,
     val timestamp: Instant = Instant.now()
 ) {
     companion object {
@@ -45,7 +48,9 @@ data class ClientErrorDocument(
             requestBody: String?,
             responseBody: String?,
             errorCode: Int,
-            errorMessage: String
+            errorMessage: String,
+            character: ArtifactsCharacter?,
+            stackTrace: String
         ): ClientErrorDocument {
             return ClientErrorDocument(
                 clientType = clientType,
@@ -55,7 +60,9 @@ data class ClientErrorDocument(
                 requestBody = requestBody,
                 responseBody = responseBody,
                 errorCode = errorCode,
-                errorMessage = errorMessage
+                errorMessage = errorMessage,
+                character = character,
+                stackTrace = stackTrace
             )
         }
     }
