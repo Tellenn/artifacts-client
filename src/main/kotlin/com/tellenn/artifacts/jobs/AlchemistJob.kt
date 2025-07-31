@@ -1,14 +1,17 @@
 package com.tellenn.artifacts.jobs
 
-import com.tellenn.artifacts.clients.models.ArtifactsCharacter
-import com.tellenn.artifacts.config.CharacterConfig
+import com.tellenn.artifacts.AppConfig.maxLevel
+import com.tellenn.artifacts.models.ArtifactsCharacter
+import com.tellenn.artifacts.models.ItemDetails
+import com.tellenn.artifacts.models.SimpleItem
 import com.tellenn.artifacts.services.BankService
 import com.tellenn.artifacts.services.CharacterService
 import com.tellenn.artifacts.services.GatheringService
 import com.tellenn.artifacts.services.ItemService
-import com.tellenn.artifacts.services.MapProximityService
+import com.tellenn.artifacts.services.MapService
 import com.tellenn.artifacts.services.MovementService
 import com.tellenn.artifacts.services.ResourceService
+import jdk.jshell.spi.ExecutionControl
 import org.springframework.context.ApplicationContext
 import org.springframework.stereotype.Component
 
@@ -17,7 +20,7 @@ import org.springframework.stereotype.Component
  */
 @Component
 class AlchemistJob(
-    mapProximityService: MapProximityService,
+    mapService: MapService,
     applicationContext: ApplicationContext,
     movementService: MovementService,
     bankService: BankService,
@@ -25,21 +28,55 @@ class AlchemistJob(
     private val resourceService: ResourceService,
     private val gatheringService: GatheringService,
     private val itemService: ItemService
-) : GenericJob(mapProximityService, applicationContext, movementService, bankService, characterService) {
+) : GenericJob(mapService, applicationContext, movementService, bankService, characterService) {
 
     lateinit var character: ArtifactsCharacter
+    val skill = "alchemy"
 
     fun run(initCharacter: ArtifactsCharacter) {
         character = init(initCharacter)
 
         do{
-            // TODO : make it so the alchemist will try to battle to get his items.
-            // TODO : If he can't, he need to train
-            val map = resourceService.findClosestMapWithResource(character, "alchemy")
-            character = movementService.moveCharacterToCell(map.x, map.y, character)
-            character = gatheringService.gatherUntilInventoryFull(character)
-            character = bankService.emptyInventory(character)
-        }while(true)
 
+            // TODO : Handle other kind of potions as well
+            val itemsToCraft = ArrayList<SimpleItem>()
+            getHealingPotions().forEach {
+                if(!bankService.isInBank(it.code, 400)){
+                    itemsToCraft.add(SimpleItem(it.code, (character.inventoryMaxItems - 10) / itemService.getInvSizeToCraft(it) ))
+                }
+            }
+
+            // Do some stock for the crafter
+            if(itemsToCraft.isNotEmpty()){
+                itemsToCraft.forEach {
+                    character = gatheringService.craftOrGather(character, it.code, it.quantity)
+                    character = bankService.emptyInventory(character)
+                }
+                // Otherwise levelup
+            }else if(character.alchemyLevel < maxLevel){
+                val item =
+                    itemService.getBestCraftableItemsBySkillAndSubtypeAndMaxLevel(skill, "bar", character.alchemyLevel)
+                if (item == null) {
+                    throw Exception("No craftable item found")
+                }
+                character = gatheringService.craftOrGather(
+                    character,
+                    item.code,
+                    (character.inventoryMaxItems -10 )/ itemService.getInvSizeToCraft(item)
+                )
+                character = bankService.emptyInventory(character)
+
+                // Or do some tasks to get task coins
+            }else{
+                throw ExecutionControl.NotImplementedException("Should not reach this code yet")
+                // TODO : Tasks or monster grind ?
+            }
+
+        }while(true)
+    }
+
+    private fun getHealingPotions(): List<ItemDetails>{
+        val potions = itemService.getAllCraftableItemsBySkillAndSubtypeAndMaxLevel("alchemy", "potion", character.alchemyLevel)
+        return potions.filter { it.effects?.none { effect -> effect.code != "restore" } ?: false }
     }
 }

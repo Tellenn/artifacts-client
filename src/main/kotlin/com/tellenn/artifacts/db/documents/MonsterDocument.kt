@@ -1,11 +1,9 @@
 package com.tellenn.artifacts.db.documents
 
-import com.tellenn.artifacts.clients.models.Effect
-import com.tellenn.artifacts.clients.models.MonsterData
-import com.tellenn.artifacts.clients.models.MonsterDrop
-import com.tellenn.artifacts.clients.models.MonsterEffect
+import com.tellenn.artifacts.models.Effect
+import com.tellenn.artifacts.models.MonsterData
+import com.tellenn.artifacts.models.MonsterDrop
 import org.springframework.data.annotation.Id
-import org.springframework.data.domain.Page
 import org.springframework.data.mongodb.core.mapping.Document
 
 @Document(collection = "monsters")

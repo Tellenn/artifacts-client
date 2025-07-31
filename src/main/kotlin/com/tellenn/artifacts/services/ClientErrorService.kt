@@ -1,11 +1,8 @@
 package com.tellenn.artifacts.services
 
-import com.tellenn.artifacts.clients.AccountClient
-import com.tellenn.artifacts.clients.CharacterClient
-import com.tellenn.artifacts.clients.models.ArtifactsCharacter
+import com.tellenn.artifacts.models.ArtifactsCharacter
 import com.tellenn.artifacts.db.documents.ClientErrorDocument
 import com.tellenn.artifacts.db.repositories.ClientErrorRepository
-import okhttp3.Request
 import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Service
 import java.time.Instant

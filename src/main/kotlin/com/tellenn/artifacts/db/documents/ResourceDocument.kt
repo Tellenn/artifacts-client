@@ -1,7 +1,7 @@
 package com.tellenn.artifacts.db.documents
 
-import com.tellenn.artifacts.clients.models.Resource
-import com.tellenn.artifacts.clients.models.ResourceDrop
+import com.tellenn.artifacts.models.Resource
+import com.tellenn.artifacts.models.ResourceDrop
 import org.springframework.data.annotation.Id
 import org.springframework.data.mongodb.core.mapping.Document
 

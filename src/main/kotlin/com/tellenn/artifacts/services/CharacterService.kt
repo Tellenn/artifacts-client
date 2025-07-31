@@ -1,7 +1,7 @@
 package com.tellenn.artifacts.services
 
 import com.tellenn.artifacts.clients.CharacterClient
-import com.tellenn.artifacts.clients.models.ArtifactsCharacter
+import com.tellenn.artifacts.models.ArtifactsCharacter
 import org.apache.logging.log4j.LogManager
 import org.springframework.stereotype.Service
 

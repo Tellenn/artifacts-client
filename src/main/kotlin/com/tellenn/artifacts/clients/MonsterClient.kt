@@ -1,7 +1,7 @@
 package com.tellenn.artifacts.clients
 
 import com.fasterxml.jackson.module.kotlin.readValue
-import com.tellenn.artifacts.clients.models.MonsterData
+import com.tellenn.artifacts.models.MonsterData
 import com.tellenn.artifacts.clients.responses.ArtifactsArrayResponseBody
 import com.tellenn.artifacts.clients.responses.ArtifactsResponseBody
 import lombok.extern.slf4j.Slf4j

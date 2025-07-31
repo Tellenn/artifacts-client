@@ -1,8 +1,8 @@
 package com.tellenn.artifacts
 
 import com.tellenn.artifacts.config.MongoTestConfiguration
-import com.tellenn.artifacts.services.ItemSyncService
-import com.tellenn.artifacts.services.MapSyncService
+import com.tellenn.artifacts.services.sync.ItemSyncService
+import com.tellenn.artifacts.services.sync.MapSyncService
 import com.tellenn.artifacts.services.sync.MonsterSyncService
 import org.junit.jupiter.api.Test
 import org.mockito.Mockito

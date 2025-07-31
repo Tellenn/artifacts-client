@@ -1,12 +1,11 @@
 package com.tellenn.artifacts.services
 
-import com.tellenn.artifacts.clients.models.ArtifactsCharacter
-import com.tellenn.artifacts.clients.models.MapContent
-import com.tellenn.artifacts.clients.models.MapData
+import com.tellenn.artifacts.models.ArtifactsCharacter
+import com.tellenn.artifacts.models.MapContent
+import com.tellenn.artifacts.models.MapData
 import com.tellenn.artifacts.clients.responses.ArtifactsArrayResponseBody
 import com.tellenn.artifacts.db.clients.MapMongoClient
 import org.junit.jupiter.api.Assertions.assertEquals
-import org.junit.jupiter.api.Assertions.assertNull
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 import org.mockito.Mockito.`when`
@@ -17,12 +16,12 @@ import java.time.Instant
 class MapProximityServiceTest {
 
     private lateinit var mapMongoClient: MapMongoClient
-    private lateinit var mapProximityService: MapProximityService
+    private lateinit var mapService: MapService
 
     @BeforeEach
     fun setUp() {
         mapMongoClient = mock(MapMongoClient::class.java)
-        mapProximityService = MapProximityService(mapMongoClient)
+        mapService = MapService(mapMongoClient)
     }
 
     @Test
@@ -52,7 +51,7 @@ class MapProximityServiceTest {
         )).thenReturn(response)
 
         // When
-        val result = mapProximityService.findClosestMap(character)
+        val result = mapService.findClosestMap(character)
 
         // Then
         assertEquals(maps[1], result)
@@ -91,7 +90,7 @@ class MapProximityServiceTest {
         )).thenReturn(response)
 
         // When
-        val result = mapProximityService.findClosestMap(character, contentType, contentCode)
+        val result = mapService.findClosestMap(character, contentType, contentCode)
 
         // Then
         assertEquals(maps[0], result)

@@ -1,14 +1,10 @@
 package com.tellenn.artifacts.services
 
 import com.tellenn.artifacts.clients.BankClient
-import com.tellenn.artifacts.clients.models.ArtifactsCharacter
-import com.tellenn.artifacts.clients.models.Cooldown
-import com.tellenn.artifacts.clients.models.InventorySlot
-import com.tellenn.artifacts.clients.models.MapContent
-import com.tellenn.artifacts.clients.models.MapData
-import com.tellenn.artifacts.clients.models.SimpleItem
-import com.tellenn.artifacts.clients.responses.ArtifactsResponseBody
-import com.tellenn.artifacts.clients.responses.BankItemTransaction
+import com.tellenn.artifacts.models.ArtifactsCharacter
+import com.tellenn.artifacts.models.InventorySlot
+import com.tellenn.artifacts.models.MapContent
+import com.tellenn.artifacts.models.MapData
 import com.tellenn.artifacts.config.MongoTestConfiguration
 import com.tellenn.artifacts.db.documents.BankItemDocument
 import com.tellenn.artifacts.db.documents.ItemDocument
@@ -26,7 +22,6 @@ import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.boot.test.context.SpringBootTest
 import org.springframework.context.annotation.Import
 import org.testcontainers.junit.jupiter.Testcontainers
-import java.time.Instant
 
 @SpringBootTest
 @Import(MongoTestConfiguration::class)
@@ -35,7 +30,7 @@ class BankServiceTest {
 
     private lateinit var bankService: BankService
     private lateinit var bankClient: BankClient
-    private lateinit var mapProximityService: MapProximityService
+    private lateinit var mapService: MapService
     private lateinit var movementService: MovementService
 
     @Autowired
@@ -48,7 +43,7 @@ class BankServiceTest {
     fun setup() {
         // Create mocks
         bankClient = Mockito.mock(BankClient::class.java)
-        mapProximityService = Mockito.mock(MapProximityService::class.java)
+        mapService = Mockito.mock(MapService::class.java)
         movementService = Mockito.mock(MovementService::class.java)
 
         // Clear repositories
@@ -56,7 +51,7 @@ class BankServiceTest {
         itemRepository.deleteAll()
 
         // Create the service with real repositories and mocked clients
-        bankService = BankService(bankClient, bankRepository, itemRepository, mapProximityService, movementService)
+        bankService = BankService(bankClient, bankRepository, itemRepository, mapService, movementService)
     }
 
     @AfterEach
@@ -76,7 +71,7 @@ class BankServiceTest {
         // Add test item to item repository
         val bankMapContent = MapContent(type = "building", code = "bank")
         val bankMapData = MapData(name = "Bank", skin = "bank", x = 100, y = 100, content = bankMapContent)
-        `when`(mapProximityService.findClosestMap(character, contentCode = "bank")).thenReturn(bankMapData)
+        `when`(mapService.findClosestMap(character, contentCode = "bank")).thenReturn(bankMapData)
         `when`(movementService.moveCharacterToCell(bankMapData.x, bankMapData.y, character)).thenReturn(character)
         val itemDocument = createTestItemDocument("item1", "Test Item")
         itemRepository.save(itemDocument)
@@ -104,7 +99,7 @@ class BankServiceTest {
         // Add test item to item repository
         val bankMapContent = MapContent(type = "building", code = "bank")
         val bankMapData = MapData(name = "Bank", skin = "bank", x = 100, y = 100, content = bankMapContent)
-        `when`(mapProximityService.findClosestMap(character, contentCode = "bank")).thenReturn(bankMapData)
+        `when`(mapService.findClosestMap(character, contentCode = "bank")).thenReturn(bankMapData)
         `when`(movementService.moveCharacterToCell(bankMapData.x, bankMapData.y, character)).thenReturn(character)
         val itemDocument = createTestItemDocument("item1", "Test Item")
         itemRepository.save(itemDocument)
@@ -136,14 +131,14 @@ class BankServiceTest {
         val bankMapContent = MapContent(type = "building", code = "bank")
         val bankMapData = MapData(name = "Bank", skin = "bank", x = bankX, y = bankY, content = bankMapContent)
 
-        `when`(mapProximityService.findClosestMap(characterAtBank, contentCode = "bank")).thenReturn(bankMapData)
+        `when`(mapService.findClosestMap(characterAtBank, contentCode = "bank")).thenReturn(bankMapData)
 
         // When
         val result = bankService.moveToBank(characterAtBank)
 
         // Then
         assertEquals(characterAtBank, result)
-        verify(mapProximityService).findClosestMap(characterAtBank, contentCode = "bank")
+        verify(mapService).findClosestMap(characterAtBank, contentCode = "bank")
         verify(movementService, never()).moveCharacterToCell(bankX, bankY, characterAtBank)
     }
 
@@ -160,7 +155,7 @@ class BankServiceTest {
         val bankMapContent = MapContent(type = "building", code = "bank")
         val bankMapData = MapData(name = "Bank", skin = "bank", x = bankX, y = bankY, content = bankMapContent)
 
-        `when`(mapProximityService.findClosestMap(characterNotAtBank, contentCode = "bank")).thenReturn(bankMapData)
+        `when`(mapService.findClosestMap(characterNotAtBank, contentCode = "bank")).thenReturn(bankMapData)
         `when`(movementService.moveCharacterToCell(bankX, bankY, characterNotAtBank)).thenReturn(characterAfterMove)
 
         // When
@@ -168,7 +163,7 @@ class BankServiceTest {
 
         // Then
         assertEquals(characterAfterMove, result)
-        verify(mapProximityService).findClosestMap(characterNotAtBank, contentCode = "bank")
+        verify(mapService).findClosestMap(characterNotAtBank, contentCode = "bank")
         verify(movementService).moveCharacterToCell(bankX, bankY, characterNotAtBank)
     }
 

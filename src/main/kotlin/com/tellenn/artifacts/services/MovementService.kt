@@ -1,9 +1,7 @@
 package com.tellenn.artifacts.services
 
 import com.tellenn.artifacts.clients.MovementClient
-import com.tellenn.artifacts.clients.models.ArtifactsCharacter
-import com.tellenn.artifacts.clients.responses.ArtifactsResponseBody
-import com.tellenn.artifacts.clients.responses.MovementResponseBody
+import com.tellenn.artifacts.models.ArtifactsCharacter
 import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Service
 
@@ -14,7 +12,7 @@ import org.springframework.stereotype.Service
 @Service
 class MovementService(
     private val movementClient: MovementClient,
-    private val mapProximityService: MapProximityService
+    private val mapService: MapService
 ) {
     private val logger = LoggerFactory.getLogger(MovementService::class.java)
 
@@ -39,7 +37,7 @@ class MovementService(
     }
 
     fun moveCharacterToMaster(masterType: String, character: ArtifactsCharacter): ArtifactsCharacter {
-        val map = mapProximityService.findClosestMap(
+        val map = mapService.findClosestMap(
             character = character,
             contentType = "tasks_master",
             contentCode = masterType

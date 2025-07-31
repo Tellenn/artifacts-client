@@ -1,17 +1,16 @@
 package com.tellenn.artifacts.clients
 
 import com.fasterxml.jackson.module.kotlin.readValue
-import com.tellenn.artifacts.clients.models.BankDetails
-import com.tellenn.artifacts.clients.models.AccountDetails
-import com.tellenn.artifacts.clients.models.ArtifactsCharacter
-import com.tellenn.artifacts.clients.models.BankItem
-import com.tellenn.artifacts.clients.models.GEOrder
-import com.tellenn.artifacts.clients.models.GEOrderHistory
+import com.tellenn.artifacts.models.BankDetails
+import com.tellenn.artifacts.models.AccountDetails
+import com.tellenn.artifacts.models.ArtifactsCharacter
+import com.tellenn.artifacts.models.BankItem
+import com.tellenn.artifacts.models.GEOrder
+import com.tellenn.artifacts.models.GEOrderHistory
 import com.tellenn.artifacts.clients.requests.ChangePasswordRequest
 import com.tellenn.artifacts.clients.requests.CreateCharacterRequest
 import com.tellenn.artifacts.clients.responses.ArtifactsArrayResponseBody
 import com.tellenn.artifacts.clients.responses.ArtifactsResponseBody
-import com.tellenn.artifacts.config.CharacterConfig
 import com.tellenn.artifacts.db.documents.BankDocument
 import com.tellenn.artifacts.db.repositories.BankRepository
 import lombok.extern.slf4j.Slf4j

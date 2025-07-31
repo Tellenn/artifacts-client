@@ -1,7 +1,7 @@
 package com.tellenn.artifacts.clients
 
 import com.fasterxml.jackson.module.kotlin.readValue
-import com.tellenn.artifacts.clients.models.ServerStatus
+import com.tellenn.artifacts.models.ServerStatus
 import com.tellenn.artifacts.clients.responses.ArtifactsResponseBody
 import lombok.extern.slf4j.Slf4j
 import org.springframework.stereotype.Component

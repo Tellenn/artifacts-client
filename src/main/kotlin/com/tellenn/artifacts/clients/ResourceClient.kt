@@ -1,7 +1,7 @@
 package com.tellenn.artifacts.clients
 
 import com.fasterxml.jackson.module.kotlin.readValue
-import com.tellenn.artifacts.clients.models.Resource
+import com.tellenn.artifacts.models.Resource
 import com.tellenn.artifacts.clients.responses.ArtifactsArrayResponseBody
 import org.springframework.stereotype.Component
 

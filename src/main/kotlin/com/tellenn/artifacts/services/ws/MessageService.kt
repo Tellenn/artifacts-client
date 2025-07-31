@@ -1,4 +1,4 @@
-package com.tellenn.artifacts.services
+package com.tellenn.artifacts.services.ws
 
 import org.springframework.messaging.simp.SimpMessagingTemplate
 import org.springframework.stereotype.Service

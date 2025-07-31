@@ -1,9 +1,9 @@
 package com.tellenn.artifacts.services
 
 import com.tellenn.artifacts.clients.BankClient
-import com.tellenn.artifacts.clients.models.ArtifactsCharacter
-import com.tellenn.artifacts.clients.models.ItemDetails
-import com.tellenn.artifacts.clients.models.SimpleItem
+import com.tellenn.artifacts.models.ArtifactsCharacter
+import com.tellenn.artifacts.models.ItemDetails
+import com.tellenn.artifacts.models.SimpleItem
 import com.tellenn.artifacts.db.documents.BankItemDocument
 import com.tellenn.artifacts.db.documents.ItemDocument
 import com.tellenn.artifacts.db.repositories.BankItemRepository
@@ -16,7 +16,7 @@ class BankService(
     private val bankClient: BankClient,
     private val bankRepository: BankItemRepository,
     private val itemRepository: ItemRepository,
-    private val mapProximityService: MapProximityService,
+    private val mapService: MapService,
     private val movementService: MovementService
 ) {
     private val log = LogManager.getLogger(BankService::class.java)
@@ -31,7 +31,7 @@ class BankService(
         log.debug("Checking if character ${character.name} needs to move to a bank")
 
         // Find the closest bank
-        val closestBank = mapProximityService.findClosestMap(character = character, contentCode = "bank")
+        val closestBank = mapService.findClosestMap(character = character, contentCode = "bank")
         log.debug("Closest bank for character ${character.name} is at position (${closestBank.x}, ${closestBank.y})")
 
         // Check if the character is already at the bank

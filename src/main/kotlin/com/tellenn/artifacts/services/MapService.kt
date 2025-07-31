@@ -1,7 +1,7 @@
 package com.tellenn.artifacts.services
 
-import com.tellenn.artifacts.clients.models.ArtifactsCharacter
-import com.tellenn.artifacts.clients.models.MapData
+import com.tellenn.artifacts.models.ArtifactsCharacter
+import com.tellenn.artifacts.models.MapData
 import com.tellenn.artifacts.db.clients.MapMongoClient
 import com.tellenn.artifacts.exceptions.UnknownMapException
 import org.slf4j.LoggerFactory
@@ -14,10 +14,10 @@ import kotlin.math.sqrt
  * Provides methods to find the closest map to a character.
  */
 @Service
-class MapProximityService(
+class MapService(
     private val mapMongoClient: MapMongoClient
 ) {
-    private val logger = LoggerFactory.getLogger(MapProximityService::class.java)
+    private val logger = LoggerFactory.getLogger(MapService::class.java)
 
     /**
      * Finds the closest map to a character.

@@ -3,7 +3,7 @@ package com.tellenn.artifacts.services.sync
 import com.tellenn.artifacts.clients.MonsterClient
 import com.tellenn.artifacts.db.documents.MonsterDocument
 import com.tellenn.artifacts.db.repositories.MonsterRepository
-import com.tellenn.artifacts.services.ServerVersionService
+import com.tellenn.artifacts.services.sync.ServerVersionService
 import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional

@@ -3,12 +3,10 @@ package com.tellenn.artifacts.services
 import com.tellenn.artifacts.clients.GatheringClient
 import com.tellenn.artifacts.clients.ItemClient
 import com.tellenn.artifacts.clients.MonsterClient
-import com.tellenn.artifacts.clients.models.ArtifactsCharacter
-import com.tellenn.artifacts.clients.models.ItemDetails
-import com.tellenn.artifacts.clients.models.MonsterData
-import com.tellenn.artifacts.clients.models.SimpleItem
-import com.tellenn.artifacts.clients.responses.ArtifactsResponseBody
-import com.tellenn.artifacts.clients.responses.GatheringResponseBody
+import com.tellenn.artifacts.models.ArtifactsCharacter
+import com.tellenn.artifacts.models.ItemDetails
+import com.tellenn.artifacts.models.MonsterData
+import com.tellenn.artifacts.models.SimpleItem
 import com.tellenn.artifacts.db.documents.ItemDocument
 import com.tellenn.artifacts.db.repositories.ItemRepository
 import org.apache.logging.log4j.LogManager
@@ -22,7 +20,7 @@ import org.springframework.stereotype.Service
 class EquipmentService(
     private val gatheringClient: GatheringClient,
     private val itemClient: ItemClient,
-    private val mapProximityService: MapProximityService,
+    private val mapService: MapService,
     private val movementService: MovementService,
     private val bankService: BankService,
     private val monsterClient: MonsterClient,
@@ -161,6 +159,7 @@ class EquipmentService(
         character.artifact2Slot?.let { equippedItems.add(it) }
         character.artifact3Slot?.let { equippedItems.add(it) }
         character.bagSlot?.let { equippedItems.add(it) }
+        // TODO : Don't use the repo, use the service
         return itemRepository.findByCodeIn(equippedItems).map { ItemDocument.toItemDetails(it) }
     }
 }

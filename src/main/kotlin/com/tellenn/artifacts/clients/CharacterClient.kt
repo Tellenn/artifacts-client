@@ -1,8 +1,8 @@
 package com.tellenn.artifacts.clients
 
 import com.fasterxml.jackson.module.kotlin.readValue
-import com.tellenn.artifacts.clients.models.EquipmentSlot
-import com.tellenn.artifacts.clients.models.SimpleItem
+import com.tellenn.artifacts.models.EquipmentSlot
+import com.tellenn.artifacts.models.SimpleItem
 import com.tellenn.artifacts.clients.requests.EquipRequest
 import com.tellenn.artifacts.clients.requests.UnequipRequest
 import com.tellenn.artifacts.clients.responses.ArtifactsResponseBody

@@ -1,10 +1,10 @@
-package com.tellenn.artifacts.clients.models
+package com.tellenn.artifacts.models
 
 import com.fasterxml.jackson.annotation.JsonAlias
 import java.time.Instant
 
 @Suppress("unused")
-class GEOrder(
+class GEOrderHistory(
     @JsonAlias("id") val id: String,
     @JsonAlias("item_code") val itemCode: String,
     @JsonAlias("item_name") val itemName: String,
@@ -12,5 +12,6 @@ class GEOrder(
     @JsonAlias("price") val price: Int,
     @JsonAlias("total") val total: Int,
     @JsonAlias("created_at") val createdAt: Instant,
+    @JsonAlias("completed_at") val completedAt: Instant,
     @JsonAlias("status") val status: String
 )

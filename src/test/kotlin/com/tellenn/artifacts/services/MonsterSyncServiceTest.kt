@@ -1,12 +1,13 @@
 package com.tellenn.artifacts.services
 
 import com.tellenn.artifacts.clients.MonsterClient
-import com.tellenn.artifacts.clients.models.MonsterData
-import com.tellenn.artifacts.clients.models.MonsterDrop
+import com.tellenn.artifacts.models.MonsterData
+import com.tellenn.artifacts.models.MonsterDrop
 import com.tellenn.artifacts.clients.responses.ArtifactsArrayResponseBody
 import com.tellenn.artifacts.clients.responses.ArtifactsResponseBody
 import com.tellenn.artifacts.db.repositories.MonsterRepository
 import com.tellenn.artifacts.services.sync.MonsterSyncService
+import com.tellenn.artifacts.services.sync.ServerVersionService
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.Assertions.*

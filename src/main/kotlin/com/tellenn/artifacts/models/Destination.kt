@@ -1,7 +1,6 @@
-package com.tellenn.artifacts.clients.models
+package com.tellenn.artifacts.models
 
 import com.fasterxml.jackson.annotation.JsonAlias
-import java.util.Date
 
 class Destination(
     @JsonAlias("name") name : String,

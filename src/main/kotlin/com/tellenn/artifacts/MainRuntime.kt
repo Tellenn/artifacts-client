@@ -4,7 +4,7 @@ import com.fasterxml.jackson.databind.ObjectMapper
 import com.tellenn.artifacts.clients.AccountClient
 import com.tellenn.artifacts.clients.CharacterClient
 import com.tellenn.artifacts.clients.ServerStatusClient
-import com.tellenn.artifacts.clients.models.ArtifactsCharacter
+import com.tellenn.artifacts.models.ArtifactsCharacter
 import com.tellenn.artifacts.config.CharacterConfig
 import com.tellenn.artifacts.exceptions.UnknownJobException
 import com.tellenn.artifacts.jobs.AlchemistJob
@@ -14,11 +14,11 @@ import com.tellenn.artifacts.jobs.MinerJob
 import com.tellenn.artifacts.jobs.WoodworkerJob
 import com.tellenn.artifacts.services.sync.BankItemSyncService
 import com.tellenn.artifacts.services.sync.CharacterSyncService
-import com.tellenn.artifacts.services.ItemSyncService
-import com.tellenn.artifacts.services.MapSyncService
+import com.tellenn.artifacts.services.sync.ItemSyncService
+import com.tellenn.artifacts.services.sync.MapSyncService
 import com.tellenn.artifacts.services.sync.MonsterSyncService
 import com.tellenn.artifacts.services.sync.ResourceSyncService
-import com.tellenn.artifacts.services.ServerVersionService
+import com.tellenn.artifacts.services.sync.ServerVersionService
 import com.tellenn.artifacts.services.WebSocketService
 import com.tellenn.artifacts.utils.TimeSync
 import lombok.extern.slf4j.Slf4j

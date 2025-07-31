@@ -1,9 +1,8 @@
-package com.tellenn.artifacts.services
+package com.tellenn.artifacts.services.sync
 
 import com.tellenn.artifacts.clients.MapClient
-import com.tellenn.artifacts.clients.models.MapData
+import com.tellenn.artifacts.models.MapData
 import com.tellenn.artifacts.db.documents.MapDocument
-import com.tellenn.artifacts.db.documents.ServerVersionDocument
 import com.tellenn.artifacts.db.repositories.MapRepository
 import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Service

@@ -1,8 +1,8 @@
 package com.tellenn.artifacts.services
 
 import com.tellenn.artifacts.clients.CharacterClient
-import com.tellenn.artifacts.clients.models.ArtifactsCharacter
-import com.tellenn.artifacts.clients.models.Cooldown
+import com.tellenn.artifacts.models.ArtifactsCharacter
+import com.tellenn.artifacts.models.Cooldown
 import com.tellenn.artifacts.clients.responses.ArtifactsResponseBody
 import com.tellenn.artifacts.clients.responses.RestResponseBody
 import org.junit.jupiter.api.Assertions.assertEquals

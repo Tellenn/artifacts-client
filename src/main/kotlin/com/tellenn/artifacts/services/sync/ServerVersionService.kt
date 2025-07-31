@@ -1,4 +1,4 @@
-package com.tellenn.artifacts.services
+package com.tellenn.artifacts.services.sync
 
 import com.tellenn.artifacts.clients.ServerStatusClient
 import com.tellenn.artifacts.db.documents.ServerVersionDocument
@@ -52,7 +52,7 @@ class ServerVersionService(
         val currentVersion = getCurrentServerVersion()
 
         // Get the stored server version
-        val storedVersion = serverVersionRepository.findByIdEquals(ServerVersionDocument.SERVER_VERSION_ID)
+        val storedVersion = serverVersionRepository.findByIdEquals(ServerVersionDocument.Companion.SERVER_VERSION_ID)
 
         // If no stored version, sync is needed
         if (storedVersion == null) {

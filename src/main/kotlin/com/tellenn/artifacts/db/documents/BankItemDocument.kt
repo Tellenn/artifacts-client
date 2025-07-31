@@ -1,10 +1,6 @@
 package com.tellenn.artifacts.db.documents
 
-import com.tellenn.artifacts.clients.models.ItemDetails
-import com.tellenn.artifacts.clients.models.ItemCraft
-import com.tellenn.artifacts.clients.models.Effect
-import com.tellenn.artifacts.clients.models.ItemCondition
-import com.tellenn.artifacts.clients.models.RecipeIngredient
+import com.tellenn.artifacts.models.ItemDetails
 import com.tellenn.artifacts.db.documents.ItemEffectDocument.Companion.fromItemEffect
 import org.springframework.data.annotation.Id
 import org.springframework.data.mongodb.core.mapping.Document

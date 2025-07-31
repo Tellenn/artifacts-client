@@ -2,12 +2,10 @@ package com.tellenn.artifacts.services
 
 import com.tellenn.artifacts.clients.GatheringClient
 import com.tellenn.artifacts.clients.TaskClient
-import com.tellenn.artifacts.clients.models.ArtifactsCharacter
-import com.tellenn.artifacts.clients.responses.ArtifactsResponseBody
-import com.tellenn.artifacts.clients.responses.GatheringResponseBody
+import com.tellenn.artifacts.models.ArtifactsCharacter
+import com.tellenn.artifacts.exceptions.BattleLostException
 import org.apache.logging.log4j.LogManager
 import org.springframework.stereotype.Service
-import org.springframework.util.StringUtils
 
 /**
  * Service for managing gathering operations.
@@ -19,7 +17,12 @@ class TaskService(
     private val bankService: BankService,
     private val movementService: MovementService,
     private val taskClient: TaskClient,
-    private val gatheringService: GatheringService
+    private val gatheringService: GatheringService,
+    private val itemService: ItemService,
+    private val battleService: BattleService,
+    private val characterService: CharacterService,
+    private val equipmentService: EquipmentService,
+    private val mapService: MapService
 ) {
     private val log = LogManager.getLogger(TaskService::class.java)
 
@@ -76,20 +79,28 @@ class TaskService(
 
     fun completeItemTask(character: ArtifactsCharacter) : ArtifactsCharacter{
         var newCharacter = character
-        val item = character.task
-        if(item.isNullOrBlank()){
+        val itemCode = character.task
+        if(itemCode.isNullOrBlank()){
             return newCharacter
         }
-        val quantityLeft = character.taskTotal - character.taskProgress
+        val item = itemService.getItem(itemCode);
+        var quantityLeft = newCharacter.taskTotal - character.taskProgress
 
-        gatheringService.craftOrGather(character, item, quantityLeft)
-
+        val sizeToCraft = itemService.getInvSizeToCraft(item)
+        while(quantityLeft > 0){
+            val quantityToCraft = Math.min(quantityLeft, (character.inventoryMaxItems - 10) / sizeToCraft )
+            newCharacter = gatheringService.craftOrGather(newCharacter, itemCode, quantityToCraft)
+            newCharacter = movementService.moveCharacterToMaster("items", newCharacter)
+            newCharacter = taskClient.giveItem(newCharacter.name, itemCode, quantityToCraft).data.character
+            newCharacter = bankService.moveToBank(newCharacter)
+            quantityLeft -= quantityToCraft
+        }
 
         newCharacter = movementService.moveCharacterToMaster("items", newCharacter)
-
-        // TODO : Handle tasks that have more than 100 items (meaning you have to trade multiple times)
-        newCharacter = taskClient.giveItem(newCharacter.name, item, quantityLeft).data.character
         newCharacter = taskClient.completeTask(newCharacter.name).data.character
+        newCharacter = bankService.moveToBank(newCharacter)
+
+        // TODO : What to do with the coins
         return newCharacter
     }
 
@@ -99,14 +110,28 @@ class TaskService(
         if(monsterCode.isNullOrBlank()){
             return newCharacter
         }
-        val quantityLeft = character.taskTotal - character.taskProgress
+        val monsterMap = mapService.findClosestMap(character, contentCode = monsterCode)
+        var quantityLeft = character.taskTotal - character.taskProgress
 
         // TODO Check that you can actually beat the enemy
 
-        // TODO : Equip items
+        newCharacter = equipmentService.equipBestAvailableEquipmentForMonsterInBank(newCharacter, monsterCode)
+        movementService.moveCharacterToCell(monsterMap.x, monsterMap.y, newCharacter)
+        try {
+            while(quantityLeft > 0) {
+                newCharacter = battleService.battle(newCharacter)
+                quantityLeft--
+                if (characterService.isInventoryFull(newCharacter)){
+                    newCharacter = bankService.moveToBank(newCharacter)
+                    newCharacter = bankService.emptyInventory(newCharacter)
+                }
+            }
+        }catch (e: BattleLostException){
+            log.debug("Monster in the task is too hard, stopping")
+            // TODO : Something more complex before giving up ?
+        }
 
-        // TODO : fight X enemies with a battleService
-
+        // TODO : What to do with the coins
         return character
     }
 }

@@ -1,13 +1,13 @@
 package com.tellenn.artifacts.jobs
 
 import com.tellenn.artifacts.AppConfig.maxLevel
-import com.tellenn.artifacts.clients.models.ArtifactsCharacter
-import com.tellenn.artifacts.clients.models.SimpleItem
+import com.tellenn.artifacts.models.ArtifactsCharacter
+import com.tellenn.artifacts.models.SimpleItem
 import com.tellenn.artifacts.services.BankService
 import com.tellenn.artifacts.services.CharacterService
 import com.tellenn.artifacts.services.GatheringService
 import com.tellenn.artifacts.services.ItemService
-import com.tellenn.artifacts.services.MapProximityService
+import com.tellenn.artifacts.services.MapService
 import com.tellenn.artifacts.services.MovementService
 import com.tellenn.artifacts.services.ResourceService
 import jdk.jshell.spi.ExecutionControl
@@ -19,7 +19,7 @@ import org.springframework.stereotype.Component
  */
 @Component
 class WoodworkerJob(
-    mapProximityService: MapProximityService,
+    mapService: MapService,
     applicationContext: ApplicationContext,
     movementService: MovementService,
     bankService: BankService,
@@ -27,7 +27,7 @@ class WoodworkerJob(
     val resourceService: ResourceService,
     val gatheringService: GatheringService,
     private val itemService: ItemService,
-) : GenericJob(mapProximityService, applicationContext, movementService, bankService, characterService) {
+) : GenericJob(mapService, applicationContext, movementService, bankService, characterService) {
 
     lateinit var character: ArtifactsCharacter
     val skill: String = "woodcutting"
@@ -39,7 +39,7 @@ class WoodworkerJob(
             val itemsToCraft = ArrayList<SimpleItem>()
             itemService.getAllCraftBySkillUnderLevel(skill, character.woodcuttingLevel).forEach {
                 if(!bankService.isInBank(it.code, 200)){
-                    itemsToCraft.add(SimpleItem(it.code, character.inventoryMaxItems / itemService.getInvSizeToCraft(it) -5))
+                    itemsToCraft.add(SimpleItem(it.code, (character.inventoryMaxItems - 10) / itemService.getInvSizeToCraft(it) ))
                 }
             }
 

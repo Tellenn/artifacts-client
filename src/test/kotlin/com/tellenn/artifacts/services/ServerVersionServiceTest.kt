@@ -1,17 +1,17 @@
 package com.tellenn.artifacts.services
 
 import com.tellenn.artifacts.clients.ServerStatusClient
-import com.tellenn.artifacts.clients.models.ServerStatus
+import com.tellenn.artifacts.models.ServerStatus
 import com.tellenn.artifacts.clients.responses.ArtifactsResponseBody
 import com.tellenn.artifacts.db.documents.ServerVersionDocument
 import com.tellenn.artifacts.db.repositories.ServerVersionRepository
+import com.tellenn.artifacts.services.sync.ServerVersionService
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.Assertions.*
 import org.mockito.Mockito
 import org.mockito.Mockito.`when`
 import org.mockito.Mockito.verify
-import org.mockito.Mockito.times
 import java.time.Instant
 
 class ServerVersionServiceTest {

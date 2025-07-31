@@ -1,9 +1,9 @@
 package com.tellenn.artifacts.clients.responses
 
 import com.fasterxml.jackson.annotation.JsonAlias
-import com.tellenn.artifacts.clients.models.ArtifactsCharacter
-import com.tellenn.artifacts.clients.models.Cooldown
-import com.tellenn.artifacts.clients.models.SimpleItem
+import com.tellenn.artifacts.models.ArtifactsCharacter
+import com.tellenn.artifacts.models.Cooldown
+import com.tellenn.artifacts.models.SimpleItem
 
 class CombatResponseBody(
     @JsonAlias("cooldown") val cooldown: Cooldown,

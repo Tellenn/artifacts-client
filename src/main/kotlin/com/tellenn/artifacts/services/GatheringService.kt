@@ -4,10 +4,8 @@ import com.tellenn.artifacts.clients.CharacterClient
 import com.tellenn.artifacts.clients.CraftingClient
 import com.tellenn.artifacts.clients.GatheringClient
 import com.tellenn.artifacts.clients.ItemClient
-import com.tellenn.artifacts.clients.models.ArtifactsCharacter
-import com.tellenn.artifacts.clients.models.ItemDetails
-import com.tellenn.artifacts.clients.responses.ArtifactsResponseBody
-import com.tellenn.artifacts.clients.responses.GatheringResponseBody
+import com.tellenn.artifacts.models.ArtifactsCharacter
+import com.tellenn.artifacts.models.ItemDetails
 import com.tellenn.artifacts.db.documents.ItemDocument
 import com.tellenn.artifacts.db.repositories.ItemRepository
 import org.apache.logging.log4j.LogManager
@@ -21,7 +19,7 @@ import org.springframework.stereotype.Service
 class GatheringService(
     private val gatheringClient: GatheringClient,
     private val itemClient: ItemClient,
-    private val mapProximityService: MapProximityService,
+    private val mapService: MapService,
     private val movementService: MovementService,
     private val bankService: BankService,
     private val characterService: CharacterService,
@@ -65,38 +63,36 @@ class GatheringService(
 
 
     fun craftOrGather(character: ArtifactsCharacter, itemCode: String, quantity: Int, level: Int = 0, allowFight: Boolean = false) : ArtifactsCharacter{
-        val itemDocument = itemRepository.getByCode(itemCode)
-        val sizeForOne = itemService.getInvSizeToCraft(itemDocument)
+        val itemDetails = itemService.getItem(itemCode)
+        val sizeForOne = itemService.getInvSizeToCraft(itemDetails)
         val inventorySizeNeeded = quantity * sizeForOne;
 
         if(inventorySizeNeeded >= character.inventoryMaxItems){
             throw IllegalArgumentException("Cannot craft or gather item with code ${itemCode} because the inventory is full")
         }
 
-        val item = ItemDocument.toItemDetails(itemDocument)
-
-        if(level > 0 && bankService.isInBank(item.code, quantity)){
+        if(level > 0 && bankService.isInBank(itemDetails.code, quantity)){
             bankService.moveToBank(character)
-            return bankService.withdrawOne(item.code, quantity, character)
+            return bankService.withdrawOne(itemDetails.code, quantity, character)
         }
-        if(item.subtype == "mob"){
+        if(itemDetails.subtype == "mob"){
             if(allowFight){
-                battleService.fightToGetItem(character, item.code, quantity, true)
+                battleService.fightToGetItem(character, itemDetails.code, quantity, true)
                 // TODO : fight or train
             }else{
                 throw IllegalArgumentException("Cannot gather mob without fighting enabled")
             }
         }
-        if(item.craft == null){
+        if(itemDetails.craft == null){
             // If there is no craft, we gather
-            return gather(character, item, quantity)
+            return gather(character, itemDetails, quantity)
         }else{
             // Otherwise we craft (and call the same function for it)
             var newCharacter = character
-            for( i in item.craft.items){
+            for( i in itemDetails.craft.items){
                 newCharacter = craftOrGather(newCharacter, i.code, i.quantity*quantity, level + 1)
             }
-            return craft(newCharacter, item, quantity)
+            return craft(newCharacter, itemDetails, quantity)
         }
     }
 
@@ -113,7 +109,7 @@ class GatheringService(
             // TODO : Insufficient level, should make a request or throw error ?
             throw IllegalArgumentException("Insufficient level to gather ${item.code}")
         }else{
-            val mapData = mapProximityService.findClosestMap(character = character, contentCode = resourceService.findResourceContaining(item.code).code)
+            val mapData = mapService.findClosestMap(character = character, contentCode = resourceService.findResourceContaining(item.code).code)
             movementService.moveCharacterToCell(mapData.x, mapData.y, character)
 
             // TODO : Handle max inv size
@@ -128,7 +124,7 @@ class GatheringService(
         // TODO : Check in the inventory if you have what you need. For now we assume you do
 
         val skill = item.craft?.skill
-        val mapData = mapProximityService.findClosestMap(character = character, contentCode = skill)
+        val mapData = mapService.findClosestMap(character = character, contentCode = skill)
         var newCharacter = movementService.moveCharacterToCell(mapData.x, mapData.y, character)
         newCharacter = craftingClient.craft(newCharacter.name, item.code, quantity).data.character
 

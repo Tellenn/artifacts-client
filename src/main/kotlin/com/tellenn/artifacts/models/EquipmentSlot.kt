@@ -1,4 +1,4 @@
-package com.tellenn.artifacts.clients.models
+package com.tellenn.artifacts.models
 
 import java.util.Locale
 import java.util.Locale.getDefault

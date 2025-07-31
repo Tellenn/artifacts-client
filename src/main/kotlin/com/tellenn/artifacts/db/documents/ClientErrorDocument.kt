@@ -1,6 +1,6 @@
 package com.tellenn.artifacts.db.documents
 
-import com.tellenn.artifacts.clients.models.ArtifactsCharacter
+import com.tellenn.artifacts.models.ArtifactsCharacter
 import org.springframework.data.annotation.Id
 import org.springframework.data.mongodb.core.mapping.Document
 import java.time.Instant

@@ -1,17 +1,14 @@
 package com.tellenn.artifacts.services
 
-import com.tellenn.artifacts.clients.models.ArtifactsCharacter
-import com.tellenn.artifacts.clients.models.MapData
-import com.tellenn.artifacts.clients.models.Resource
+import com.tellenn.artifacts.models.ArtifactsCharacter
+import com.tellenn.artifacts.models.MapData
+import com.tellenn.artifacts.models.Resource
 import com.tellenn.artifacts.db.clients.MapMongoClient
-import com.tellenn.artifacts.db.documents.ItemDocument
 import com.tellenn.artifacts.db.documents.ResourceDocument
-import com.tellenn.artifacts.db.repositories.ItemRepository
 import com.tellenn.artifacts.db.repositories.ResourceRepository
 import com.tellenn.artifacts.exceptions.UnknownMapException
 import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Service
-import java.util.Collections.reverseOrder
 
 /**
  * Service for working with resources.
@@ -19,7 +16,7 @@ import java.util.Collections.reverseOrder
  */
 @Service
 class ResourceService(
-    private val mapProximityService: MapProximityService,
+    private val mapService: MapService,
     private val mapMongoClient: MapMongoClient,
     private val resourceRepository: ResourceRepository,
 ) {
@@ -56,7 +53,7 @@ class ResourceService(
         for (resource in availableResources) {
             try {
                 logger.debug("Trying to find map with resource: ${resource.code}")
-                val map = mapProximityService.findClosestMap(
+                val map = mapService.findClosestMap(
                     character = character, 
                     contentType = "resource",
                     contentCode = resource.code

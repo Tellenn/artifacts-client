@@ -1,6 +1,6 @@
 package com.tellenn.artifacts.db.documents
 
-import com.tellenn.artifacts.clients.models.BankDetails
+import com.tellenn.artifacts.models.BankDetails
 import org.springframework.data.annotation.Id
 import org.springframework.data.mongodb.core.mapping.Document
 

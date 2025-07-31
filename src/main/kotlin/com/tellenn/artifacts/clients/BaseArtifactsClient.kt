@@ -3,11 +3,11 @@ package com.tellenn.artifacts.clients
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule
 import com.fasterxml.jackson.module.kotlin.jacksonObjectMapper
 import com.fasterxml.jackson.module.kotlin.readValue
-import com.tellenn.artifacts.clients.models.ArtifactsCharacter
+import com.tellenn.artifacts.models.ArtifactsCharacter
 import com.tellenn.artifacts.clients.responses.ArtifactsResponseBody
 import com.tellenn.artifacts.exceptions.*
 import com.tellenn.artifacts.services.ClientErrorService
-import com.tellenn.artifacts.services.MessageService
+import com.tellenn.artifacts.services.ws.MessageService
 import lombok.extern.slf4j.Slf4j
 import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.OkHttpClient
@@ -326,7 +326,7 @@ abstract class BaseArtifactsClient() {
                     throw mapResponseCodeToException(response.code, "Request failed with status code ${response.code}")
                 }catch (e: ArtifactsApiException){
                     // Log the error to the database
-                    logAndThrowError(response, clientType, path, requestMethod, requestParams, null, responseBodyString)
+                    logAndThrowError(response, clientType, path, requestMethod, body, null, responseBodyString)
                 }
 
 

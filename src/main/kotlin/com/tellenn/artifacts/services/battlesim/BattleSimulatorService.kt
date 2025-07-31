@@ -1,14 +1,10 @@
-package com.tellenn.artifacts.services
+package com.tellenn.artifacts.services.battlesim
 
-import com.tellenn.artifacts.clients.models.ArtifactsCharacter
-import com.tellenn.artifacts.clients.models.Effect
-import com.tellenn.artifacts.db.documents.ItemDocument
-import com.tellenn.artifacts.db.documents.MonsterDocument
+import com.tellenn.artifacts.models.ArtifactsCharacter
+import com.tellenn.artifacts.models.Effect
 import com.tellenn.artifacts.db.repositories.ItemRepository
 import com.tellenn.artifacts.db.repositories.MonsterRepository
-import org.springframework.data.domain.PageRequest
 import kotlin.math.roundToInt
-import kotlin.random.Random
 
 /*
 The battle is made turn by turn.

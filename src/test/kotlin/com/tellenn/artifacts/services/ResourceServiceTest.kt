@@ -1,8 +1,8 @@
 package com.tellenn.artifacts.services
 
-import com.tellenn.artifacts.clients.models.ArtifactsCharacter
-import com.tellenn.artifacts.clients.models.MapContent
-import com.tellenn.artifacts.clients.models.MapData
+import com.tellenn.artifacts.models.ArtifactsCharacter
+import com.tellenn.artifacts.models.MapContent
+import com.tellenn.artifacts.models.MapData
 import com.tellenn.artifacts.config.MongoTestConfiguration
 import com.tellenn.artifacts.db.clients.MapMongoClient
 import com.tellenn.artifacts.db.documents.ResourceDocument
@@ -26,7 +26,7 @@ import org.testcontainers.junit.jupiter.Testcontainers
 class ResourceServiceTest {
 
     private lateinit var resourceService: ResourceService
-    private lateinit var mapProximityService: MapProximityService
+    private lateinit var mapService: MapService
     private lateinit var mapMongoClient: MapMongoClient
     private lateinit var character: ArtifactsCharacter
 
@@ -39,11 +39,11 @@ class ResourceServiceTest {
         resourceRepository.deleteAll()
 
         // Create mocks for services not being tested
-        mapProximityService = mock(MapProximityService::class.java)
+        mapService = mock(MapService::class.java)
         mapMongoClient = mock(MapMongoClient::class.java)
 
         // Create the service with real repository and mocked services
-        resourceService = ResourceService(mapProximityService, mapMongoClient, resourceRepository)
+        resourceService = ResourceService(mapService, mapMongoClient, resourceRepository)
 
         // Create a mock character with mining level 15
         character = mock(ArtifactsCharacter::class.java)
@@ -133,7 +133,7 @@ class ResourceServiceTest {
         )
 
         // Mock the mapProximityService to return the silver map
-        `when`(mapProximityService.findClosestMap(character, "resource", "silver"))
+        `when`(mapService.findClosestMap(character, "resource", "silver"))
             .thenReturn(silverMap)
 
         // Act
@@ -141,7 +141,7 @@ class ResourceServiceTest {
 
         // Assert
         assertEquals(silverMap, result)
-        verify(mapProximityService).findClosestMap(character, "resource", "silver")
+        verify(mapService).findClosestMap(character, "resource", "silver")
     }
 
     @Test
@@ -156,9 +156,9 @@ class ResourceServiceTest {
         )
 
         // Mock the mapProximityService to throw exception for silver but return iron map
-        `when`(mapProximityService.findClosestMap(character, "resource", "silver"))
+        `when`(mapService.findClosestMap(character, "resource", "silver"))
             .thenThrow(UnknownMapException("ore", "silver"))
-        `when`(mapProximityService.findClosestMap(character, "resource", "iron_rocks"))
+        `when`(mapService.findClosestMap(character, "resource", "iron_rocks"))
             .thenReturn(ironMap)
 
         // Act
@@ -166,8 +166,8 @@ class ResourceServiceTest {
 
         // Assert
         assertEquals(ironMap, result)
-        verify(mapProximityService).findClosestMap(character, "resource", "silver")
-        verify(mapProximityService).findClosestMap(character, "resource", "iron_rocks")
+        verify(mapService).findClosestMap(character, "resource", "silver")
+        verify(mapService).findClosestMap(character, "resource", "iron_rocks")
     }
 
     @Test
@@ -175,13 +175,13 @@ class ResourceServiceTest {
         // Arrange
         // Mock the mapProximityService to throw exception for all resources
         // Set up mocks for all possible resource codes
-        `when`(mapProximityService.findClosestMap(character, "resource", "silver"))
+        `when`(mapService.findClosestMap(character, "resource", "silver"))
             .thenThrow(UnknownMapException("ore", "silver"))
-        `when`(mapProximityService.findClosestMap(character, "resource", "iron_rocks"))
+        `when`(mapService.findClosestMap(character, "resource", "iron_rocks"))
             .thenThrow(UnknownMapException("ore", "iron_rocks"))
-        `when`(mapProximityService.findClosestMap(character, "resource", "tin"))
+        `when`(mapService.findClosestMap(character, "resource", "tin"))
             .thenThrow(UnknownMapException("ore", "tin"))
-        `when`(mapProximityService.findClosestMap(character, "resource", "copper_rocks"))
+        `when`(mapService.findClosestMap(character, "resource", "copper_rocks"))
             .thenThrow(UnknownMapException("ore", "copper_rocks"))
 
         // Act & Assert
@@ -216,7 +216,7 @@ class ResourceServiceTest {
         )
 
         // Mock the mapProximityService to return the tin map
-        `when`(mapProximityService.findClosestMap(lowLevelCharacter, "resource", "tin"))
+        `when`(mapService.findClosestMap(lowLevelCharacter, "resource", "tin"))
             .thenReturn(tinMap)
 
         // Act
@@ -224,10 +224,10 @@ class ResourceServiceTest {
 
         // Assert
         assertEquals(tinMap, result)
-        verify(mapProximityService).findClosestMap(lowLevelCharacter, "resource", "tin")
+        verify(mapService).findClosestMap(lowLevelCharacter, "resource", "tin")
         // Verify that it didn't try to find iron or higher level resources
-        verify(mapProximityService, never()).findClosestMap(lowLevelCharacter, "resource", "iron_rocks")
-        verify(mapProximityService, never()).findClosestMap(lowLevelCharacter, "resource", "silver")
+        verify(mapService, never()).findClosestMap(lowLevelCharacter, "resource", "iron_rocks")
+        verify(mapService, never()).findClosestMap(lowLevelCharacter, "resource", "silver")
     }
 
     @Test

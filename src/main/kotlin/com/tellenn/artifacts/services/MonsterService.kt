@@ -1,9 +1,8 @@
 package com.tellenn.artifacts.services
 
 import com.tellenn.artifacts.clients.MapClient
-import com.tellenn.artifacts.clients.models.MapData
-import com.tellenn.artifacts.clients.models.MonsterData
-import com.tellenn.artifacts.db.documents.MapDocument
+import com.tellenn.artifacts.models.MapData
+import com.tellenn.artifacts.models.MonsterData
 import com.tellenn.artifacts.db.documents.MonsterDocument
 import com.tellenn.artifacts.db.repositories.MapRepository
 import com.tellenn.artifacts.db.repositories.MonsterRepository

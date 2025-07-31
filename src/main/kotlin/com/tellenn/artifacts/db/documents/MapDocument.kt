@@ -1,9 +1,9 @@
 package com.tellenn.artifacts.db.documents
 
-import com.tellenn.artifacts.clients.models.MapData
-import com.tellenn.artifacts.clients.models.MapCell
-import com.tellenn.artifacts.clients.models.MapContent
-import com.tellenn.artifacts.clients.models.ArtifactsCharacter
+import com.tellenn.artifacts.models.MapData
+import com.tellenn.artifacts.models.MapCell
+import com.tellenn.artifacts.models.MapContent
+import com.tellenn.artifacts.models.ArtifactsCharacter
 import org.springframework.data.annotation.Id
 import org.springframework.data.mongodb.core.mapping.Document
 

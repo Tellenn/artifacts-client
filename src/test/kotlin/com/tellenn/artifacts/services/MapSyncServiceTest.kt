@@ -1,11 +1,12 @@
 package com.tellenn.artifacts.services
 
 import com.tellenn.artifacts.clients.MapClient
-import com.tellenn.artifacts.clients.models.MapData
-import com.tellenn.artifacts.clients.models.MapContent
+import com.tellenn.artifacts.models.MapData
+import com.tellenn.artifacts.models.MapContent
 import com.tellenn.artifacts.clients.responses.ArtifactsArrayResponseBody
-import com.tellenn.artifacts.db.documents.ServerVersionDocument
 import com.tellenn.artifacts.db.repositories.MapRepository
+import com.tellenn.artifacts.services.sync.MapSyncService
+import com.tellenn.artifacts.services.sync.ServerVersionService
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.Assertions.*

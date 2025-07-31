@@ -1,19 +1,17 @@
 package com.tellenn.artifacts.services
 
-import com.tellenn.artifacts.clients.models.ArtifactsCharacter
-import com.tellenn.artifacts.clients.models.Effect
-import com.tellenn.artifacts.clients.models.MonsterEffect
+import com.tellenn.artifacts.models.ArtifactsCharacter
+import com.tellenn.artifacts.models.Effect
 import com.tellenn.artifacts.db.documents.ItemDocument
 import com.tellenn.artifacts.db.documents.ItemEffectDocument
 import com.tellenn.artifacts.db.documents.MonsterDocument
 import com.tellenn.artifacts.db.repositories.ItemRepository
 import com.tellenn.artifacts.db.repositories.MonsterRepository
+import com.tellenn.artifacts.services.battlesim.BattleSimulatorService
 import org.junit.jupiter.api.Assertions.*
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 import org.mockito.Mockito.*
-import org.springframework.data.domain.PageImpl
-import org.springframework.data.domain.PageRequest
 import java.time.Instant
 
 class BattleSimulatorServiceTest {

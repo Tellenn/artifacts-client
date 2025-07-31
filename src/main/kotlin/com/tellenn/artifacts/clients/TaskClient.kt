@@ -1,10 +1,8 @@
 package com.tellenn.artifacts.clients
 
 import com.fasterxml.jackson.module.kotlin.readValue
-import com.tellenn.artifacts.clients.models.ArtifactsCharacter
-import com.tellenn.artifacts.clients.models.SimpleItem
+import com.tellenn.artifacts.models.SimpleItem
 import com.tellenn.artifacts.clients.responses.ArtifactsResponseBody
-import com.tellenn.artifacts.clients.responses.CraftingResponseBody
 import com.tellenn.artifacts.clients.responses.DataResponseBody
 import com.tellenn.artifacts.clients.responses.RewardDataResponseBody
 import com.tellenn.artifacts.clients.responses.TaskDataResponseBody

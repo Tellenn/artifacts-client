@@ -1,6 +1,6 @@
 package com.tellenn.artifacts.db.clients
 
-import com.tellenn.artifacts.clients.models.ItemDetails
+import com.tellenn.artifacts.models.ItemDetails
 import com.tellenn.artifacts.clients.responses.ArtifactsArrayResponseBody
 import com.tellenn.artifacts.clients.responses.ArtifactsResponseBody
 import com.tellenn.artifacts.db.documents.ItemDocument

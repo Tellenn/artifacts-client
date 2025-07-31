@@ -1,10 +1,11 @@
 package com.tellenn.artifacts.db.clients
 
-import com.tellenn.artifacts.clients.models.MapData
+import com.tellenn.artifacts.models.MapData
 import com.tellenn.artifacts.clients.responses.ArtifactsArrayResponseBody
 import com.tellenn.artifacts.clients.responses.ArtifactsResponseBody
 import com.tellenn.artifacts.db.documents.MapDocument
 import com.tellenn.artifacts.db.repositories.MapRepository
+import com.tellenn.artifacts.models.MapContent
 import org.springframework.data.domain.PageRequest
 import org.springframework.data.domain.Sort
 import org.springframework.data.mongodb.core.MongoTemplate
@@ -107,7 +108,7 @@ class MapMongoClient(
             x = mapDocument.x,
             y = mapDocument.y,
             content = mapDocument.content?.let {
-                com.tellenn.artifacts.clients.models.MapContent(
+                MapContent(
                     type = it.type,
                     code = it.code
                 )

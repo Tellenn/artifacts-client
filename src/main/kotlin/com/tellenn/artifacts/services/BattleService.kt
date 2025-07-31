@@ -1,10 +1,8 @@
 package com.tellenn.artifacts.services
 
 import com.tellenn.artifacts.clients.BattleClient
-import com.tellenn.artifacts.clients.models.ArtifactsCharacter
-import com.tellenn.artifacts.clients.models.ItemDetails
-import com.tellenn.artifacts.clients.models.MonsterData
-import com.tellenn.artifacts.exceptions.BattleFailedException
+import com.tellenn.artifacts.models.ArtifactsCharacter
+import com.tellenn.artifacts.exceptions.BattleLostException
 import org.apache.logging.log4j.LogManager
 import org.springframework.stereotype.Service
 
@@ -13,7 +11,7 @@ class BattleService(
     private val characterService: CharacterService,
     private val battleClient: BattleClient,
     private val monsterService: MonsterService,
-    private val mapProximityService: MapProximityService,
+    private val mapService: MapService,
     private val movementService: MovementService
 ) {
 
@@ -41,7 +39,7 @@ class BattleService(
 
     fun fightToGetItem(character: ArtifactsCharacter, itemCode: String, quantity: Int, shouldTrain: Boolean = false): ArtifactsCharacter {
         val monster = monsterService.findMonsterThatDrop(itemCode)
-        val map = mapProximityService.findClosestMap(character, contentCode = monster?.code)
+        val map = mapService.findClosestMap(character, contentCode = monster?.code)
         var newCharacter = movementService.moveCharacterToCell(map.x, map.y, character)
         try {
             while (!characterService.has(newCharacter, quantity, itemCode)){
@@ -49,7 +47,7 @@ class BattleService(
                 newCharacter = battle(newCharacter)
 
             }
-        }catch (e : BattleFailedException){
+        }catch (e : BattleLostException){
             if(shouldTrain){
                 newCharacter = train(newCharacter, -1)
                 return fightToGetItem(newCharacter, itemCode, quantity, false)
@@ -60,14 +58,14 @@ class BattleService(
 
     fun train(character: ArtifactsCharacter, penalty: Int) : ArtifactsCharacter{
         val monster = monsterService.findStrongestMonsterUnderLevel(character.level + penalty)
-        val mapData = mapProximityService.findClosestMap(character, contentCode = monster.code)
+        val mapData = mapService.findClosestMap(character, contentCode = monster.code)
 
         var newCharacter = movementService.moveCharacterToCell(mapData.x, mapData.y, character)
         try {
             while (character.level == newCharacter.level){
                 newCharacter = battle(newCharacter)
             }
-        }catch (e : BattleFailedException){
+        }catch (e : BattleLostException){
             train(character, penalty-1)
         }
         return newCharacter
@@ -87,7 +85,7 @@ class BattleService(
         if (response.data.fight?.result.equals("loss")) {
             currentCharacter = characterService.rest(currentCharacter)
             log.error("Character ${currentCharacter.name} lost the fight, resting...")
-            throw BattleFailedException()
+            throw BattleLostException()
         }
         // TODO : If you have fish equipped, take it
         if(currentCharacter.hp * 2 < currentCharacter.maxHp){
