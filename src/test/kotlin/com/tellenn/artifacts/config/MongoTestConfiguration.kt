@@ -26,7 +26,6 @@ class MongoTestConfiguration {
     @Primary
     fun mongoTemplate(): MongoTemplate {
         val connectionString = mongoDBContainer.replicaSetUrl
-        println("I setup the uri here : $connectionString")
         val factory = SimpleMongoClientDatabaseFactory(connectionString)
         return MongoTemplate(factory)
     }

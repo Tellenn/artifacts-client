@@ -29,17 +29,10 @@ class MapSyncService(
     @Transactional
     fun syncWholeMap(pageSize: Int = 50, forceSync: Boolean = false): Int {
         logger.info("Starting map sync process for the entire map")
-        println("[DEBUG_LOG] Starting map sync process for the entire map")
 
         // Empty the database
         logger.debug("Emptying maps collection")
-        println("[DEBUG_LOG] Emptying maps collection")
         mapRepository.deleteAll()
-
-        // Define the starting point for the map
-        // Using the same values as in the tests (0,0)
-        val startX = 0
-        val startY = 0
 
         var currentPage = 1
         var totalPages = 1
@@ -69,7 +62,6 @@ class MapSyncService(
                 currentPage++
             } catch (e: Exception) {
                 logger.error("Failed to fetch maps page $currentPage", e)
-                println("[DEBUG_LOG] Failed to fetch maps page $currentPage: ${e.message}")
                 break
             }
         } while (currentPage <= totalPages)

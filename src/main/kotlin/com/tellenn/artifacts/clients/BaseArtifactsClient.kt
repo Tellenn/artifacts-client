@@ -370,7 +370,7 @@ abstract class BaseArtifactsClient() {
         responseBodyString: String
     ): Nothing {
         try {
-            throw mapResponseCodeToException(response?.code ?: 500, "Request failed with status code ${response?.code ?: 500}")
+            throw mapResponseCodeToException(response?.code ?: 999, "Request failed with status code ${response?.code ?: 999}")
         } catch (e: ArtifactsApiException) {
 
             var character: ArtifactsCharacter? = null
@@ -392,8 +392,8 @@ abstract class BaseArtifactsClient() {
                 requestParams = requestParams,
                 requestBody = requestBody,
                 responseBody = responseBodyString,
-                errorCode = response?.code ?: 500,
-                errorMessage = "Request failed with status code ${response?.code ?: 500}",
+                errorCode = response?.code ?: 999,
+                errorMessage = "Request failed with status code ${response?.code ?: 999}",
                 character = character,
                 stackTrace = e.stackTraceToString()
             )

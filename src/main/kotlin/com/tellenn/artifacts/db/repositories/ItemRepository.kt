@@ -4,7 +4,6 @@ import com.tellenn.artifacts.db.documents.ItemDocument
 import org.springframework.data.domain.Page
 import org.springframework.data.domain.Pageable
 import org.springframework.data.mongodb.repository.MongoRepository
-import org.springframework.data.mongodb.repository.Query
 import org.springframework.stereotype.Repository
 
 @Repository
@@ -35,4 +34,6 @@ interface ItemRepository : MongoRepository<ItemDocument, String> {
     fun findByCraftItemsCode(code: String) : List<ItemDocument>
 
     fun findByCraftSkillAndSubtypeAndLevelLessThanEqualOrderByLevelDesc(skillType: String, subtype: String, maxLevel: Int) : List<ItemDocument>
+
+    fun findByCraftSkillAndLevelLessThanEqualOrderByLevelAsc(skillType: String, maxLevel: Int) : List<ItemDocument>
 }

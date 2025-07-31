@@ -33,13 +33,4 @@ class MonsterDrop(
 class MonsterEffect(
     @JsonAlias("code") val code: String,
     @JsonAlias("value") val value: Int
-){
-    companion object {
-        fun fromEffect(effect: Effect): MonsterEffect {
-            return MonsterEffect(
-                code = effect.code,
-                value = effect.value
-            )
-        }
-    }
-}
+)

@@ -72,4 +72,10 @@ class CharacterService(
         return inventoryCount >= (character.inventoryMaxItems -5)
     }
 
+    fun has(character: ArtifactsCharacter, quantity: Int, itemcode: String): Boolean {
+        var count = 0
+        character.inventory?.filter { it.code == itemcode }?.forEach { count += it.quantity }
+        return count >= quantity
+    }
+
 }

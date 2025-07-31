@@ -28,7 +28,9 @@ class GatheringService(
     private val itemRepository: ItemRepository,
     private val characterClient: CharacterClient,
     private val craftingClient: CraftingClient,
-    private val resourceService: ResourceService
+    private val resourceService: ResourceService,
+    private val itemService: ItemService,
+    private val battleService: BattleService
 ) {
     private val log = LogManager.getLogger(GatheringService::class.java)
 
@@ -63,7 +65,15 @@ class GatheringService(
 
 
     fun craftOrGather(character: ArtifactsCharacter, itemCode: String, quantity: Int, level: Int = 0, allowFight: Boolean = false) : ArtifactsCharacter{
-        val item = itemClient.getItemDetails(itemCode).data
+        val itemDocument = itemRepository.getByCode(itemCode)
+        val sizeForOne = itemService.getInvSizeToCraft(itemDocument)
+        val inventorySizeNeeded = quantity * sizeForOne;
+
+        if(inventorySizeNeeded >= character.inventoryMaxItems){
+            throw IllegalArgumentException("Cannot craft or gather item with code ${itemCode} because the inventory is full")
+        }
+
+        val item = ItemDocument.toItemDetails(itemDocument)
 
         if(level > 0 && bankService.isInBank(item.code, quantity)){
             bankService.moveToBank(character)
@@ -71,6 +81,7 @@ class GatheringService(
         }
         if(item.subtype == "mob"){
             if(allowFight){
+                battleService.fightToGetItem(character, item.code, quantity, true)
                 // TODO : fight or train
             }else{
                 throw IllegalArgumentException("Cannot gather mob without fighting enabled")

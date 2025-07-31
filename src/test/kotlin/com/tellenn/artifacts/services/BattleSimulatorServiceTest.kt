@@ -156,7 +156,7 @@ class BattleSimulatorServiceTest {
             defenseEarth = 20,
             defenseAir = 20,
             criticalStrike = 10,
-            effects = listOf(MonsterEffect("poison", 10)),
+            effects = listOf(Effect("poison", 10, "")),
             minGold = 30,
             maxGold = 60,
             drops = null
@@ -435,7 +435,7 @@ class BattleSimulatorServiceTest {
             defenseEarth = 20,
             defenseAir = 20,
             criticalStrike = 0,
-            effects = listOf(MonsterEffect("burn", 20)), // 20% burn effect
+            effects = listOf(Effect("burn", 20, "")), // 20% burn effect
             minGold = 30,
             maxGold = 60,
             drops = null

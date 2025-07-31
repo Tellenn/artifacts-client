@@ -19,7 +19,7 @@ class ItemDetails(
 class Effect(
     @JsonAlias("code") val code: String,
     @JsonAlias("value") val value: Int,
-    @JsonAlias("description") val description: String
+    @JsonAlias("description") val description: String?
 )
 
 class ItemCraft(

@@ -47,4 +47,6 @@ class MapClient : BaseArtifactsClient() {
 
         return if (queryParams.isNotEmpty()) "?$queryParams" else ""
     }
+
+    fun findByContentCode(monsterCode: String) {}
 }

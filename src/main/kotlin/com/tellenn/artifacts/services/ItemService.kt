@@ -1,17 +1,11 @@
 package com.tellenn.artifacts.services
 
-import com.tellenn.artifacts.clients.models.ArtifactsCharacter
-import com.tellenn.artifacts.clients.models.MapData
-import com.tellenn.artifacts.clients.models.Resource
 import com.tellenn.artifacts.db.clients.MapMongoClient
 import com.tellenn.artifacts.db.documents.ItemDocument
-import com.tellenn.artifacts.db.documents.ResourceDocument
 import com.tellenn.artifacts.db.repositories.ItemRepository
 import com.tellenn.artifacts.db.repositories.ResourceRepository
-import com.tellenn.artifacts.exceptions.UnknownMapException
 import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Service
-import java.util.Collections.reverseOrder
 
 /**
  * Service for working with resources.
@@ -44,6 +38,10 @@ class ItemService(
             }
         }
         return count
+    }
+
+    fun getAllCraftBySkillUnderLevel(skill : String, level: Int ) : List<ItemDocument> {
+        return itemRepository.findByCraftSkillAndLevelLessThanEqualOrderByLevelAsc(skill, level)
     }
 
 }

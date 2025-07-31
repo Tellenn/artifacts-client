@@ -28,11 +28,9 @@ class MonsterSyncService(
     @Transactional
     fun syncAllMonsters(pageSize: Int = 50, forceSync: Boolean = false): Int {
         logger.info("Starting monster sync process")
-        println("[DEBUG_LOG] Starting monster sync process")
 
         // Empty the database
         logger.info("Emptying monsters collection")
-        println("[DEBUG_LOG] Emptying monsters collection")
         monsterRepository.deleteAll()
 
         var currentPage = 1
@@ -42,7 +40,6 @@ class MonsterSyncService(
         // Fetch all pages of monsters
         do {
             logger.debug("Fetching monsters page $currentPage of $totalPages")
-            println("[DEBUG_LOG] Fetching monsters page $currentPage of $totalPages")
 
             try {
                 val response = monsterClient.getMonsters(
@@ -58,12 +55,10 @@ class MonsterSyncService(
 
                 totalMonstersProcessed += dataPage.size
                 logger.debug("Processed ${dataPage.size} monsters from page $currentPage")
-                println("[DEBUG_LOG] Processed ${dataPage.size} monsters from page $currentPage")
                 sleep(500)
                 currentPage++
             } catch (e: Exception) {
                 logger.error("Failed to fetch monsters page $currentPage", e)
-                println("[DEBUG_LOG] Failed to fetch monsters page $currentPage: ${e.message}")
                 break
             }
         } while (currentPage <= totalPages)
@@ -71,7 +66,6 @@ class MonsterSyncService(
         // Save the server version after successful sync
         serverVersionService.updateServerVersion()
         logger.info("Monster sync completed and server version updated. Total monsters synced: $totalMonstersProcessed")
-        println("[DEBUG_LOG] Monster sync completed and server version updated. Total monsters synced: $totalMonstersProcessed")
         return totalMonstersProcessed
     }
 

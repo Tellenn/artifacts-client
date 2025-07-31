@@ -1,11 +1,11 @@
 package com.tellenn.artifacts.db.documents
 
-import com.fasterxml.jackson.annotation.JsonAlias
 import com.tellenn.artifacts.clients.models.Effect
 import com.tellenn.artifacts.clients.models.MonsterData
 import com.tellenn.artifacts.clients.models.MonsterDrop
 import com.tellenn.artifacts.clients.models.MonsterEffect
 import org.springframework.data.annotation.Id
+import org.springframework.data.domain.Page
 import org.springframework.data.mongodb.core.mapping.Document
 
 @Document(collection = "monsters")
@@ -24,7 +24,7 @@ data class MonsterDocument(
     val defenseEarth: Int,
     val defenseAir: Int,
     val criticalStrike: Int,
-    val effects: List<MonsterEffect>,
+    val effects: List<Effect>,
     val minGold: Int,
     val maxGold: Int,
     val drops: List<MonsterDropDocument>?
@@ -45,10 +45,32 @@ data class MonsterDocument(
                 defenseEarth = monsterData.defenseEarth,
                 defenseAir = monsterData.defenseAir,
                 criticalStrike = monsterData.criticalStrike,
-                effects = monsterData.effects.map { MonsterEffect.fromEffect(it) },
+                effects = monsterData.effects,
                 minGold = monsterData.minGold,
                 maxGold = monsterData.maxGold,
                 drops = monsterData.drops?.map { MonsterDropDocument.fromMonsterDrop(it) }
+            )
+        }
+
+        fun toMonsterData(monsterDocument: MonsterDocument) : MonsterData {
+            return MonsterData(
+                code = monsterDocument.code,
+                name = monsterDocument.name,
+                level = monsterDocument.level,
+                hp = monsterDocument.hp,
+                attackFire = monsterDocument.attackFire,
+                attackWater = monsterDocument.attackWater,
+                attackEarth = monsterDocument.attackEarth,
+                attackAir = monsterDocument.attackAir,
+                defenseFire = monsterDocument.defenseFire,
+                defenseWater = monsterDocument.defenseWater,
+                defenseEarth = monsterDocument.defenseEarth,
+                defenseAir = monsterDocument.defenseAir,
+                criticalStrike = monsterDocument.criticalStrike,
+                effects = monsterDocument.effects,
+                minGold = monsterDocument.minGold,
+                maxGold = monsterDocument.maxGold,
+                drops = monsterDocument.drops?.map { MonsterDropDocument.toMonsterDrop(it) }
             )
         }
     }
@@ -67,6 +89,15 @@ data class MonsterDropDocument(
                 minQuantity = monsterDrop.minQuantity,
                 maxQuantity = monsterDrop.maxQuantity,
                 rate = monsterDrop.rate
+            )
+        }
+
+        fun toMonsterDrop(it: MonsterDropDocument): MonsterDrop {
+            return MonsterDrop(
+                code = it.code,
+                minQuantity = it.minQuantity,
+                maxQuantity = it.maxQuantity,
+                rate = it.rate
             )
         }
     }

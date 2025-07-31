@@ -58,7 +58,7 @@ data class ItemDocument(
 data class ItemEffectDocument(
     val code: String,
     val value: Int,
-    val description: String
+    val description: String?
 ) {
     companion object {
         fun fromItemEffect(itemEffect: Effect): ItemEffectDocument {
