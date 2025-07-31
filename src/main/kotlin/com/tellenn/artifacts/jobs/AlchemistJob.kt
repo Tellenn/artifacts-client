@@ -55,14 +55,16 @@ class AlchemistJob(
                 // Otherwise levelup
             }else if(character.alchemyLevel < maxLevel){
                 val item =
-                    itemService.getBestCraftableItemsBySkillAndSubtypeAndMaxLevel(skill, "bar", character.alchemyLevel)
+                    itemService.getBestCraftableItemsBySkillAndSubtypeAndMaxLevel(skill, "potion", character.alchemyLevel)
                 if (item == null) {
                     throw Exception("No craftable item found")
                 }
                 character = gatheringService.craftOrGather(
-                    character,
-                    item.code,
-                    (character.inventoryMaxItems -10 )/ itemService.getInvSizeToCraft(item)
+                    character = character,
+                    itemCode = item.code,
+                    quantity = (character.inventoryMaxItems -10 )/ itemService.getInvSizeToCraft(item),
+                    allowFight = true
+
                 )
                 character = bankService.emptyInventory(character)
 

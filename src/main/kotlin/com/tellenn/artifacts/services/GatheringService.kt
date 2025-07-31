@@ -78,7 +78,6 @@ class GatheringService(
         if(itemDetails.subtype == "mob"){
             if(allowFight){
                 battleService.fightToGetItem(character, itemDetails.code, quantity, true)
-                // TODO : fight or train
             }else{
                 throw IllegalArgumentException("Cannot gather mob without fighting enabled")
             }
@@ -90,7 +89,7 @@ class GatheringService(
             // Otherwise we craft (and call the same function for it)
             var newCharacter = character
             for( i in itemDetails.craft.items){
-                newCharacter = craftOrGather(newCharacter, i.code, i.quantity*quantity, level + 1)
+                newCharacter = craftOrGather(newCharacter, i.code, i.quantity*quantity, level + 1, allowFight)
             }
             return craft(newCharacter, itemDetails, quantity)
         }

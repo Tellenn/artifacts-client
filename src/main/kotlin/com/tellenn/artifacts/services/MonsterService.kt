@@ -29,7 +29,7 @@ class MonsterService(
 
     fun findStrongestMonsterUnderLevel(level: Int) : MonsterData{
         return MonsterDocument.toMonsterData(
-            monsterRepository.findFirstByLevelLessThanEqualOrderByLevelDesc(level)
+            monsterRepository.findFirstByLevelLessThanEqualOrderByLevelDesc(level.coerceAtLeast(1))
         )
     }
 }
