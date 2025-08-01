@@ -65,8 +65,8 @@ class WoodworkerJob(
 
                 // Or do some tasks to get task coins
             }else{
-                throw ExecutionControl.NotImplementedException("Should not reach this code")
-                // TODO : Tasks or monster grind ?
+                log.error("Should not reach this code")
+            // TODO : Tasks or monster grind ?
             }
 
         }while(true)

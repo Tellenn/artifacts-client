@@ -25,7 +25,6 @@ class AlchemistJob(
     movementService: MovementService,
     bankService: BankService,
     characterService: CharacterService,
-    private val resourceService: ResourceService,
     private val gatheringService: GatheringService,
     private val itemService: ItemService
 ) : GenericJob(mapService, applicationContext, movementService, bankService, characterService) {
@@ -70,7 +69,7 @@ class AlchemistJob(
 
                 // Or do some tasks to get task coins
             }else{
-                throw ExecutionControl.NotImplementedException("Should not reach this code yet")
+                log.error("Should not reach this code")
                 // TODO : Tasks or monster grind ?
             }
 

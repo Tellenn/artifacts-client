@@ -66,7 +66,7 @@ class MinerJob(
 
                 // Or do some tasks to get task coins
             }else{
-                throw ExecutionControl.NotImplementedException("Should not reach this code")
+                log.error("Should not reach this code")
                 // TODO : Tasks or monster grind ?
             }
 
