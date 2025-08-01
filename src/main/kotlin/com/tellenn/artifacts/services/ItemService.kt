@@ -1,9 +1,7 @@
 package com.tellenn.artifacts.services
 
-import com.tellenn.artifacts.db.clients.MapMongoClient
 import com.tellenn.artifacts.db.documents.ItemDocument
 import com.tellenn.artifacts.db.repositories.ItemRepository
-import com.tellenn.artifacts.db.repositories.ResourceRepository
 import com.tellenn.artifacts.models.ItemDetails
 import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Service
@@ -50,6 +48,14 @@ class ItemService(
 
     fun getItem(itemCode: String) : ItemDetails {
         return ItemDocument.toItemDetails(itemRepository.getByCode(itemCode))
+    }
+
+    fun getCrafterItemsBetweenLevel(level: Int, minLevel: Int, skills : List<String>) : List<ItemDetails> {
+
+        return itemRepository
+            .findByLevelBetween(level,minLevel)
+            .filter { it.craft != null && skills.contains(it.craft.skill) }
+            .map { ItemDocument.toItemDetails(it) }
     }
 
 }
