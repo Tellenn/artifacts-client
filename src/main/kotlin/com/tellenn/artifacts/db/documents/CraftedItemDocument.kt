@@ -5,7 +5,7 @@ import com.tellenn.artifacts.db.documents.ItemEffectDocument.Companion.fromItemE
 import org.springframework.data.annotation.Id
 import org.springframework.data.mongodb.core.mapping.Document
 
-@Document(collection = "bankItems")
+@Document(collection = "craftedItems")
 data class CraftedItemDocument(
     @Id
     val code: String,

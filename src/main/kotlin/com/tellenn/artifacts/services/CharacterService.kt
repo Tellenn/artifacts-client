@@ -39,6 +39,10 @@ class CharacterService(
         return characterClient.equipItem(character.name, code, slot, quantity).data.character
     }
 
+    fun unequip(character: ArtifactsCharacter, slot: String, quantity: Int): ArtifactsCharacter {
+        return characterClient.unequipItem(character.name, slot, quantity).data.character
+    }
+
     /**
      * Counts the number of items in a character's inventory.
      *

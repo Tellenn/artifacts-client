@@ -78,7 +78,7 @@ class ResourceService(
      * @return List of resources for the specified skill
      */
     fun getResourcesBySkill(skillType: String): List<Resource> {
-        logger.info("Getting resources for skill: $skillType")
+        logger.debug("Getting resources for skill: $skillType")
         val resources = resourceRepository.findBySkill(skillType)
         return resources.map { ResourceDocument.toResource(it) }
     }
@@ -91,7 +91,7 @@ class ResourceService(
      * @return List of resources for the specified skill up to the maximum level
      */
     fun getResourcesBySkillAndMaxLevel(skillType: String, maxLevel: Int): List<Resource> {
-        logger.info("Getting resources for skill: $skillType with max level: $maxLevel")
+        logger.debug("Getting resources for skill: $skillType with max level: $maxLevel")
         val resources = resourceRepository.findBySkillAndLevelLessThanEqual(skillType, maxLevel)
         return resources.map { ResourceDocument.toResource(it) }
     }

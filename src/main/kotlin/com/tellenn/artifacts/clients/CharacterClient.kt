@@ -1,7 +1,6 @@
 package com.tellenn.artifacts.clients
 
 import com.fasterxml.jackson.module.kotlin.readValue
-import com.tellenn.artifacts.models.EquipmentSlot
 import com.tellenn.artifacts.models.SimpleItem
 import com.tellenn.artifacts.clients.requests.EquipRequest
 import com.tellenn.artifacts.clients.requests.UnequipRequest
@@ -32,8 +31,8 @@ class CharacterClient : BaseArtifactsClient() {
         }
     }
 
-    fun unequipItem(characterName: String, slot: EquipmentSlot): ArtifactsResponseBody<EquipmentResponseBody> {
-        val request = UnequipRequest(slot.toString())
+    fun unequipItem(characterName: String, slot: String, quantity: Int): ArtifactsResponseBody<EquipmentResponseBody> {
+        val request = UnequipRequest(slot.toString(), quantity)
         val requestBody = objectMapper.writeValueAsString(request)
         return sendPostRequest("/my/$characterName/action/unequip", requestBody).use { response ->
             val responseBody = response.body!!.string()

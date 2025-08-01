@@ -1,5 +1,6 @@
 package com.tellenn.artifacts.services
 
+import com.tellenn.artifacts.clients.AccountClient
 import com.tellenn.artifacts.clients.BattleClient
 import com.tellenn.artifacts.models.ArtifactsCharacter
 import com.tellenn.artifacts.exceptions.BattleLostException
@@ -12,7 +13,9 @@ class BattleService(
     private val battleClient: BattleClient,
     private val monsterService: MonsterService,
     private val mapService: MapService,
-    private val movementService: MovementService
+    private val movementService: MovementService,
+    private val accountClient: AccountClient,
+    private val equipmentService: EquipmentService
 ) {
 
     private val log = LogManager.getLogger(GatheringService::class.java)
@@ -39,8 +42,13 @@ class BattleService(
 
     fun fightToGetItem(character: ArtifactsCharacter, itemCode: String, quantity: Int, shouldTrain: Boolean = false): ArtifactsCharacter {
         val monster = monsterService.findMonsterThatDrop(itemCode)
-        val map = mapService.findClosestMap(character, contentCode = monster?.code)
-        var newCharacter = movementService.moveCharacterToCell(map.x, map.y, character)
+        if(monster == null){
+            log.error("Monster with code $itemCode not found")
+            return character
+        }
+        val map = mapService.findClosestMap(character, contentCode = monster.code)
+        var newCharacter = equipmentService.equipBestAvailableEquipmentForMonsterInBank(character, monster.code)
+        newCharacter = movementService.moveCharacterToCell(map.x, map.y, newCharacter)
         try {
             while (!characterService.has(newCharacter, quantity, itemCode)){
                 // TODO : add protection for full inventory
@@ -48,6 +56,7 @@ class BattleService(
 
             }
         }catch (e : BattleLostException){
+            newCharacter = accountClient.getCharacter(newCharacter.name).data
             if(shouldTrain){
                 newCharacter = train(newCharacter, -1)
                 return fightToGetItem(newCharacter, itemCode, quantity, false)
@@ -66,7 +75,8 @@ class BattleService(
                 newCharacter = battle(newCharacter)
             }
         }catch (e : BattleLostException){
-            train(character, penalty-1)
+            newCharacter = accountClient.getCharacter(newCharacter.name).data
+            newCharacter = train(newCharacter, penalty-1)
         }
         return newCharacter
     }

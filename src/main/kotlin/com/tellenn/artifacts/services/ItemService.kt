@@ -5,6 +5,7 @@ import com.tellenn.artifacts.db.repositories.ItemRepository
 import com.tellenn.artifacts.models.ItemDetails
 import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Service
+import kotlin.math.max
 
 /**
  * Service for working with resources.
@@ -17,13 +18,13 @@ class ItemService(
     private val logger = LoggerFactory.getLogger(ItemService::class.java)
 
     fun getBestCraftableItemsBySkillAndSubtypeAndMaxLevel(skillType: String, subType:String, maxLevel: Int): ItemDetails?{
-        logger.info("Getting resources for skill: $skillType with max level: $maxLevel")
+        logger.debug("Getting resources for skill: $skillType with max level: $maxLevel")
         var items = itemRepository.findByCraftSkillAndSubtypeAndLevelLessThanEqualOrderByLevelDesc(skillType, subType, maxLevel)
         items = items.filter { it.craft != null } .toList()
         return ItemDocument.toItemDetails(items.first())
     }
     fun getAllCraftableItemsBySkillAndSubtypeAndMaxLevel(skillType: String, subType:String, maxLevel: Int): List<ItemDetails>{
-        logger.info("Getting resources for skill: $skillType with max level: $maxLevel")
+        logger.debug("Getting resources for skill: $skillType with max level: $maxLevel")
         var items = itemRepository.findByCraftSkillAndSubtypeAndLevelLessThanEqualOrderByLevelDesc(skillType, subType, maxLevel)
         items = items.filter { it.craft != null }
         return items.map{ItemDocument.toItemDetails(it)}
@@ -53,7 +54,7 @@ class ItemService(
     fun getCrafterItemsBetweenLevel(level: Int, minLevel: Int, skills : List<String>) : List<ItemDetails> {
 
         return itemRepository
-            .findByLevelBetween(level,minLevel)
+            .findByLevelBetween(level, max(1,minLevel))
             .filter { it.craft != null && skills.contains(it.craft.skill) }
             .map { ItemDocument.toItemDetails(it) }
     }

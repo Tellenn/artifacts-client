@@ -10,6 +10,7 @@ import com.tellenn.artifacts.services.ItemService
 import com.tellenn.artifacts.services.MapService
 import com.tellenn.artifacts.services.MovementService
 import com.tellenn.artifacts.services.ResourceService
+import com.tellenn.artifacts.services.TaskService
 import jdk.jshell.spi.ExecutionControl
 import org.springframework.context.ApplicationContext
 import org.springframework.stereotype.Component
@@ -26,7 +27,8 @@ class MinerJob(
     characterService: CharacterService,
     private val resourceService: ResourceService,
     private val gatheringService: GatheringService,
-    private val itemService: ItemService
+    private val itemService: ItemService,
+    private val taskService: TaskService
 ) : GenericJob(mapService, applicationContext, movementService, bankService, characterService) {
 
     lateinit var character: ArtifactsCharacter
@@ -38,9 +40,9 @@ class MinerJob(
 
         do{
             val itemsToCraft = ArrayList<SimpleItem>()
-            itemService.getAllCraftBySkillUnderLevel(skill, character.miningLevel).forEach {
+            itemService.getAllCraftBySkillUnderLevel(skill, character.miningLevel).filter { it.subtype != "precious_stone" }.forEach {
                 if(!bankService.isInBank(it.code, 200)){
-                    itemsToCraft.add(SimpleItem(it.code, (character.inventoryMaxItems - 10) / itemService.getInvSizeToCraft(it) ))
+                    itemsToCraft.add(SimpleItem(it.code, (character.inventoryMaxItems - 20) / itemService.getInvSizeToCraft(it) ))
                 }
             }
 
@@ -66,8 +68,8 @@ class MinerJob(
 
                 // Or do some tasks to get task coins
             }else{
-                log.error("Should not reach this code")
-                // TODO : Tasks or monster grind ?
+                character = taskService.getNewItemTask(character)
+                character = taskService.doCharacterTask(character)
             }
 
         }while(true)

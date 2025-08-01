@@ -270,7 +270,7 @@ class MainRuntime(
         try {
             // Create and run the appropriate job based on the character's job type
             when (config.job.lowercase()) {
-                "crafter" -> alchemistJob.run(character)
+                "crafter" -> crafterJob.run(character)
                 "fighter" -> fighterJob.run(character)
                 "alchemist" -> alchemistJob.run(character)
                 "miner" -> minerJob.run(character)

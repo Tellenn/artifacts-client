@@ -73,8 +73,7 @@ class TaskService(
             }
             return newCharacter
         }
-        character.taskType
-        return gatheringClient.gather(character.name).data.character
+        return character
     }
 
     fun completeItemTask(character: ArtifactsCharacter) : ArtifactsCharacter{

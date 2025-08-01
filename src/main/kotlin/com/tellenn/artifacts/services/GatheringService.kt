@@ -6,7 +6,6 @@ import com.tellenn.artifacts.clients.GatheringClient
 import com.tellenn.artifacts.clients.ItemClient
 import com.tellenn.artifacts.models.ArtifactsCharacter
 import com.tellenn.artifacts.models.ItemDetails
-import com.tellenn.artifacts.db.documents.ItemDocument
 import com.tellenn.artifacts.db.repositories.ItemRepository
 import org.apache.logging.log4j.LogManager
 import org.springframework.stereotype.Service
@@ -62,7 +61,7 @@ class GatheringService(
 
 
 
-    fun craftOrGather(character: ArtifactsCharacter, itemCode: String, quantity: Int, level: Int = 0, allowFight: Boolean = false) : ArtifactsCharacter{
+    fun craftOrGather(character: ArtifactsCharacter, itemCode: String, quantity: Int, functionLevel: Int = 0, allowFight: Boolean = false) : ArtifactsCharacter{
         val itemDetails = itemService.getItem(itemCode)
         val sizeForOne = itemService.getInvSizeToCraft(itemDetails)
         val inventorySizeNeeded = quantity * sizeForOne;
@@ -71,16 +70,20 @@ class GatheringService(
             throw IllegalArgumentException("Cannot craft or gather item with code ${itemCode} because the inventory is full")
         }
 
-        if(level > 0 && bankService.isInBank(itemDetails.code, quantity)){
+        if(functionLevel > 0 && bankService.isInBank(itemDetails.code, quantity)){
             bankService.moveToBank(character)
             return bankService.withdrawOne(itemDetails.code, quantity, character)
         }
         if(itemDetails.subtype == "mob"){
             if(allowFight){
-                battleService.fightToGetItem(character, itemDetails.code, quantity, true)
+                return battleService.fightToGetItem(character, itemDetails.code, quantity, true)
             }else{
                 throw IllegalArgumentException("Cannot gather mob without fighting enabled")
             }
+        }
+        // Specific for tutorial item
+        if(itemDetails.code == "wooden_stick"){
+            return characterService.unequip(character, "weapon", 1)
         }
         if(itemDetails.craft == null){
             // If there is no craft, we gather
@@ -89,7 +92,7 @@ class GatheringService(
             // Otherwise we craft (and call the same function for it)
             var newCharacter = character
             for( i in itemDetails.craft.items){
-                newCharacter = craftOrGather(newCharacter, i.code, i.quantity*quantity, level + 1, allowFight)
+                newCharacter = craftOrGather(newCharacter, i.code, i.quantity*quantity, functionLevel + 1, allowFight)
             }
             return craft(newCharacter, itemDetails, quantity)
         }

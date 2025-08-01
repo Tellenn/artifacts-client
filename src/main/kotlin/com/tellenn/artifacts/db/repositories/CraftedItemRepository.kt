@@ -5,9 +5,18 @@ import com.tellenn.artifacts.db.documents.ItemDocument
 import org.springframework.data.mongodb.repository.MongoRepository
 import org.springframework.stereotype.Repository
 
-@Repository
-interface CraftedItemRepository : MongoRepository<CraftedItemDocument, String> {
+/**
+ * Custom interface for CraftedItemRepository to add custom methods
+ */
+interface CraftedItemRepositoryCustom {
+    fun save(item: CraftedItemDocument): CraftedItemDocument
+}
 
-    fun findByLevelBetween(minLevel: Int, maxLevel: Int) : List<CraftedItemDocument>
+@Repository
+interface CraftedItemRepository : MongoRepository<CraftedItemDocument, String>, CraftedItemRepositoryCustom {
+
+    fun findByLevelBetween(minLevel: Int, maxLevel: Int): List<CraftedItemDocument>
+    
+    fun findByCode(code: String): CraftedItemDocument?
 
 }
