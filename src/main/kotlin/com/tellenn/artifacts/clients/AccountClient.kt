@@ -1,51 +1,19 @@
 package com.tellenn.artifacts.clients
 
 import com.fasterxml.jackson.module.kotlin.readValue
-import com.tellenn.artifacts.models.BankDetails
 import com.tellenn.artifacts.models.AccountDetails
 import com.tellenn.artifacts.models.ArtifactsCharacter
-import com.tellenn.artifacts.models.BankItem
 import com.tellenn.artifacts.models.GEOrder
 import com.tellenn.artifacts.models.GEOrderHistory
-import com.tellenn.artifacts.clients.requests.ChangePasswordRequest
 import com.tellenn.artifacts.clients.requests.CreateCharacterRequest
 import com.tellenn.artifacts.clients.responses.ArtifactsArrayResponseBody
 import com.tellenn.artifacts.clients.responses.ArtifactsResponseBody
-import com.tellenn.artifacts.db.documents.BankDocument
-import com.tellenn.artifacts.db.repositories.BankRepository
 import lombok.extern.slf4j.Slf4j
 import org.springframework.stereotype.Service
 
 @Slf4j
 @Service
-class AccountClient(private val bankRepository: BankRepository) : BaseArtifactsClient() {
-
-    fun getBankDetails(): ArtifactsResponseBody<BankDetails> {
-        val result = sendGetRequest("/my/bank").use { response ->
-            val responseBody = response.body!!.string()
-            objectMapper.readValue<ArtifactsResponseBody<BankDetails>>(responseBody)
-        }
-
-        // Sync with repository if data is available
-        if (result.data != null) {
-            val bankDocument = BankDocument.fromBankDetails(result.data)
-            bankRepository.save(bankDocument)
-        }
-
-        return result
-    }
-
-    fun getBankItems(itemCode: String? = null, page: Int = 1, size: Int = 50): ArtifactsArrayResponseBody<BankItem> {
-        val queryParams = buildQueryParams(
-            "item_code" to itemCode,
-            "page" to page.toString(),
-            "size" to size.toString()
-        )
-        return sendGetRequest("/my/bank/items$queryParams").use { response ->
-            val responseBody = response.body!!.string()
-            objectMapper.readValue<ArtifactsArrayResponseBody<BankItem>>(responseBody)
-        }
-    }
+class AccountClient() : BaseArtifactsClient() {
 
     fun getGESellOrders(code: String? = null, page: Int = 1, size: Int = 50): ArtifactsArrayResponseBody<GEOrder> {
         val queryParams = buildQueryParams(

@@ -96,8 +96,8 @@ class ResourceService(
         return resources.map { ResourceDocument.toResource(it) }
     }
 
-    fun findResourceContaining(code: String): Resource {
-        return ResourceDocument.toResource(resourceRepository.findByDropsCode(code))
+    fun findResourceContaining(code: String, maxLevel: Int): Resource {
+        return ResourceDocument.toResource(resourceRepository.findByDropsCode(code).filter { it.level <= maxLevel }.maxBy { it.level })
     }
 
 }

@@ -109,7 +109,7 @@ class GatheringService(
         if(levelToGather > skillLevel){
             throw IllegalArgumentException("Insufficient level to gather ${item.code}")
         }else{
-            val mapData = mapService.findClosestMap(character = character, contentCode = resourceService.findResourceContaining(item.code).code)
+            val mapData = mapService.findClosestMap(character = character, contentCode = resourceService.findResourceContaining(item.code, skillLevel).code)
             var newCharacter = equipmentService.equipBestToolForSkill(character, item.subtype)
             newCharacter = movementService.moveCharacterToCell(mapData.x, mapData.y, newCharacter)
             for (i in 1..quantity - 1) {

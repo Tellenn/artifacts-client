@@ -8,6 +8,7 @@ import com.tellenn.artifacts.db.documents.BankItemDocument
 import com.tellenn.artifacts.db.documents.ItemDocument
 import com.tellenn.artifacts.db.repositories.BankItemRepository
 import com.tellenn.artifacts.db.repositories.ItemRepository
+import com.tellenn.artifacts.models.BankDetails
 import org.apache.logging.log4j.LogManager
 import org.springframework.stereotype.Service
 
@@ -49,7 +50,24 @@ class BankService(
 
         val inventory = character.inventory ?: return character
         val items = inventory.filter { it.quantity > 0 }.map { SimpleItem(it.code, it.quantity) }
-        return deposit(character, items)
+        var newCharacter = deposit(character, items)
+        return desositMoney(newCharacter, newCharacter.gold)
+    }
+
+    fun desositMoney(character: ArtifactsCharacter, amount: Int) : ArtifactsCharacter{
+        if(amount <= 0){
+            return character
+        }
+        var newCharacter = moveToBank(character)
+        return bankClient.depositGold(newCharacter.name, amount).data.character
+    }
+
+    fun withdrawMoney(character: ArtifactsCharacter, amount: Int) : ArtifactsCharacter{
+        if(amount <= 0){
+            return character
+        }
+        var newCharacter = moveToBank(character)
+        return bankClient.withdrawGold(newCharacter.name, amount).data.character
     }
 
     fun deposit(character: ArtifactsCharacter, items: List<SimpleItem> ): ArtifactsCharacter {
@@ -172,5 +190,33 @@ class BankService(
         }
         
         return newCharacter
+    }
+
+    fun getBankDetails() : BankDetails {
+        return bankClient.getBankDetails().data
+    }
+
+    fun getBankSize() : Int{
+        return bankRepository.count().toInt()
+    }
+
+    fun buyBankSlot(character: ArtifactsCharacter): ArtifactsCharacter {
+        return bankClient.buyBankExpansion(character.name).data.character
+    }
+
+    fun canCraftFromBank(item: ItemDetails, quantity: Int = 1): Boolean {
+        var canCraft = true
+        if(item.craft == null){
+            return isInBank(item.code,quantity)
+        }else{
+            for(i in item.craft.items){
+                canCraft = canCraft && (
+                            isInBank(item.code,quantity) ||
+                            canCraftFromBank(ItemDocument.toItemDetails(itemRepository.findByCode(i.code)), quantity * i.quantity)
+                        )
+
+            }
+        }
+        return canCraft
     }
 }

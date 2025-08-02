@@ -45,5 +45,5 @@ interface ResourceRepository : MongoRepository<ResourceDocument, String> {
      */
     fun findByCode(code: String): ResourceDocument
 
-    fun findByDropsCode(code: String): ResourceDocument
+    fun findByDropsCode(code: String): List<ResourceDocument>
 }

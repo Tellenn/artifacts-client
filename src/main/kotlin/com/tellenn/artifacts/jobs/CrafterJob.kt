@@ -26,7 +26,7 @@ class CrafterJob(
     characterService: CharacterService,
     private val itemService: ItemService,
     private val craftedItemRepository: CraftedItemRepository,
-    private val gatheringService: GatheringService
+    private val gatheringService: GatheringService,
 ) : GenericJob(mapService, applicationContext, movementService, bankService, characterService) {
 
     lateinit var character: ArtifactsCharacter
@@ -35,6 +35,12 @@ class CrafterJob(
         sleep(1000)
         character = init(initCharacter)
         do {
+            val bankDetails = bankService.getBankDetails()
+            if(bankDetails.slots - bankService.getBankSize() < 20 && bankDetails.slots < 200 && bankDetails.gold > bankDetails.nextExpansionCost){
+                character = bankService.withdrawMoney(character, bankDetails.nextExpansionCost)
+                character = bankService.buyBankSlot(character)
+            }
+
             val skillToLevel = getLowestSkillLevel(character)
             val itemsToCraft = getListOfItemToCraftUnderLevel(
                 character,
@@ -43,11 +49,25 @@ class CrafterJob(
 
 
             if (!itemsToCraft.isEmpty()) {
+                var instantCraft = false
+                for (itemDetail in itemsToCraft) {
+                    if(bankService.canCraftFromBank(itemDetail)){
+                        character = gatheringService.craftOrGather(character, itemDetail.code, 1, allowFight = false)
+                        character = bankService.emptyInventory(character)
+                        saveOrUpdateCraftedItem(itemDetail)
+                        instantCraft = true
+                    }
+                }
+                if(instantCraft){
+                    continue
+                }
+
                 for (itemDetail in itemsToCraft) {
                     character = gatheringService.craftOrGather(character, itemDetail.code, 1, allowFight = true)
                     character = bankService.emptyInventory(character)
                     saveOrUpdateCraftedItem(itemDetail)
                 }
+
             } else {
 
                 val itemToCraft =

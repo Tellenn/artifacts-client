@@ -40,7 +40,7 @@ class AlchemistJob(
         character = init(initCharacter)
 
         do{
-
+            // TODO : include cooking as well
             // TODO : Handle other kind of potions as well
             val itemsToCraft = ArrayList<SimpleItem>()
             getHealingPotions().forEach {
