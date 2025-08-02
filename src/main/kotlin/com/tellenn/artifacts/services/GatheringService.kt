@@ -113,6 +113,8 @@ class GatheringService(
             var newCharacter = equipmentService.equipBestToolForSkill(character, item.subtype)
             newCharacter = movementService.moveCharacterToCell(mapData.x, mapData.y, newCharacter)
             for (i in 1..quantity - 1) {
+                // TODO : This won't work as if you seek a "rare" item, it's dumb
+                // TODO : Fix it for the alchemist
                 newCharacter = gatheringClient.gather(characterName = character.name).data.character
             }
             return gatheringClient.gather(characterName = character.name).data.character
