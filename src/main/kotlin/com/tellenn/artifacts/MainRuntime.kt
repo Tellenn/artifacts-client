@@ -67,11 +67,11 @@ class MainRuntime(
         log.info(objectMapper.writeValueAsString(serverStatus.data))
         AppConfig.maxLevel = serverStatus.data.maxLevel
 
-        log.info(objectMapper.writeValueAsString(AppConfig))
+        log.debug(objectMapper.writeValueAsString(AppConfig))
         
         // Get command line arguments
         val forceSync = args?.containsOption("force-sync") ?: false
-        log.info("Force sync: $forceSync")
+        log.debug("Force sync: $forceSync")
         
         // Check if sync is needed based on server version
         val syncNeeded = serverVersionService.isSyncNeeded(forceSync)
@@ -201,7 +201,7 @@ class MainRuntime(
         val existingThread = webSocketService.getCharacterThread(characterName)
         if (existingThread != null && existingThread.isAlive) {
             webSocketService.interruptCharacterThread(characterName)
-            log.info("Interrupted existing thread for character: $characterName")
+            log.debug("Interrupted existing thread for character: $characterName")
         }
 
         // Create and start a new thread
@@ -292,7 +292,7 @@ class MainRuntime(
                 log.error("Failed to restart character thread for ${character.name}", e)
             }
         } finally {
-            log.info("Character ${character.name} thread is exiting")
+            log.debug("Character ${character.name} thread is exiting")
             // Remove the thread from the WebSocketService when it exits
             webSocketService.removeCharacterThread(character.name)
         }

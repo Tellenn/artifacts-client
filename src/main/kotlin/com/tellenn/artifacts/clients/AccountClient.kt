@@ -79,15 +79,6 @@ class AccountClient(private val bankRepository: BankRepository) : BaseArtifactsC
         }
     }
 
-    fun changePassword(oldPassword: String, newPassword: String): ArtifactsResponseBody<Any> {
-        val request = ChangePasswordRequest(oldPassword, newPassword)
-        val requestBody = objectMapper.writeValueAsString(request)
-        return sendPostRequest("/my/change_password", requestBody).use { response ->
-            val responseBody = response.body!!.string()
-            objectMapper.readValue<ArtifactsResponseBody<Any>>(responseBody)
-        }
-    }
-
     private fun buildQueryParams(vararg params: Pair<String, String?>): String {
         val queryParams = params
             .filter { it.second != null }

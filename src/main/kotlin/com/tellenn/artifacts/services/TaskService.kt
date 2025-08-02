@@ -4,6 +4,7 @@ import com.tellenn.artifacts.clients.GatheringClient
 import com.tellenn.artifacts.clients.TaskClient
 import com.tellenn.artifacts.models.ArtifactsCharacter
 import com.tellenn.artifacts.exceptions.BattleLostException
+import com.tellenn.artifacts.exceptions.TaskFailedException
 import org.apache.logging.log4j.LogManager
 import org.springframework.stereotype.Service
 
@@ -37,7 +38,7 @@ class TaskService(
 
     fun getNewMonsterTask(character : ArtifactsCharacter): ArtifactsCharacter{
         if(!character.taskType.isNullOrEmpty()){
-            throw IllegalStateException("Character ${character.name} already has a task")
+            return character
         }
 
         movementService.moveCharacterToMaster("monsters", character)
@@ -58,7 +59,8 @@ class TaskService(
         if(character.taskType.isNullOrEmpty()){
             throw IllegalStateException("Character ${character.name} already has no task")
         }
-
+        bankService.moveToBank(character)
+        bankService.withdrawOne("task_coin", 1, character)
         movementService.moveCharacterToMaster("monsters", character)
         return taskClient.abandonTask(character.name).data.character
     }
@@ -103,6 +105,7 @@ class TaskService(
     }
 
     fun completeMonsterTask(character: ArtifactsCharacter) : ArtifactsCharacter{
+        var count = 0;
         var newCharacter = character
         val monsterCode = character.task
         if(monsterCode.isNullOrBlank()){
@@ -114,22 +117,29 @@ class TaskService(
         // TODO : Check that you can actually beat the enemy
 
         newCharacter = equipmentService.equipBestAvailableEquipmentForMonsterInBank(newCharacter, monsterCode)
-        movementService.moveCharacterToCell(monsterMap.x, monsterMap.y, newCharacter)
-        try {
-            while(quantityLeft > 0) {
-                newCharacter = battleService.battle(newCharacter)
-                quantityLeft--
-                if (characterService.isInventoryFull(newCharacter)){
-                    newCharacter = bankService.moveToBank(newCharacter)
-                    newCharacter = bankService.emptyInventory(newCharacter)
+        newCharacter = movementService.moveCharacterToCell(monsterMap.x, monsterMap.y, newCharacter)
+
+            while(quantityLeft > 0 && count < 5) {
+                try {
+                    newCharacter = battleService.battle(newCharacter)
+                    quantityLeft--
+                    if (characterService.isInventoryFull(newCharacter)){
+                        newCharacter = bankService.moveToBank(newCharacter)
+                        newCharacter = bankService.emptyInventory(newCharacter)
+                    }
+                }catch (e: BattleLostException){
+
+                    log.debug("Monster in the task is too hard, stopping")
+                    // TODO : Something more complex before giving up ?
+                    count++
+                    if(count == 5){
+                        throw TaskFailedException()
+                    }else{
+                        newCharacter = movementService.moveCharacterToCell(monsterMap.x, monsterMap.y, newCharacter)
+                    }
                 }
             }
-        }catch (e: BattleLostException){
-            log.debug("Monster in the task is too hard, stopping")
-            // TODO : Something more complex before giving up ?
-        }
 
-        // TODO : What to do with the coins
         return character
     }
 }
