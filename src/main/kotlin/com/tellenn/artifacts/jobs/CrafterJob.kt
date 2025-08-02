@@ -56,6 +56,7 @@ class CrafterJob(
                         character = bankService.emptyInventory(character)
                         saveOrUpdateCraftedItem(itemDetail)
                         instantCraft = true
+                        break
                     }
                 }
                 if(instantCraft){

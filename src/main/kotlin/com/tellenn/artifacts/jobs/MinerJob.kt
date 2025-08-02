@@ -43,10 +43,12 @@ class MinerJob(
 
         do{
             val itemsToCraft = ArrayList<SimpleItem>()
-            itemService.getAllCraftBySkillUnderLevel(skill, character.miningLevel).filter { it.subtype != "precious_stone" }.forEach {
+            val gatheringItems = itemService.getAllCraftBySkillUnderLevel(skill, character.miningLevel).filter { it.subtype != "precious_stone" }
+            for(it in gatheringItems){
                 if(!bankService.isInBank(it.code, 200)){
                     itemsToCraft.add(SimpleItem(it.code, (character.inventoryMaxItems - 20) / itemService.getInvSizeToCraft(it) ))
-                }
+                    break
+                 }
             }
 
             // Do some stock for the crafter
@@ -55,6 +57,7 @@ class MinerJob(
                     character = gatheringService.craftOrGather(character, it.code, it.quantity)
                     character = bankService.emptyInventory(character)
                 }
+                continue
                 // Otherwise levelup
             }else if(character.miningLevel < maxLevel){
                 val item =

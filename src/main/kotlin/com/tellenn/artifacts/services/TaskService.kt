@@ -115,30 +115,34 @@ class TaskService(
         var quantityLeft = character.taskTotal - character.taskProgress
 
         // TODO : Check that you can actually beat the enemy
+        if(quantityLeft > 0){
+            newCharacter = equipmentService.equipBestAvailableEquipmentForMonsterInBank(newCharacter, monsterCode)
+            newCharacter = movementService.moveCharacterToCell(monsterMap.x, monsterMap.y, newCharacter)
+        }
 
-        newCharacter = equipmentService.equipBestAvailableEquipmentForMonsterInBank(newCharacter, monsterCode)
-        newCharacter = movementService.moveCharacterToCell(monsterMap.x, monsterMap.y, newCharacter)
+        while(quantityLeft > 0 && count < 5) {
+            try {
+                newCharacter = battleService.battle(newCharacter)
+                quantityLeft--
+                if (characterService.isInventoryFull(newCharacter)){
+                    newCharacter = bankService.moveToBank(newCharacter)
+                    newCharacter = bankService.emptyInventory(newCharacter)
+                }
+            }catch (e: BattleLostException){
 
-            while(quantityLeft > 0 && count < 5) {
-                try {
-                    newCharacter = battleService.battle(newCharacter)
-                    quantityLeft--
-                    if (characterService.isInventoryFull(newCharacter)){
-                        newCharacter = bankService.moveToBank(newCharacter)
-                        newCharacter = bankService.emptyInventory(newCharacter)
-                    }
-                }catch (e: BattleLostException){
-
-                    log.debug("Monster in the task is too hard, stopping")
-                    // TODO : Something more complex before giving up ?
-                    count++
-                    if(count == 5){
-                        throw TaskFailedException()
-                    }else{
-                        newCharacter = movementService.moveCharacterToCell(monsterMap.x, monsterMap.y, newCharacter)
-                    }
+                log.debug("Monster in the task is too hard, stopping")
+                // TODO : Something more complex before giving up ?
+                count++
+                if(count == 5){
+                    throw TaskFailedException()
+                }else{
+                    newCharacter = movementService.moveCharacterToCell(monsterMap.x, monsterMap.y, newCharacter)
                 }
             }
+        }
+
+        movementService.moveCharacterToMaster("monsters", newCharacter)
+        taskClient.completeTask(newCharacter.name).data.character
 
         return character
     }
