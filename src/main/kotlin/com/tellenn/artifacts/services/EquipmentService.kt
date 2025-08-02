@@ -172,7 +172,7 @@ class EquipmentService(
         character.artifact2Slot?.let { equippedItems.add(it) }
         character.artifact3Slot?.let { equippedItems.add(it) }
         character.bagSlot?.let { equippedItems.add(it) }
-        // TODO : Don't use the repo, use the service
+
         return itemRepository.findByCodeIn(equippedItems).map { ItemDocument.toItemDetails(it) }
     }
 

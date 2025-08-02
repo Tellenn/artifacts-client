@@ -107,7 +107,6 @@ class GatheringService(
             else -> throw IllegalArgumentException("Invalid item subtype: ${item.subtype}")
         }
         if(levelToGather > skillLevel){
-            // TODO : Insufficient level, should make a request or throw error ?
             throw IllegalArgumentException("Insufficient level to gather ${item.code}")
         }else{
             val mapData = mapService.findClosestMap(character = character, contentCode = resourceService.findResourceContaining(item.code).code)
@@ -121,8 +120,6 @@ class GatheringService(
     }
 
     private fun craft(character: ArtifactsCharacter, item: ItemDetails, quantity: Int) : ArtifactsCharacter {
-        // TODO : Check in the inventory if you have what you need. For now we assume you do
-
         val skill = item.craft?.skill
         val mapData = mapService.findClosestMap(character = character, contentCode = skill)
         var newCharacter = movementService.moveCharacterToCell(mapData.x, mapData.y, character)

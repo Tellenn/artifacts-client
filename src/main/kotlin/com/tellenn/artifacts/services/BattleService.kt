@@ -92,7 +92,6 @@ class BattleService(
         log.debug("Character ${currentCharacter.name} gathered resource, inventory: ${characterService.countInventoryItems(currentCharacter)}/${currentCharacter.inventoryMaxItems}")
 
         // If no items were gathered, break the loop
-        // TODO : Handle if the character is dead
         if (response.data.fight?.result.equals("loss")) {
             currentCharacter = characterService.rest(currentCharacter)
             log.error("Character ${currentCharacter.name} lost the fight, resting...")

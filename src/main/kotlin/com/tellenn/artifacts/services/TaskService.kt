@@ -99,7 +99,6 @@ class TaskService(
         newCharacter = taskClient.completeTask(newCharacter.name).data.character
         newCharacter = bankService.moveToBank(newCharacter)
 
-        // TODO : What to do with the coins
         return newCharacter
     }
 
@@ -112,7 +111,7 @@ class TaskService(
         val monsterMap = mapService.findClosestMap(character, contentCode = monsterCode)
         var quantityLeft = character.taskTotal - character.taskProgress
 
-        // TODO Check that you can actually beat the enemy
+        // TODO : Check that you can actually beat the enemy
 
         newCharacter = equipmentService.equipBestAvailableEquipmentForMonsterInBank(newCharacter, monsterCode)
         movementService.moveCharacterToCell(monsterMap.x, monsterMap.y, newCharacter)
