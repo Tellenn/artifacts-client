@@ -12,6 +12,7 @@ import com.tellenn.artifacts.services.MapService
 import com.tellenn.artifacts.services.MovementService
 import org.springframework.context.ApplicationContext
 import org.springframework.stereotype.Component
+import java.lang.Thread.sleep
 
 /**
  * Job implementation for characters with the "crafter" job.
@@ -31,24 +32,34 @@ class CrafterJob(
     lateinit var character: ArtifactsCharacter
 
     fun run(initCharacter: ArtifactsCharacter) {
+        sleep(1000)
         character = init(initCharacter)
-        val skillToLevel = getLowestSkillLevel(character)
-        val itemsToCraft = getListOfItemToCraftUnderLevel(character.getLevelOf(skillToLevel), listOf(skillToLevel))
+        do {
+            val skillToLevel = getLowestSkillLevel(character)
+            val itemsToCraft = getListOfItemToCraftUnderLevel(
+                character,
+                listOf("weaponcrafting","gearcrafting","jewelrycrafting")
+            )
 
 
-        if(!itemsToCraft.isEmpty()){
-            for(itemDetail in itemsToCraft){
-                character = gatheringService.craftOrGather(character, itemDetail.code, 1, allowFight = true)
-                character = bankService.emptyInventory(character)
-                craftedItemRepository.save(CraftedItemDocument.fromItemDetails(itemDetail, 1))
+            if (!itemsToCraft.isEmpty()) {
+                for (itemDetail in itemsToCraft) {
+                    character = gatheringService.craftOrGather(character, itemDetail.code, 1, allowFight = true)
+                    character = bankService.emptyInventory(character)
+                    saveOrUpdateCraftedItem(itemDetail)
+                }
+            } else {
+
+                val itemToCraft =
+                    getTopLowestCostingItemForLevel(character.getLevelOf(skillToLevel), listOf(skillToLevel))
+                val oldLevel = character.getLevelOf(skillToLevel)
+                while (oldLevel == character.getLevelOf(skillToLevel)) {
+                    character = gatheringService.craftOrGather(character, itemToCraft.code, 1, allowFight = true)
+                    character = gatheringService.recycle(character, itemToCraft, 1)
+                    character = bankService.emptyInventory(character)
+                }
             }
-        }else{
-            val itemToCraft = getTopLowestCostingItemForLevel(character.getLevelOf(skillToLevel), listOf(skillToLevel))
-            val oldLevel = character.getLevelOf(skillToLevel)
-            while (oldLevel == character.getLevelOf(skillToLevel)){
-                character = gatheringService.craftOrGather(character, itemToCraft.code, 1)
-            }
-        }
+        }while (true)
     }
 
     private fun getLowestSkillLevel(character: ArtifactsCharacter): String{
@@ -60,14 +71,36 @@ class CrafterJob(
         return skills.minWith(compareBy { it.value }).key
     }
 
-    private fun getListOfItemToCraftUnderLevel(level: Int, skills : List<String>) : List<ItemDetails>{
-        val minLevel = level / 5 * 5
+    private fun getListOfItemToCraftUnderLevel(character : ArtifactsCharacter, skills : List<String>) : List<ItemDetails>{
+        val items = ArrayList<ItemDetails>()
 
-        val items = itemService.getCrafterItemsBetweenLevel(minLevel-1, level +1, skills)
 
-        val alreadyCraftedItem = craftedItemRepository.findByLevelBetween(minLevel-1, level +1).map { it.code }
+        for (skill in skills) {
+            val minLevel = character.getLevelOf(skill) / 5 * 5
+            items.addAll(itemService.getCrafterItemsBetweenLevel(minLevel-1, character.getLevelOf(skill) +1, skills))
+        }
+        // Based on crafted history
+        val alreadyCraftedItem = craftedItemRepository.findAllByQuantityLessThan(3).map { it.code }
 
-        return items.filter { !alreadyCraftedItem.contains(it.code) }
+        // Or based on available bank items ?
+        val availableCraftedItem = bankService.getAllEquipmentsUnderLevel(50).map { it.code }
+
+        // TODO : Improve based on rare craft ?
+
+        return items.filter { !availableCraftedItem.contains(it.code) }.sortedBy { it.level }
+    }
+
+    /**
+     * Saves a new crafted item or updates its quantity if it already exists
+     */
+    private fun saveOrUpdateCraftedItem(itemDetail: ItemDetails) {
+        val existingItem = craftedItemRepository.findById(itemDetail.code)
+        if (existingItem.isPresent) {
+            val updatedItem = existingItem.get().copy(quantity = existingItem.get().quantity + 1)
+            craftedItemRepository.save(updatedItem)
+        } else {
+            craftedItemRepository.save(CraftedItemDocument.fromItemDetails(itemDetail, 1))
+        }
     }
 
     private fun getTopLowestCostingItemForLevel(level: Int, skills : List<String>) : ItemDetails{

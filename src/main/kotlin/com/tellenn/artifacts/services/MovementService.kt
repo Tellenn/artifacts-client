@@ -29,7 +29,7 @@ class MovementService(
     fun moveCharacterToCell(x: Int, y: Int, character: ArtifactsCharacter): ArtifactsCharacter {
         // If character is provided and already at the destination, skip the API call
         if (character.x == x && character.y == y) {
-            logger.info("Character ${character.name} is already at position ($x, $y), skipping movement call")
+            logger.debug("Character ${character.name} is already at position ($x, $y), skipping movement call")
             return character
         }
 

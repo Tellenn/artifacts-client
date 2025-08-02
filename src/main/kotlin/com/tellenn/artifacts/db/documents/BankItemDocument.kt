@@ -18,7 +18,7 @@ data class BankItemDocument(
     val effects: List<ItemEffectDocument>?,
     val craft: ItemCraftDocument?,
     val conditions: List<ItemConditionDocument>? = null,
-    val quantity: Int
+    var quantity: Int
 ) {
     companion object {
         fun fromItemDetails(itemDetails: ItemDetails, quantity: Int): BankItemDocument {
@@ -36,8 +36,9 @@ data class BankItemDocument(
             )
         }
 
-        fun toItemDetails(itemDocument: BankItemDocument): ItemDetails {
-            return ItemDetails(
+        fun toItemDetails(itemDocument: BankItemDocument?): ItemDetails? {
+            return itemDocument?.let {
+                ItemDetails(
                 code = itemDocument.code,
                 name = itemDocument.name,
                 description = itemDocument.description,
@@ -48,7 +49,8 @@ data class BankItemDocument(
                 effects = itemDocument.effects?.map { ItemEffectDocument.toEffect(it) }?.toList(),
                 craft = itemDocument.craft?.let { ItemCraftDocument.toItemCraft(it) },
                 conditions = itemDocument.conditions?.map { ItemConditionDocument.toItemCondition(it) }?.toList()
-            )
+                )
+            }
         }
     }
 }

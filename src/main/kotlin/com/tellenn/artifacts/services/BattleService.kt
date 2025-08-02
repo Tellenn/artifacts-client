@@ -68,8 +68,9 @@ class BattleService(
     fun train(character: ArtifactsCharacter, penalty: Int) : ArtifactsCharacter{
         val monster = monsterService.findStrongestMonsterUnderLevel(character.level + penalty)
         val mapData = mapService.findClosestMap(character, contentCode = monster.code)
+        var newCharacter = equipmentService.equipBestAvailableEquipmentForMonsterInBank(character, monster.code)
 
-        var newCharacter = movementService.moveCharacterToCell(mapData.x, mapData.y, character)
+        newCharacter = movementService.moveCharacterToCell(mapData.x, mapData.y, character)
         try {
             while (character.level == newCharacter.level){
                 newCharacter = battle(newCharacter)

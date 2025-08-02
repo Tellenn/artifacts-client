@@ -27,6 +27,8 @@ interface BankItemRepository : MongoRepository<BankItemDocument, String> {
      */
     fun findByTypeAndLevelIsLessThanEqual(type: String, level: Int): List<BankItemDocument>
 
+    fun findByTypeInAndLevelIsLessThanEqual(type: List<String>, level: Int): List<BankItemDocument>
+
 
     // Find by subtype
     fun findBySubtype(subtype: String, pageable: Pageable): Page<BankItemDocument>

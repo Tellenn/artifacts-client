@@ -132,4 +132,11 @@ class GatheringService(
 
         return newCharacter
     }
+
+    fun recycle(character: ArtifactsCharacter, item: ItemDetails, i: Int): ArtifactsCharacter {
+        val mapData = mapService.findClosestMap(character = character, contentCode = item.craft?.skill)
+        var newCharacter = movementService.moveCharacterToCell(mapData.x, mapData.y, character)
+        return craftingClient.recycle(newCharacter.name, item.code, i).data.character
+
+    }
 }

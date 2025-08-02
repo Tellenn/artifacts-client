@@ -80,7 +80,7 @@ class BankService(
 
             // Make the API call to deposit items
             if (itemsToDeposit.isNotEmpty()) {
-                bankClient.depositItems(character.name, itemsToDeposit)
+                newCharacter = bankClient.depositItems(character.name, itemsToDeposit).data.character
             }
 
         } catch (e: Exception) {
@@ -124,9 +124,11 @@ class BankService(
         return bankedItem.quantity >= quantityLeft
     }
 
-    fun getAllEquipmentsUnderLevel(level: Int) : List<ItemDetails>{
-        val dbItems = bankRepository.findByTypeAndLevelIsLessThanEqual("equipment", level)
-        return dbItems.map { itemDocument -> BankItemDocument.toItemDetails(itemDocument) }
+    fun getAllEquipmentsUnderLevel(level: Int) : List<BankItemDocument>{
+        val dbItem = ArrayList<BankItemDocument>()
+        dbItem.addAll(bankRepository.findByTypeInAndLevelIsLessThanEqual(
+            listOf("helmet", "ring", "weapon", "amulet", "artifact", "boots", "leg_armor", "body_armor", "rune", "bag","shield"), level))
+        return dbItem
     }
 
     fun withdrawMany(items: ArrayList<SimpleItem>, character: ArtifactsCharacter): ArtifactsCharacter {
@@ -134,6 +136,32 @@ class BankService(
             return character
         }
         val newCharacter = bankClient.withdrawItems(character.name, items).data.character
+        
+        // Remove items from the local database
+        try {
+            items.forEach { item ->
+                val bankItem = bankRepository.findByCode(item.code)
+                if (bankItem != null) {
+                    val newQuantity = bankItem.quantity - item.quantity
+                    if (newQuantity <= 0) {
+                        // If quantity reaches 0 or less, remove the entry completely
+                        bankRepository.delete(bankItem)
+                        log.debug("Removed item ${item.code} from bank database as quantity reached 0")
+                    } else {
+                        // Otherwise update with the new quantity
+                        val updatedBankItem = bankItem.copy(quantity = newQuantity)
+                        bankRepository.save(updatedBankItem)
+                        log.debug("Updated item ${item.code} quantity to $newQuantity in bank database")
+                    }
+                } else {
+                    log.warn("Attempted to withdraw item ${item.code} that was not found in local database")
+                }
+            }
+        } catch (e: Exception) {
+            log.error("Failed to update local database after withdrawing items: ${e.message}")
+            // We don't rollback the API call as it's already been made
+        }
+        
         return newCharacter
     }
 }

@@ -15,8 +15,7 @@ interface CraftedItemRepositoryCustom {
 @Repository
 interface CraftedItemRepository : MongoRepository<CraftedItemDocument, String>, CraftedItemRepositoryCustom {
 
-    fun findByLevelBetween(minLevel: Int, maxLevel: Int): List<CraftedItemDocument>
-    
-    fun findByCode(code: String): CraftedItemDocument?
+    fun findAllByQuantityLessThan(quantity: Int): List<CraftedItemDocument>
+
 
 }

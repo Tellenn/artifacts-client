@@ -19,4 +19,13 @@ class CraftingClient : BaseArtifactsClient() {
             objectMapper.readValue<ArtifactsResponseBody<CraftingResponseBody>>(responseBody)
         }
     }
+
+    fun recycle(characterName: String, itemCode: String, quantity: Int) :  ArtifactsResponseBody<CraftingResponseBody>  {
+        val request = SimpleItem(itemCode, quantity)
+        val requestBody = objectMapper.writeValueAsString(request)
+        return sendPostRequest("/my/$characterName/action/recycling", requestBody).use { response ->
+            val responseBody = response.body!!.string()
+            objectMapper.readValue<ArtifactsResponseBody<CraftingResponseBody>>(responseBody)
+        }
+    }
 }

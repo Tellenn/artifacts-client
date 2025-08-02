@@ -15,6 +15,7 @@ import com.tellenn.artifacts.services.TaskService
 import jdk.jshell.spi.ExecutionControl
 import org.springframework.context.ApplicationContext
 import org.springframework.stereotype.Component
+import java.lang.Thread.sleep
 
 /**
  * Job implementation for characters with the "alchemist" job.
@@ -35,6 +36,7 @@ class AlchemistJob(
     val skill = "alchemy"
 
     fun run(initCharacter: ArtifactsCharacter) {
+        sleep(2000)
         character = init(initCharacter)
 
         do{
