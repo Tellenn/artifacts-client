@@ -1,6 +1,7 @@
 package com.tellenn.artifacts.jobs
 
 import com.tellenn.artifacts.AppConfig.maxLevel
+import com.tellenn.artifacts.db.repositories.ItemRepository
 import com.tellenn.artifacts.models.ArtifactsCharacter
 import com.tellenn.artifacts.models.ItemDetails
 import com.tellenn.artifacts.models.SimpleItem
@@ -29,7 +30,8 @@ class AlchemistJob(
     characterService: CharacterService,
     private val gatheringService: GatheringService,
     private val itemService: ItemService,
-    private val taskService: TaskService
+    private val taskService: TaskService,
+    private val itemRepository: ItemRepository
 ) : GenericJob(mapService, applicationContext, movementService, bankService, characterService) {
 
     lateinit var character: ArtifactsCharacter
@@ -40,48 +42,60 @@ class AlchemistJob(
         character = init(initCharacter)
 
         do{
-            // TODO : include cooking as well
-            // TODO : Handle other kind of potions as well
-            val itemsToCraft = ArrayList<SimpleItem>()
-            getHealingPotions().forEach {
-                if(!bankService.isInBank(it.code, 400)){
-                    itemsToCraft.add(SimpleItem(it.code, (character.inventoryMaxItems - 10) / itemService.getInvSizeToCraft(it) ))
-                }
-            }
-
-            // Do some stock for the crafter
-            if(itemsToCraft.isNotEmpty()){
-                itemsToCraft.forEach {
-                    character = gatheringService.craftOrGather(character, it.code, it.quantity)
-                    character = bankService.emptyInventory(character)
-                }
-                // Otherwise levelup
-            }else if(character.alchemyLevel < maxLevel){
-                val item =
-                    itemService.getBestCraftableItemsBySkillAndSubtypeAndMaxLevel(skill, "potion", character.alchemyLevel)
-                if (item == null) {
-                    throw Exception("No craftable item found")
-                }
-                character = gatheringService.craftOrGather(
-                    character = character,
-                    itemCode = item.code,
-                    quantity = (character.inventoryMaxItems -10 )/ itemService.getInvSizeToCraft(item),
-                    allowFight = true
-
-                )
-                character = bankService.emptyInventory(character)
-
-                // Or do some tasks to get task coins
-            }else{
+            if(character.alchemyLevel == maxLevel && character.cookingLevel == maxLevel){
                 character = taskService.getNewItemTask(character)
                 character = taskService.doCharacterTask(character)
-            }
 
+            }else if(character.alchemyLevel < character.cookingLevel){
+                val itemsToCraft = ArrayList<SimpleItem>()
+                getHealingPotions().forEach {
+                    if(!bankService.isInBank(it.code, 400)){
+                        itemsToCraft.add(SimpleItem(it.code, (character.inventoryMaxItems - 10) / itemService.getInvSizeToCraft(it) ))
+                    }
+                }
+
+                // Do some stock for the crafter
+                if(itemsToCraft.isNotEmpty()){
+                    itemsToCraft.forEach {
+                        character = gatheringService.craftOrGather(character, it.code, it.quantity)
+                        character = bankService.emptyInventory(character)
+                    }
+                    continue
+                    // Otherwise levelup
+                }else if(character.alchemyLevel < maxLevel){
+                    val item =
+                        itemService.getBestCraftableItemsBySkillAndSubtypeAndMaxLevel(skill, "potion", character.alchemyLevel)
+                    if (item == null) {
+                        throw Exception("No craftable item found")
+                    }
+                    character = gatheringService.craftOrGather(
+                        character = character,
+                        itemCode = item.code,
+                        quantity = (character.inventoryMaxItems -10 )/ itemService.getInvSizeToCraft(item),
+                        allowFight = true
+
+                    )
+                    character = bankService.emptyInventory(character)
+                    continue
+                    // Or do some tasks to get task coins
+                }
+            }else{
+                val itemsToCraft = getBestFishBasedFood()
+                character = gatheringService.craftOrGather(character, itemsToCraft.code, character.inventoryMaxItems - 20)
+            }
         }while(true)
     }
 
     private fun getHealingPotions(): List<ItemDetails>{
         val potions = itemService.getAllCraftableItemsBySkillAndSubtypeAndMaxLevel("alchemy", "potion", character.alchemyLevel)
         return potions.filter { it.effects?.none { effect -> effect.code != "restore" } ?: false }
+    }
+
+    private fun getBestFishBasedFood(): ItemDetails{
+        val food = itemService.getAllCraftableItemsBySkillAndSubtypeAndMaxLevel("cooking", "food", character.cookingLevel)
+        return food
+            .filter { it.effects?.none { effect -> effect.code != "heal" } ?: false }
+            .filter { it.craft?.items?.size == 1 && itemRepository.findByCode(it.craft.items[0].code).subtype == "fishing" }
+            .maxBy { it.level }
     }
 }

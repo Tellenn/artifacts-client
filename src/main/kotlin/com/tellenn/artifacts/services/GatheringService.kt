@@ -1,5 +1,6 @@
 package com.tellenn.artifacts.services
 
+import com.tellenn.artifacts.clients.AccountClient
 import com.tellenn.artifacts.clients.CharacterClient
 import com.tellenn.artifacts.clients.CraftingClient
 import com.tellenn.artifacts.clients.GatheringClient
@@ -7,6 +8,7 @@ import com.tellenn.artifacts.clients.ItemClient
 import com.tellenn.artifacts.models.ArtifactsCharacter
 import com.tellenn.artifacts.models.ItemDetails
 import com.tellenn.artifacts.db.repositories.ItemRepository
+import com.tellenn.artifacts.exceptions.CharacterInventoryFullException
 import org.apache.logging.log4j.LogManager
 import org.springframework.stereotype.Service
 
@@ -28,7 +30,8 @@ class GatheringService(
     private val resourceService: ResourceService,
     private val itemService: ItemService,
     private val battleService: BattleService,
-    private val equipmentService: EquipmentService
+    private val equipmentService: EquipmentService,
+    private val accountClient: AccountClient
 ) {
     private val log = LogManager.getLogger(GatheringService::class.java)
 
@@ -97,7 +100,7 @@ class GatheringService(
         }
     }
 
-    private fun gather(character: ArtifactsCharacter, item: ItemDetails, quantity: Int) : ArtifactsCharacter{
+    private fun gather(character: ArtifactsCharacter, item: ItemDetails, quantityToCraft: Int) : ArtifactsCharacter{
         val levelToGather = item.level
         val skillLevel = when (item.subtype) {
             "mining" -> character.miningLevel
@@ -109,13 +112,23 @@ class GatheringService(
         if(levelToGather > skillLevel){
             throw IllegalArgumentException("Insufficient level to gather ${item.code}")
         }else{
+            var quantityGathered = 0
             val mapData = mapService.findClosestMap(character = character, contentCode = resourceService.findResourceContaining(item.code, skillLevel).code)
             var newCharacter = equipmentService.equipBestToolForSkill(character, item.subtype)
             newCharacter = movementService.moveCharacterToCell(mapData.x, mapData.y, newCharacter)
-            for (i in 1..quantity - 1) {
-                // TODO : This won't work as if you seek a "rare" item, it's dumb
-                // TODO : Fix it for the alchemist
-                newCharacter = gatheringClient.gather(characterName = character.name).data.character
+            while (quantityToCraft >= quantityGathered) {
+                try{
+                    val gather = gatheringClient.gather(characterName = character.name).data
+                    if(gather.details.items.map { it.code }.contains(item.code)){
+                        quantityGathered++
+                    }
+                    newCharacter = gather.character
+                }catch (e: CharacterInventoryFullException){
+                    newCharacter = accountClient.getCharacter(newCharacter.name).data
+                    newCharacter = bankService.emptyInventory(newCharacter)
+                    newCharacter = movementService.moveCharacterToCell(mapData.x, mapData.y, newCharacter)
+                    // TODO : in this case, we lost the items previously collected for the GatherAndCollect. What to do ? 😮‍💨😮‍💨😮‍💨
+                }
             }
             return gatheringClient.gather(characterName = character.name).data.character
         }
