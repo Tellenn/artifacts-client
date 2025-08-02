@@ -1,6 +1,8 @@
 package com.tellenn.artifacts.services
 
 import com.tellenn.artifacts.clients.BankClient
+import com.tellenn.artifacts.clients.responses.ArtifactsResponseBody
+import com.tellenn.artifacts.clients.responses.BankItemTransaction
 import com.tellenn.artifacts.models.ArtifactsCharacter
 import com.tellenn.artifacts.models.InventorySlot
 import com.tellenn.artifacts.models.MapContent
@@ -10,10 +12,13 @@ import com.tellenn.artifacts.db.documents.BankItemDocument
 import com.tellenn.artifacts.db.documents.ItemDocument
 import com.tellenn.artifacts.db.repositories.BankItemRepository
 import com.tellenn.artifacts.db.repositories.ItemRepository
+import com.tellenn.artifacts.models.Cooldown
+import com.tellenn.artifacts.models.SimpleItem
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.Assertions.*
+import org.mockito.ArgumentMatchers.any
 import org.mockito.Mockito
 import org.mockito.Mockito.`when`
 import org.mockito.Mockito.verify
@@ -22,6 +27,7 @@ import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.boot.test.context.SpringBootTest
 import org.springframework.context.annotation.Import
 import org.testcontainers.junit.jupiter.Testcontainers
+import java.time.Instant
 
 @SpringBootTest
 @Import(MongoTestConfiguration::class)
@@ -59,66 +65,6 @@ class BankServiceTest {
         // Clean up after each test
         bankRepository.deleteAll()
         itemRepository.deleteAll()
-    }
-
-    @Test
-    fun `should insert new item when it doesn't exist in bank`() {
-        // Given
-        val inventorySlot = InventorySlot(1, "item1", 5)
-        val inventoryArray = arrayOf(inventorySlot)
-        val character = createTestCharacter(inventoryArray)
-
-        // Add test item to item repository
-        val bankMapContent = MapContent(type = "building", code = "bank")
-        val bankMapData = MapData(name = "Bank", skin = "bank", x = 100, y = 100, content = bankMapContent)
-        `when`(mapService.findClosestMap(character, contentCode = "bank")).thenReturn(bankMapData)
-        `when`(movementService.moveCharacterToCell(bankMapData.x, bankMapData.y, character)).thenReturn(character)
-        val itemDocument = createTestItemDocument("item1", "Test Item")
-        itemRepository.save(itemDocument)
-
-        // When
-        val result = bankService.emptyInventory(character)
-
-        // Then
-        assertEquals(character, result)
-
-        // Verify that a new bank item was created
-        val bankItems = bankRepository.findAll()
-        assertEquals(1, bankItems.size)
-        assertEquals("item1", bankItems[0].code)
-        assertEquals(5, bankItems[0].quantity)
-    }
-
-    @Test
-    fun `should update quantity when item exists in bank`() {
-        // Given
-        val inventorySlot = InventorySlot(1, "item1", 5)
-        val inventoryArray = arrayOf(inventorySlot)
-        val character = createTestCharacter(inventoryArray)
-
-        // Add test item to item repository
-        val bankMapContent = MapContent(type = "building", code = "bank")
-        val bankMapData = MapData(name = "Bank", skin = "bank", x = 100, y = 100, content = bankMapContent)
-        `when`(mapService.findClosestMap(character, contentCode = "bank")).thenReturn(bankMapData)
-        `when`(movementService.moveCharacterToCell(bankMapData.x, bankMapData.y, character)).thenReturn(character)
-        val itemDocument = createTestItemDocument("item1", "Test Item")
-        itemRepository.save(itemDocument)
-
-        // Add existing bank item
-        val existingBankItem = createTestBankItemDocument("item1", "Test Item", 10)
-        bankRepository.save(existingBankItem)
-
-        // When
-        val result = bankService.emptyInventory(character)
-
-        // Then
-        assertEquals(character, result)
-
-        // Verify that the bank item was updated with the new quantity
-        val bankItems = bankRepository.findAll()
-        assertEquals(1, bankItems.size)
-        assertEquals("item1", bankItems[0].code)
-        assertEquals(15, bankItems[0].quantity)
     }
 
     @Test

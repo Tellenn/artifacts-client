@@ -200,4 +200,26 @@ class EquipmentService(
         items.add(BankItemDocument.fromItemDetails(itemToAdd, 1))
         return items
     }
+
+    fun equipBestToolForSkill(character: ArtifactsCharacter, skillType: String) : ArtifactsCharacter {
+        val storedEquipment = bankService.getAllEquipmentsUnderLevel(character.level)
+        var availableEquipment : MutableList<BankItemDocument> = storedEquipment.toMutableList()
+        getEquippedItems(character = character).forEach { availableEquipment = addItemQuantityByOne(availableEquipment, it)}
+        val itemCode = availableEquipment
+            .filter {
+                        it.subtype == "tool" &&
+                        it.level <= character.getLevelOf(skillType) &&
+                        it.effects?.any { it.code.equals(skillType) } == true
+            }
+            .map { Pair(it.code, it.effects?.find { it.code.equals(skillType) }?.value) }
+            .maxBy { it.second ?: 0 }
+        if(itemCode != null){
+            var newCharacter = bankService.moveToBank(character)
+            newCharacter = bankService.withdrawOne(itemCode.first, 1, newCharacter)
+            newCharacter = characterService.equip(newCharacter, itemCode.first, "weapon", 1)
+            // we use the character here to get the code of the previous item equipped
+            return bankService.deposit(newCharacter, listOf(SimpleItem(character.weaponSlot ?: "", 1)))
+        }
+        return character
+    }
 }

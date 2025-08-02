@@ -27,7 +27,8 @@ class GatheringService(
     private val craftingClient: CraftingClient,
     private val resourceService: ResourceService,
     private val itemService: ItemService,
-    private val battleService: BattleService
+    private val battleService: BattleService,
+    private val equipmentService: EquipmentService
 ) {
     private val log = LogManager.getLogger(GatheringService::class.java)
 
@@ -58,8 +59,6 @@ class GatheringService(
         log.info("Character ${currentCharacter.name} finished gathering, inventory is now full or gathering failed")
         return currentCharacter
     }
-
-
 
     fun craftOrGather(character: ArtifactsCharacter, itemCode: String, quantity: Int, functionLevel: Int = 0, allowFight: Boolean = false) : ArtifactsCharacter{
         val itemDetails = itemService.getItem(itemCode)
@@ -112,11 +111,10 @@ class GatheringService(
             throw IllegalArgumentException("Insufficient level to gather ${item.code}")
         }else{
             val mapData = mapService.findClosestMap(character = character, contentCode = resourceService.findResourceContaining(item.code).code)
-            movementService.moveCharacterToCell(mapData.x, mapData.y, character)
-
-            // TODO : Handle max inv size
+            var newCharacter = equipmentService.equipBestToolForSkill(character, item.subtype)
+            newCharacter = movementService.moveCharacterToCell(mapData.x, mapData.y, newCharacter)
             for (i in 1..quantity - 1) {
-                gatheringClient.gather(characterName = character.name).data.character
+                newCharacter = gatheringClient.gather(characterName = character.name).data.character
             }
             return gatheringClient.gather(characterName = character.name).data.character
         }

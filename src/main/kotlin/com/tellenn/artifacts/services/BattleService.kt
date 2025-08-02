@@ -59,7 +59,7 @@ class BattleService(
             newCharacter = accountClient.getCharacter(newCharacter.name).data
             if(shouldTrain){
                 newCharacter = train(newCharacter, -1)
-                return fightToGetItem(newCharacter, itemCode, quantity, false)
+                return fightToGetItem(newCharacter, itemCode, quantity, shouldTrain)
             }
         }
         return newCharacter

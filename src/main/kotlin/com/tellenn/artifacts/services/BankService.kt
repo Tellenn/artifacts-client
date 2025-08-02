@@ -46,8 +46,17 @@ class BankService(
     }
 
     fun emptyInventory(character: ArtifactsCharacter) : ArtifactsCharacter{
-        var newCharacter = character
+
         val inventory = character.inventory ?: return character
+        val items = inventory.filter { it.quantity > 0 }.map { SimpleItem(it.code, it.quantity) }
+        return deposit(character, items)
+    }
+
+    fun deposit(character: ArtifactsCharacter, items: List<SimpleItem> ): ArtifactsCharacter {
+        var newCharacter = character
+
+        val filteredItems = items.filter { it.quantity > 0 || it.code.isNotEmpty() }
+
         newCharacter = moveToBank(newCharacter)
         // Store original bank state for potential rollback
         val originalBankItems = mutableMapOf<String, BankItemDocument>()
@@ -57,7 +66,7 @@ class BankService(
             // Process inventory items and update database
             val itemsToDeposit = mutableListOf<SimpleItem>()
 
-            inventory.forEach { item ->
+            filteredItems.forEach { item ->
                 if(item.code.isNotEmpty()){
                     val itemsFound = itemRepository.findByCode(item.code)
 
