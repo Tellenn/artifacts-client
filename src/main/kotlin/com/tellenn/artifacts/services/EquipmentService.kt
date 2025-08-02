@@ -213,7 +213,7 @@ class EquipmentService(
             }
             .map { Pair(it.code, it.effects?.find { it.code.equals(skillType) }?.value) }
             .maxBy { it.second ?: 0 }
-        if(itemCode != null){
+        if(itemCode != null && itemCode.first != (character.weaponSlot ?: "")){
             var newCharacter = bankService.moveToBank(character)
             newCharacter = bankService.withdrawOne(itemCode.first, 1, newCharacter)
             newCharacter = characterService.equip(newCharacter, itemCode.first, "weapon", 1)
