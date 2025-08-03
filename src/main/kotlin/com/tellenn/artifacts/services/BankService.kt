@@ -219,4 +219,18 @@ class BankService(
         }
         return canCraft
     }
+
+    fun storeItemsToDoThenGetThemBack(character: ArtifactsCharacter, callable : () -> ArtifactsCharacter) : ArtifactsCharacter {
+        val oldInventory = character.inventory?.filter { it.code != "" }?.map { SimpleItem(it.code, it.quantity)} ?: ArrayList()
+        val oldx = character.x
+        val oldy = character.y
+        var newCharacter = emptyInventory(character)
+        newCharacter = movementService.moveCharacterToCell(oldx, oldy, newCharacter)
+        newCharacter = callable()
+        newCharacter = moveToBank(newCharacter)
+        newCharacter = withdrawMany(ArrayList(oldInventory), newCharacter)
+        return newCharacter
+
+
+    }
 }

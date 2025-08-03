@@ -78,7 +78,10 @@ class GatheringService(
         }
         if(itemDetails.subtype == "mob"){
             if(allowFight){
-                return battleService.fightToGetItem(character, itemDetails.code, quantity, true)
+                // TODO : When going to fight, the items stored are lost. Do a logic to "store" and "retrieve". This logic should be a function to wrap stuff
+                return bankService.storeItemsToDoThenGetThemBack(character) {
+                    battleService.fightToGetItem(character, itemDetails.code, quantity, true)
+                }
             }else{
                 throw IllegalArgumentException("Cannot gather mob without fighting enabled")
             }
