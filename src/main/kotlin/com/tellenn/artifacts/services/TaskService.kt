@@ -1,11 +1,13 @@
 package com.tellenn.artifacts.services
 
 import com.tellenn.artifacts.clients.AccountClient
+import com.tellenn.artifacts.clients.CharacterClient
 import com.tellenn.artifacts.clients.GatheringClient
 import com.tellenn.artifacts.clients.TaskClient
 import com.tellenn.artifacts.models.ArtifactsCharacter
 import com.tellenn.artifacts.exceptions.BattleLostException
 import com.tellenn.artifacts.exceptions.TaskFailedException
+import com.tellenn.artifacts.models.SimpleItem
 import org.apache.logging.log4j.LogManager
 import org.springframework.stereotype.Service
 
@@ -25,7 +27,8 @@ class TaskService(
     private val characterService: CharacterService,
     private val equipmentService: EquipmentService,
     private val mapService: MapService,
-    private val accountClient: AccountClient
+    private val accountClient: AccountClient,
+    private val characterClient: CharacterClient
 ) {
     private val log = LogManager.getLogger(TaskService::class.java)
 
@@ -159,6 +162,11 @@ class TaskService(
     fun exchangeReward(character: ArtifactsCharacter): ArtifactsCharacter{
         var newCharacter = character
         newCharacter = movementService.moveCharacterToMaster("items", newCharacter)
-        return taskClient.gatchaReward(newCharacter.name).data.character
+        val response = taskClient.gatchaReward(newCharacter.name).data
+        val cash = listOf(SimpleItem("small_bag_of_gold", 1), SimpleItem("bag_of_gold", 1))
+        response.rewards.items.filter { cash.contains(it) }.forEach {
+            newCharacter = characterClient.useItem(character.name, it.code, it.quantity).data.character
+        }
+        return newCharacter
     }
 }
