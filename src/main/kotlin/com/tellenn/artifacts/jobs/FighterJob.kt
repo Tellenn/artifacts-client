@@ -39,8 +39,11 @@ class FighterJob(
                 character = taskService.getNewMonsterTask(character)
                 character = taskService.doCharacterTask(character)
                 character = bankService.emptyInventory(character)
+                if(bankService.isInBank("tasks_coin",16)) {
+                    character = taskService.exchangeRewardFromBank(character)
+                }
             }catch (e: TaskFailedException){
-                if(bankService.isInBank("task_coin",1)) {
+                if(bankService.isInBank("tasks_coin",1)) {
                     character = taskService.abandonMonsterTask(character)
                 }else{
                     character = equipmentService.equipBestAvailableEquipmentForMonsterInBank(character, "red_slime")

@@ -113,17 +113,17 @@ class EquipmentService(
             if(item.effects != null){
                 for (effect in item.effects) {
                     when(effect.code) {
-                        "attack_air" -> score += effect.value / (1+ monster.defenseAir/100)
-                        "attack_water" -> score += effect.value / (1+ monster.defenseWater/100)
-                        "attack_earth" -> score += effect.value / (1+ monster.defenseEarth/100)
-                        "attack_fire" -> score += effect.value / (1+ monster.defenseFire/100)
+                        "attack_air" -> score += (effect.value / (1+ monster.defenseAir/100.0)).toInt()
+                        "attack_water" -> score += (effect.value / (1+ monster.defenseWater/100.0)).toInt()
+                        "attack_earth" -> score += (effect.value / (1+ monster.defenseEarth/100.0)).toInt()
+                        "attack_fire" -> score += (effect.value / (1+ monster.defenseFire/100.0)).toInt()
                         "critical_strike" -> multiplier += effect.value / 100.0
                         "hp" -> score += effect.value / 10
                         "dmg" -> multiplier += effect.value / 100.0
-                        "dmg_air" -> score += attackAir * (1 + effect.value / 100) - attackAir
-                        "dmg_water" -> score += attackWater * (1 + effect.value / 100) - attackWater
-                        "dmg_earth" -> score += attackEarth * (1 + effect.value / 100) - attackEarth
-                        "dmg_fire" -> score += attackFire * (1 + effect.value / 100) - attackFire
+                        "dmg_air" -> score += (attackAir * (1 + effect.value / 100.0) - attackAir).toInt()
+                        "dmg_water" -> score += (attackWater * (1 + effect.value / 100.0) - attackWater).toInt()
+                        "dmg_earth" -> score += (attackEarth * (1 + effect.value / 100.0) - attackEarth).toInt()
+                        "dmg_fire" -> score += (attackFire * (1 + effect.value / 100.0) - attackFire).toInt()
                         "propecting" -> score += effect.value / 10
                         "haste" -> score += effect.value
                         "res_air" -> score += effect.value * monster.attackAir / 75

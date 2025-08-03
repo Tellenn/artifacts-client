@@ -98,7 +98,7 @@ class BattleService(
             throw BattleLostException()
         }
         // TODO : If you have fish equipped, take it
-        if(currentCharacter.hp * 2 < currentCharacter.maxHp){
+        if(currentCharacter.hp * 2 < (currentCharacter.maxHp * 1.1)){
             log.debug("Character ${currentCharacter.name} is wounded, resting...")
             currentCharacter = characterService.rest(currentCharacter)
         }

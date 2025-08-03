@@ -43,4 +43,11 @@ class TaskClient : BaseArtifactsClient() {
             objectMapper.readValue<ArtifactsResponseBody<DataResponseBody>>(responseBody)
         }
     }
+
+    fun gatchaReward(name: String) : ArtifactsResponseBody<RewardDataResponseBody>{
+        return sendPostRequest("/my/$name/action/task/exchange", "").use { response ->
+            val responseBody = response.body!!.string()
+            objectMapper.readValue<ArtifactsResponseBody<RewardDataResponseBody>>(responseBody)
+        }
+    }
 }

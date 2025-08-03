@@ -13,7 +13,8 @@ import kotlin.math.max
  */
 @Service
 class ItemService(
-    private val itemRepository: ItemRepository
+    private val itemRepository: ItemRepository,
+    private val monsterService: MonsterService
 ) {
     private val logger = LoggerFactory.getLogger(ItemService::class.java)
 
@@ -40,6 +41,25 @@ class ItemService(
                 }
             }
         }
+        return count
+    }
+
+    fun getWeightToCraft(item: ItemDetails) : Int{
+        var count = 0
+        item.craft?.let { craft ->
+            for(item in craft.items){
+
+                val subItem = itemRepository.getByCode(item.code)
+                if(subItem.craft != null){
+                    count += item.quantity * getInvSizeToCraft(ItemDocument.toItemDetails(subItem))
+                }else if(subItem.subtype == "mob"){
+                    count += item.quantity * (monsterService.findMonsterThatDrop(item.code)?.drops?.first { it.code == item.code }?.rate ?: 10)
+                }else{
+                    count += item.quantity
+                }
+            }
+        }
+
         return count
     }
 

@@ -15,11 +15,11 @@ import org.springframework.stereotype.Component
 @Component
 class BankClient : BaseArtifactsClient() {
 
-    fun getBankedItems(itemCode: String? = null): ArtifactsArrayResponseBody<SimpleItem> {
+    fun getBankedItems(itemCode: String? = null, page: Int = 1): ArtifactsArrayResponseBody<SimpleItem> {
         val path = if (itemCode != null) {
-            "/my/bank/items?item_code=$itemCode"
+            "/my/bank/items?page=$page&item_code=$itemCode"
         } else {
-            "/my/bank/items"
+            "/my/bank/items?page=$page"
         }
 
         return sendGetRequest(path).use { response ->

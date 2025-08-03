@@ -154,7 +154,7 @@ class BankService(
     fun getAllEquipmentsUnderLevel(level: Int) : List<BankItemDocument>{
         val dbItem = ArrayList<BankItemDocument>()
         dbItem.addAll(bankRepository.findByTypeInAndLevelIsLessThanEqual(
-            listOf("helmet", "ring", "weapon", "amulet", "artifact", "boots", "leg_armor", "body_armor", "rune", "bag","shield"), level))
+            listOf("helmet", "ring", "weapon", "amulet", "artifact", "boots", "leg_armor", "body_armor", "rune", "bag", "shield"), level))
         return dbItem
     }
 

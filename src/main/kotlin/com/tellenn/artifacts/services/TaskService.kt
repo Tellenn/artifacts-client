@@ -1,5 +1,6 @@
 package com.tellenn.artifacts.services
 
+import com.tellenn.artifacts.clients.AccountClient
 import com.tellenn.artifacts.clients.GatheringClient
 import com.tellenn.artifacts.clients.TaskClient
 import com.tellenn.artifacts.models.ArtifactsCharacter
@@ -23,7 +24,8 @@ class TaskService(
     private val battleService: BattleService,
     private val characterService: CharacterService,
     private val equipmentService: EquipmentService,
-    private val mapService: MapService
+    private val mapService: MapService,
+    private val accountClient: AccountClient
 ) {
     private val log = LogManager.getLogger(TaskService::class.java)
 
@@ -60,7 +62,7 @@ class TaskService(
             throw IllegalStateException("Character ${character.name} already has no task")
         }
         bankService.moveToBank(character)
-        bankService.withdrawOne("task_coin", 1, character)
+        bankService.withdrawOne("tasks_coin", 1, character)
         movementService.moveCharacterToMaster("monsters", character)
         return taskClient.abandonTask(character.name).data.character
     }
@@ -129,7 +131,7 @@ class TaskService(
                     newCharacter = bankService.emptyInventory(newCharacter)
                 }
             }catch (e: BattleLostException){
-
+                newCharacter = accountClient.getCharacter(newCharacter.name).data
                 log.debug("Monster in the task is too hard, stopping")
                 // TODO : Something more complex before giving up ?
                 count++
@@ -145,5 +147,18 @@ class TaskService(
         taskClient.completeTask(newCharacter.name).data.character
 
         return character
+    }
+
+    fun exchangeRewardFromBank(character: ArtifactsCharacter): ArtifactsCharacter {
+        var newCharacter = character
+        newCharacter = bankService.moveToBank(newCharacter)
+        newCharacter = bankService.withdrawOne("tasks_coin", 6, newCharacter)
+        return exchangeReward(newCharacter)
+    }
+
+    fun exchangeReward(character: ArtifactsCharacter): ArtifactsCharacter{
+        var newCharacter = character
+        newCharacter = movementService.moveCharacterToMaster("items", newCharacter)
+        return taskClient.gatchaReward(newCharacter.name).data.character
     }
 }

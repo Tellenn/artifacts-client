@@ -46,7 +46,7 @@ class AlchemistJob(
                 character = taskService.getNewItemTask(character)
                 character = taskService.doCharacterTask(character)
 
-            }else if(character.alchemyLevel < character.cookingLevel){
+            }else if(character.alchemyLevel < character.fishingLevel){
                 val itemsToCraft = ArrayList<SimpleItem>()
                 getHealingPotions().forEach {
                     if(!bankService.isInBank(it.code, 400)){
@@ -96,6 +96,7 @@ class AlchemistJob(
         return food
             .filter { it.effects?.none { effect -> effect.code != "heal" } ?: false }
             .filter { it.craft?.items?.size == 1 && itemRepository.findByCode(it.craft.items[0].code).subtype == "fishing" }
+            .filter { it.level <= character.fishingLevel }
             .maxBy { it.level }
     }
 }

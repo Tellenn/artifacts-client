@@ -30,6 +30,8 @@ class CrafterJob(
 ) : GenericJob(mapService, applicationContext, movementService, bankService, characterService) {
 
     lateinit var character: ArtifactsCharacter
+    val rareItemCode = listOf("magical_cure", "jasper_crystal", "astralyte_crystal", "enchanted_fabric", "ruby", "sapphire", "emerald", "topaz", "diamond")
+
 
     fun run(initCharacter: ArtifactsCharacter) {
         sleep(1000)
@@ -93,12 +95,12 @@ class CrafterJob(
     }
 
     private fun getListOfItemToCraftUnderLevel(character : ArtifactsCharacter, skills : List<String>) : List<ItemDetails>{
-        val items = ArrayList<ItemDetails>()
+        var items = ArrayList<ItemDetails>()
 
 
         for (skill in skills) {
             val minLevel = character.getLevelOf(skill) / 5 * 5
-            items.addAll(itemService.getCrafterItemsBetweenLevel(minLevel-1, character.getLevelOf(skill) +1, skills))
+            items.addAll(itemService.getCrafterItemsBetweenLevel(minLevel-1, character.getLevelOf(skill) +1, listOf(skill)))
         }
         // Based on crafted history
         val alreadyCraftedItem = craftedItemRepository.findAllByQuantityLessThan(3).map { it.code }
@@ -106,9 +108,15 @@ class CrafterJob(
         // Or based on available bank items ?
         val availableCraftedItem = bankService.getAllEquipmentsUnderLevel(50).map { it.code }
 
-        // TODO : Improve based on rare craft ?
 
-        return items.filter { !availableCraftedItem.contains(it.code) }.sortedBy { it.level }
+        return items
+            .filter { !availableCraftedItem.contains(it.code) }
+            .filter {
+                it.craft?.items?.none { item ->
+                    if(rareItemCode.contains(item.code)){
+                        !bankService.isInBank(item.code, item.quantity)
+                    }else{ false } } ?: false }
+            .sortedBy { it.level }
     }
 
     /**
@@ -125,17 +133,20 @@ class CrafterJob(
     }
 
     private fun getTopLowestCostingItemForLevel(level: Int, skills : List<String>) : ItemDetails{
-        val forbiddenItemCode = listOf("magical_cure", "jasper_crystal", "astralyte_crystal", "enchanted_fabric", "ruby", "sapphire", "emerald", "topaz", "diamond")
         val minLevel = level / 5 * 5
         val items = itemService.getCrafterItemsBetweenLevel(minLevel-1, level +1, skills)
         val itemCostMatrix = HashMap<ItemDetails, Int>()
         // Exclude very hard items and the tutorial one
-        items.filter { !forbiddenItemCode.contains(it.code) && it.code != "wooden_staff"  }
+        items.filter { it.code != "wooden_staff"  }
+            .filter {
+                it.craft?.items?.none { item ->
+                    if(rareItemCode.contains(item.code)){
+                        !bankService.isInBank(item.code, item.quantity)
+                    }else{ false } } ?: false }
             .forEach {
             itemCostMatrix.put(
                 it,
-                itemService.getInvSizeToCraft(it))
-                // TODO : Do a better math for this
+                itemService.getWeightToCraft(it))
         }
         return itemCostMatrix.minWith(compareBy { it.value }).key
     }

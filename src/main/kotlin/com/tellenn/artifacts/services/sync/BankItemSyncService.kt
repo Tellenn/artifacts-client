@@ -36,13 +36,22 @@ class BankItemSyncService(
 
         var count = 0
         try {
-            val response = bankClient.getBankedItems().data
+            var response = bankClient.getBankedItems()
             val items = itemRepository.findAll()
 
-            response.forEach { item -> 
+            response.data.forEach { item ->
                 val matchingItem = ItemDocument.toItemDetails(items.filter { i -> i.code.equals(item.code) }.get(0))
                 bankRepository.insert<BankItemDocument>(BankItemDocument.fromItemDetails(matchingItem, item.quantity))
                 count++
+            }
+
+            while(response.pages > response.page) {
+                response = bankClient.getBankedItems(page = response.page + 1)
+                response.data.forEach { item ->
+                    val matchingItem = ItemDocument.toItemDetails(items.filter { i -> i.code.equals(item.code) }.get(0))
+                    bankRepository.insert<BankItemDocument>(BankItemDocument.fromItemDetails(matchingItem, item.quantity))
+                    count++
+                }
             }
 
             // Save the server version after successful sync
