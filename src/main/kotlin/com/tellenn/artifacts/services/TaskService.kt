@@ -71,7 +71,7 @@ class TaskService(
     }
 
     fun doCharacterTask(character: ArtifactsCharacter): ArtifactsCharacter {
-        log.info("Character ${character.name} is doing a task")
+        log.debug("Character ${character.name} is doing a task")
         if(!character.task.isNullOrEmpty()){
             val newCharacter = when(character.taskType){
                 "items" -> completeItemTask(character)
