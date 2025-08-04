@@ -145,17 +145,9 @@ class MainRuntime(
                     log.info("Thread for character ${character.name} already exists, skipping")
                     continue
                 }
-
-                val thread = Thread {
-                    runCharacter(config)
-                }
-                thread.name = character.name
-
-                // Store the thread reference in the WebSocketService
-                webSocketService.addCharacterThread(character.name, thread)
-
-                thread.start()
-                log.info("Started thread for character: ${character.name}")
+                var charThread = CharacterThread(config, crafterJob, fighterJob, alchemistJob, minerJob, woodworkerJob)
+                webSocketService.addCharacterThread(config.name, charThread)
+                charThread.startThread()
             } catch (e: Exception) {
                 log.error("Exception occurred while starting thread for character: ${character.name}", e)
 
@@ -165,15 +157,10 @@ class MainRuntime(
                     Thread.sleep(1000) // Wait 1 second before restarting
 
                     // Create a new thread and start it
-                    val newThread = Thread {
-                        runCharacter(config)
-                    }
-                    newThread.name = character.name
+                    var charThread = CharacterThread(config, crafterJob, fighterJob, alchemistJob, minerJob, woodworkerJob)
+                    webSocketService.addCharacterThread(config.name, charThread)
+                    charThread.startThread()
 
-                    // Store the thread reference in the WebSocketService
-                    webSocketService.addCharacterThread(character.name, newThread)
-
-                    newThread.start()
                     log.info("Successfully restarted thread for character: ${character.name}")
                 } catch (e2: Exception) {
                     log.error("Failed to restart thread for character: ${character.name}", e2)
@@ -181,123 +168,6 @@ class MainRuntime(
             }
         }
     }
-
-    /**
-     * Restarts a specific character thread.
-     *
-     * @param characterName The name of the character whose thread should be restarted
-     * @return true if the thread was restarted, false if the character doesn't exist
-     */
-    fun restartCharacterThread(characterName: String): Boolean {
-        // Get the character and config for the given name
-        val characterEntry = characterSyncService.getCharacterMap().entries.find { 
-            it.value.name == characterName 
-        } ?: return false
-
-        val config = characterEntry.key
-        val character = characterEntry.value
-
-        // Interrupt the existing thread if it exists
-        val existingThread = webSocketService.getCharacterThread(characterName)
-        if (existingThread != null && existingThread.isAlive) {
-            webSocketService.interruptCharacterThread(characterName)
-            log.debug("Interrupted existing thread for character: $characterName")
-        }
-
-        // Create and start a new thread
-        val newThread = Thread {
-            runCharacter(config)
-        }
-        newThread.name = "Character-Thread-$characterName"
-
-        // Update the thread reference in the WebSocketService
-        webSocketService.addCharacterThread(characterName, newThread)
-
-        newThread.start()
-        log.info("Restarted thread for character: $characterName")
-
-        return true
-    }
-
-    /**
-     * Restarts all character threads.
-     *
-     * @return The number of threads that were restarted
-     */
-    fun restartAllCharacterThreads(): Int {
-        log.info("Restarting all character threads")
-        var count = 0
-
-        val characterMap = characterSyncService.getCharacterMap()
-        for ((config, character) in characterMap) {
-            // Interrupt the existing thread if it exists
-            val existingThread = webSocketService.getCharacterThread(character.name)
-            if (existingThread != null && existingThread.isAlive) {
-                webSocketService.interruptCharacterThread(character.name)
-                log.info("Interrupted existing thread for character: ${character.name}")
-            }
-
-            // Create and start a new thread
-            val newThread = Thread {
-                runCharacter(config)
-            }
-            newThread.name = "Character-Thread-${character.name}"
-
-            // Update the thread reference in the WebSocketService
-            webSocketService.addCharacterThread(character.name, newThread)
-
-            newThread.start()
-            log.info("Restarted thread for character: ${character.name}")
-            count++
-        }
-
-        return count
-    }
-
-    /**
-     * Placeholder function that will be executed by each character thread.
-     * Calls the appropriate function based on the character's job.
-     * Handles interruption by checking Thread.currentThread().isInterrupted.
-     * If an exception occurs, the character thread will be restarted.
-     *
-     * @param config The character configuration
-     * @param character The character object
-     */
-    private fun runCharacter(config: CharacterConfig) {
-        var character = accountClient.getCharacter(config.name).data
-        log.info("Character details - Name: ${character.name}, Level: ${character.level}, Job: ${config.job}")
-
-        try {
-            // Create and run the appropriate job based on the character's job type
-            when (config.job.lowercase()) {
-                "crafter" -> crafterJob.run(character)
-                "fighter" -> fighterJob.run(character)
-                "alchemist" -> alchemistJob.run(character)
-                "miner" -> minerJob.run(character)
-                "woodworker" -> woodworkerJob.run(character)
-                else -> {
-                    log.error("Unknown job '${config.job}' for character ${character.name}")
-                    throw UnknownJobException(config.job, character.name)
-                }
-            }
-        } catch (e: Exception) {
-            log.error("Error in character thread for ${character.name}", e)
-
-            // Restart the character thread after a brief delay
-            try {
-                log.info("Restarting character thread for ${character.name} after exception")
-                Thread.sleep(1000) // Wait 1 second before restarting
-                restartCharacterThread(character.name)
-            } catch (e: Exception) {
-                log.error("Failed to restart character thread for ${character.name}", e)
-            }
-        } finally {
-            log.debug("Character ${character.name} thread is exiting")
-            // Remove the thread from the WebSocketService when it exits
-            webSocketService.removeCharacterThread(character.name)
-        }
-    }
-
 
     /**
      * Cleans up resources when the application is shutting down.
@@ -314,28 +184,5 @@ class MainRuntime(
         webSocketService.shutdown()
 
         log.info("Cleanup completed")
-    }
-
-    /**
-     * Adds an item to the shared thread-safe list.
-     * This method can be safely called from multiple threads.
-     *
-     * @param item The item to add to the shared list
-     * @return true if the item was added successfully
-     */
-    fun addToSharedList(item: Any): Boolean {
-        return sharedThreadList.add(item)
-    }
-
-    /**
-     * Gets a copy of the current contents of the shared thread-safe list.
-     * This method returns a new list to avoid concurrent modification issues.
-     *
-     * @return A copy of the current contents of the shared list
-     */
-    fun getSharedListContents(): List<Any> {
-        synchronized(sharedThreadList) {
-            return ArrayList(sharedThreadList)
-        }
     }
 }

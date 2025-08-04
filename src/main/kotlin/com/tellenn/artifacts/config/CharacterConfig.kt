@@ -15,5 +15,9 @@ class CharacterConfig(
                 CharacterConfig("Gustave", "men3", "woodworker")
             )
         }
+
+        fun getCharacterByName(name: String): CharacterConfig {
+            return getPredefinedCharacters().find { it.name == name } ?: CharacterConfig("Aerith", "women1", "alchemist")
+        }
     }
 }

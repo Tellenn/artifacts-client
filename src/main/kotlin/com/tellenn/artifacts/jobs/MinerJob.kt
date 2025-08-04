@@ -1,6 +1,7 @@
 package com.tellenn.artifacts.jobs
 
 import com.tellenn.artifacts.AppConfig.maxLevel
+import com.tellenn.artifacts.clients.AccountClient
 import com.tellenn.artifacts.models.ArtifactsCharacter
 import com.tellenn.artifacts.models.SimpleItem
 import com.tellenn.artifacts.services.BankService
@@ -26,19 +27,19 @@ class MinerJob(
     movementService: MovementService,
     bankService: BankService,
     characterService: CharacterService,
-    private val resourceService: ResourceService,
+    accountClient: AccountClient,
     private val gatheringService: GatheringService,
     private val itemService: ItemService,
     private val taskService: TaskService
-) : GenericJob(mapService, applicationContext, movementService, bankService, characterService) {
+) : GenericJob(mapService, applicationContext, movementService, bankService, characterService, accountClient) {
 
     lateinit var character: ArtifactsCharacter
     val skill = "mining"
 
-    fun run(initCharacter: ArtifactsCharacter) {
+    fun run(characterName: String) {
 
         sleep(3000)
-        character = init(initCharacter)
+        character = init(characterName)
 
 
         do{

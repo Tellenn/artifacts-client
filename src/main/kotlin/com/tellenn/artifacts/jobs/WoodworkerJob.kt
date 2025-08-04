@@ -1,6 +1,7 @@
 package com.tellenn.artifacts.jobs
 
 import com.tellenn.artifacts.AppConfig.maxLevel
+import com.tellenn.artifacts.clients.AccountClient
 import com.tellenn.artifacts.models.ArtifactsCharacter
 import com.tellenn.artifacts.models.SimpleItem
 import com.tellenn.artifacts.services.BankService
@@ -26,22 +27,21 @@ class WoodworkerJob(
     movementService: MovementService,
     bankService: BankService,
     characterService: CharacterService,
-    val resourceService: ResourceService,
+    accountClient: AccountClient,
     val gatheringService: GatheringService,
     private val itemService: ItemService,
     private val taskService: TaskService,
-) : GenericJob(mapService, applicationContext, movementService, bankService, characterService) {
+) : GenericJob(mapService, applicationContext, movementService, bankService, characterService, accountClient) {
 
     lateinit var character: ArtifactsCharacter
     val skill: String = "woodcutting"
 
-    fun run(initCharacter: ArtifactsCharacter) {
+    fun run(characterName: String) {
         sleep(4000)
-        character = init(initCharacter)
+        character = init(characterName)
 
         do{
-                        val itemsToCraft = ArrayList<SimpleItem>()
-            var gatheredBase = false
+            val itemsToCraft = ArrayList<SimpleItem>()
             val gatheringItems = itemService.getAllCraftBySkillUnderLevel(skill, character.woodcuttingLevel).filter { it.subtype != "precious_stone" }
             for(it in gatheringItems){
                 if(!bankService.isInBank(it.code, 200)){

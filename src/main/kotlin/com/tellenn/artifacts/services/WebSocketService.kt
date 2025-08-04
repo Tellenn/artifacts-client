@@ -2,6 +2,17 @@ package com.tellenn.artifacts.services
 
 import com.fasterxml.jackson.databind.JsonNode
 import com.fasterxml.jackson.databind.ObjectMapper
+import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule
+import com.fasterxml.jackson.module.kotlin.jacksonObjectMapper
+import com.fasterxml.jackson.module.kotlin.readValue
+import com.tellenn.artifacts.CharacterThread
+import com.tellenn.artifacts.MainRuntime
+import com.tellenn.artifacts.clients.AccountClient
+import com.tellenn.artifacts.config.CharacterConfig
+import com.tellenn.artifacts.config.CharacterConfig.Companion.getCharacterByName
+import com.tellenn.artifacts.config.CharacterConfig.Companion.getPredefinedCharacters
+import com.tellenn.artifacts.models.Event
+import com.tellenn.artifacts.services.sync.CharacterSyncService
 import okhttp3.*
 import okhttp3.WebSocket
 import org.slf4j.LoggerFactory
@@ -28,8 +39,12 @@ interface WebSocketMessageHandler {
 
 @Service
 class WebSocketService(
-    private val objectMapper: ObjectMapper
+    private val merchantService: MerchantService,
+    private val accountClient: AccountClient,
 ) {
+    val objectMapper = jacksonObjectMapper().apply {
+        registerModule(JavaTimeModule())
+    }
     private val logger = LoggerFactory.getLogger(WebSocketService::class.java)
 
     @Value("\${artifacts.api.key}")
@@ -50,7 +65,7 @@ class WebSocketService(
     private val maxReconnectDelayMs = 30000L // 30 seconds
 
     // Map to store character threads by character name
-    private val characterThreads = ConcurrentHashMap<String, Thread>()
+    private val characterThreads = ConcurrentHashMap<String, CharacterThread>()
 
     // Message handlers
     private val messageHandlers = mutableListOf<WebSocketMessageHandler>()
@@ -183,20 +198,9 @@ class WebSocketService(
      * @param thread The thread to add
      * @return The previous thread associated with the character, or null if there was none
      */
-    fun addCharacterThread(characterName: String, thread: Thread): Thread? {
+    fun addCharacterThread(characterName: String, thread: CharacterThread): CharacterThread? {
         logger.debug("Adding thread for character: $characterName")
         return characterThreads.put(characterName, thread)
-    }
-
-    /**
-     * Removes a character thread from the map.
-     *
-     * @param characterName The name of the character
-     * @return The thread that was removed, or null if there was none
-     */
-    fun removeCharacterThread(characterName: String): Thread? {
-        logger.warn("Removing thread for character: $characterName")
-        return characterThreads.remove(characterName)
     }
 
     /**
@@ -205,17 +209,8 @@ class WebSocketService(
      * @param characterName The name of the character
      * @return The thread associated with the character, or null if there is none
      */
-    fun getCharacterThread(characterName: String): Thread? {
+    fun getCharacterThread(characterName: String): CharacterThread? {
         return characterThreads[characterName]
-    }
-
-    /**
-     * Gets all character threads.
-     *
-     * @return A map of character names to threads
-     */
-    fun getAllCharacterThreads(): Map<String, Thread> {
-        return characterThreads.toMap()
     }
 
     /**
@@ -225,10 +220,23 @@ class WebSocketService(
      * @return true if the thread was interrupted, false if the thread doesn't exist
      */
     fun interruptCharacterThread(characterName: String): Boolean {
-        val thread = characterThreads[characterName] ?: return false
+        val characterThread = characterThreads[characterName] ?: return false
 
         logger.info("Interrupting thread for character: $characterName")
-        thread.interrupt()
+        characterThread.thread.interrupt()
+        return true
+    }
+
+    /**
+     * Interrupts a specific character thread.
+     *
+     * @param characterName The name of the character whose thread should be interrupted
+     * @return true if the thread was interrupted, false if the thread doesn't exist
+     */
+    fun restartCharacterThread(characterName: String): Boolean {
+        val characterThread = characterThreads[characterName] ?: return false
+        characterThread.startThread()
+        logger.info("Restarting thread for character: $characterName")
         return true
     }
 
@@ -306,7 +314,28 @@ class WebSocketService(
 
                         // Handle interruption directly based on message type
                         when (messageType) {
-                            "event_spawn", "event_removed", "grandexchange_sell", "grandexchange_neworder", "achievement_unlocked" -> {
+                            "event_spawn" -> {
+                                val event = objectMapper.readValue<Event>(jsonNode.get("data").toString())
+                                if (event.map.content?.type == "npc"){
+
+                                    logger.info("Merchant spawned: ${event.map.content.code}")
+                                    interruptCharacterThread("Aerith")
+                                    var character = accountClient.getCharacter("Aerith").data
+                                    merchantService.sellBankItemTo(character, event.map.content.code)
+                                    restartCharacterThread("Aerith"
+                                    )
+                                }else if (event.map.content?.type == "resource"){
+
+                                    logger.info("Resource spawned: ${event.map.content.code}")
+                                    // TODO : Gather resource until event is over
+
+                                }else if (event.map.content?.type == "monster"){
+
+                                    logger.info("Monster spawned: ${event.map.content.code}")
+                                    // TODO : Fight if it's interesting or that you can
+                                }
+                            }
+                            "event_removed", "grandexchange_sell", "grandexchange_neworder", "achievement_unlocked" -> {
 
                             }
                         }

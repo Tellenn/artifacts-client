@@ -1,5 +1,6 @@
 package com.tellenn.artifacts.jobs
 
+import com.tellenn.artifacts.clients.AccountClient
 import com.tellenn.artifacts.db.documents.CraftedItemDocument
 import com.tellenn.artifacts.db.repositories.CraftedItemRepository
 import com.tellenn.artifacts.models.ArtifactsCharacter
@@ -24,18 +25,19 @@ class CrafterJob(
     movementService: MovementService,
     bankService: BankService,
     characterService: CharacterService,
+    accountClient: AccountClient,
     private val itemService: ItemService,
     private val craftedItemRepository: CraftedItemRepository,
     private val gatheringService: GatheringService,
-) : GenericJob(mapService, applicationContext, movementService, bankService, characterService) {
+) : GenericJob(mapService, applicationContext, movementService, bankService, characterService, accountClient) {
 
     lateinit var character: ArtifactsCharacter
     val rareItemCode = listOf("magical_cure", "jasper_crystal", "astralyte_crystal", "enchanted_fabric", "ruby", "sapphire", "emerald", "topaz", "diamond")
 
 
-    fun run(initCharacter: ArtifactsCharacter) {
+    fun run(characterName: String) {
         sleep(1000)
-        character = init(initCharacter)
+        character = init(characterName)
         do {
             val bankDetails = bankService.getBankDetails()
             if(bankDetails.slots - bankService.getBankSize() < 20 && bankDetails.slots < 200 && bankDetails.gold > bankDetails.nextExpansionCost){

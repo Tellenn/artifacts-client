@@ -45,4 +45,14 @@ class MovementService(
 
         return moveCharacterToCell(map.x, map.y, character)
     }
+
+    fun moveToNpc(character: ArtifactsCharacter, npcName: String): ArtifactsCharacter {
+        val map = mapService.findClosestMap(
+            character = character,
+            contentType = "npc",
+            contentCode = npcName
+        )
+
+        return moveCharacterToCell(map.x, map.y, character)
+    }
 }

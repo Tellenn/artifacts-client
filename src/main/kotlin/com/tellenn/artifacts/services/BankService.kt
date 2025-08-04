@@ -233,4 +233,14 @@ class BankService(
 
 
     }
+
+    fun withdrawAllOfOne(newCharacter: ArtifactsCharacter, code: String): ArtifactsCharacter {
+        val bankedItem = bankClient.getBankedItems(code).data.firstOrNull()
+        if(bankedItem == null){
+            return newCharacter
+        }
+        moveToBank(newCharacter)
+        val quantityLeft = bankedItem.quantity
+        return withdrawOne(code, quantityLeft, newCharacter)
+    }
 }

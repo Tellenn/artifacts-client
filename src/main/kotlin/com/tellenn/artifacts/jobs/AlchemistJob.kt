@@ -1,6 +1,7 @@
 package com.tellenn.artifacts.jobs
 
 import com.tellenn.artifacts.AppConfig.maxLevel
+import com.tellenn.artifacts.clients.AccountClient
 import com.tellenn.artifacts.db.repositories.ItemRepository
 import com.tellenn.artifacts.models.ArtifactsCharacter
 import com.tellenn.artifacts.models.ItemDetails
@@ -28,18 +29,19 @@ class AlchemistJob(
     movementService: MovementService,
     bankService: BankService,
     characterService: CharacterService,
+    accountClient: AccountClient,
     private val gatheringService: GatheringService,
     private val itemService: ItemService,
     private val taskService: TaskService,
-    private val itemRepository: ItemRepository
-) : GenericJob(mapService, applicationContext, movementService, bankService, characterService) {
+    private val itemRepository: ItemRepository,
+) : GenericJob(mapService, applicationContext, movementService, bankService, characterService, accountClient) {
 
     lateinit var character: ArtifactsCharacter
     val skill = "alchemy"
 
-    fun run(initCharacter: ArtifactsCharacter) {
+    fun run(characterName: String) {
         sleep(2000)
-        character = init(initCharacter)
+        character = init(characterName)
 
         do{
             if(character.alchemyLevel == maxLevel && character.cookingLevel == maxLevel){

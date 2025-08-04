@@ -1,6 +1,7 @@
 package com.tellenn.artifacts.jobs
 
 import com.tellenn.artifacts.MainRuntime
+import com.tellenn.artifacts.clients.AccountClient
 import com.tellenn.artifacts.models.ArtifactsCharacter
 import com.tellenn.artifacts.services.BankService
 import com.tellenn.artifacts.services.CharacterService
@@ -20,7 +21,8 @@ open class GenericJob(
     val applicationContext: ApplicationContext,
     val movementService: MovementService,
     val bankService: BankService,
-    val characterService: CharacterService
+    val characterService: CharacterService,
+    val accountClient: AccountClient
 ) {
     val log = LogManager.getLogger(MainRuntime::class.java)
 
@@ -28,9 +30,9 @@ open class GenericJob(
      * Initialization for clean re-run, return ever character to the closest bank for an inventory cleanup
      * This is the main entry point for job execution.
      */
-    fun init(character: ArtifactsCharacter) : ArtifactsCharacter{
-        var tempCharacter : ArtifactsCharacter
-        tempCharacter = bankService.moveToBank(character)
+    fun init(characterName : String) : ArtifactsCharacter{
+        var tempCharacter = accountClient.getCharacter(characterName).data
+        tempCharacter = bankService.moveToBank(tempCharacter)
         tempCharacter = bankService.emptyInventory(tempCharacter)
         tempCharacter = characterService.rest(tempCharacter)
         return tempCharacter

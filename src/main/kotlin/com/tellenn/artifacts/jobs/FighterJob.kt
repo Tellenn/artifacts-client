@@ -1,5 +1,6 @@
 package com.tellenn.artifacts.jobs
 
+import com.tellenn.artifacts.clients.AccountClient
 import com.tellenn.artifacts.exceptions.TaskFailedException
 import com.tellenn.artifacts.models.ArtifactsCharacter
 import com.tellenn.artifacts.services.BankService
@@ -23,16 +24,17 @@ class FighterJob(
     movementService: MovementService,
     bankService: BankService,
     characterService: CharacterService,
+    accountClient: AccountClient,
     private val taskService: TaskService,
     private val equipmentService: EquipmentService,
     private val battleService: BattleService,
     private val monsterService: MonsterService
-) : GenericJob(mapService, applicationContext, movementService, bankService, characterService) {
+) : GenericJob(mapService, applicationContext, movementService, bankService, characterService, accountClient) {
 
     lateinit var character: ArtifactsCharacter
 
-    fun run(initCharacter: ArtifactsCharacter) {
-        character = init(initCharacter)
+    fun run(characterName: String) {
+        character = init(characterName)
         do{
 
             try {
