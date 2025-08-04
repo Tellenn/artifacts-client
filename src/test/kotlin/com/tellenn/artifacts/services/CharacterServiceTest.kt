@@ -74,7 +74,7 @@ class CharacterServiceTest {
             maxHp = maxHp,
             x = 0,
             y = 0,
-            inventory = null,
+            inventory = arrayOf(),
             cooldown = 0,
             skin = null,
             task = null,

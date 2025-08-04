@@ -72,7 +72,7 @@ class BankServiceTest {
         // Given
         val bankX = 10
         val bankY = 20
-        val characterAtBank = createTestCharacter(null, bankX, bankY)
+        val characterAtBank = createTestCharacter(arrayOf(), bankX, bankY)
 
         val bankMapContent = MapContent(type = "building", code = "bank")
         val bankMapData = MapData(name = "Bank", skin = "bank", x = bankX, y = bankY, content = bankMapContent)
@@ -95,8 +95,8 @@ class BankServiceTest {
         val characterY = 5
         val bankX = 10
         val bankY = 20
-        val characterNotAtBank = createTestCharacter(null, characterX, characterY)
-        val characterAfterMove = createTestCharacter(null, bankX, bankY)
+        val characterNotAtBank = createTestCharacter(arrayOf(), characterX, characterY)
+        val characterAfterMove = createTestCharacter(arrayOf(), bankX, bankY)
 
         val bankMapContent = MapContent(type = "building", code = "bank")
         val bankMapData = MapData(name = "Bank", skin = "bank", x = bankX, y = bankY, content = bankMapContent)
@@ -113,7 +113,7 @@ class BankServiceTest {
         verify(movementService).moveCharacterToCell(bankX, bankY, characterNotAtBank)
     }
 
-    private fun createTestCharacter(inventory: Array<InventorySlot>?, x: Int = 0, y: Int = 0): ArtifactsCharacter {
+    private fun createTestCharacter(inventory: Array<InventorySlot>, x: Int = 0, y: Int = 0): ArtifactsCharacter {
         return ArtifactsCharacter(
             name = "TestCharacter",
             account = "TestAccount",

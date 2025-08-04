@@ -617,7 +617,7 @@ class BattleSimulatorServiceTest {
             maxHp = maxHp,
             x = 0,
             y = 0,
-            inventory = null,
+            inventory = arrayOf(),
             cooldown = 0,
             skin = characterSkin,
             task = null,

@@ -114,7 +114,7 @@ class MapProximityServiceTest {
             maxHp = 100,
             x = x,
             y = y,
-            inventory = null,
+            inventory = arrayOf(),
             cooldown = 0,
             skin = "default",
             task = null,
