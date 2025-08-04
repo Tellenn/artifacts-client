@@ -146,10 +146,9 @@ class TaskService(
             }
         }
 
-        movementService.moveCharacterToMaster("monsters", newCharacter)
-        taskClient.completeTask(newCharacter.name).data.character
-
-        return character
+        newCharacter = movementService.moveCharacterToMaster("monsters", newCharacter)
+        newCharacter = taskClient.completeTask(newCharacter.name).data.character
+        return newCharacter
     }
 
     fun exchangeRewardFromBank(character: ArtifactsCharacter): ArtifactsCharacter {
@@ -163,10 +162,10 @@ class TaskService(
         var newCharacter = character
         newCharacter = movementService.moveCharacterToMaster("items", newCharacter)
         val response = taskClient.gatchaReward(newCharacter.name).data
-        val cash = listOf(SimpleItem("small_bag_of_gold", 1), SimpleItem("bag_of_gold", 1))
-        response.rewards.items.filter { cash.contains(it) }.forEach {
-            newCharacter = characterClient.useItem(character.name, it.code, it.quantity).data.character
-        }
+        val cash = listOf("small_bag_of_gold","bag_of_gold")
+        response.rewards.items
+            .filter { cash.contains(it.code) }
+            .forEach { newCharacter = characterClient.useItem(character.name, it.code, 1).data.character }
         return newCharacter
     }
 }

@@ -38,4 +38,6 @@ interface ItemRepository : MongoRepository<ItemDocument, String> {
     fun findByCraftSkillAndLevelLessThanEqualOrderByLevelAsc(skillType: String, maxLevel: Int) : List<ItemDocument>
 
     fun findByLevelBetween(minLevel: Int, maxLevel: Int) : List<ItemDocument>
+
+    fun findByEffectsCode(code: String) : List<ItemDocument>
 }

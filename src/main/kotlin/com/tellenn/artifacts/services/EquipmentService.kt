@@ -12,6 +12,7 @@ import com.tellenn.artifacts.db.documents.ItemDocument
 import com.tellenn.artifacts.db.repositories.ItemRepository
 import org.apache.logging.log4j.LogManager
 import org.springframework.stereotype.Service
+import kotlin.math.min
 
 /**
  * Service for managing gathering operations.
@@ -26,7 +27,8 @@ class EquipmentService(
     private val bankService: BankService,
     private val monsterClient: MonsterClient,
     private val itemRepository: ItemRepository,
-    private val characterService: CharacterService
+    private val characterService: CharacterService,
+    private val itemService: ItemService
 ) {
     private val log = LogManager.getLogger(EquipmentService::class.java)
 
@@ -50,6 +52,12 @@ class EquipmentService(
             }
         }
         newCharacter = bankService.emptyInventory(newCharacter)
+
+        val healingItemInBank = itemService.getHealingItems(bankService.getAll())
+        if(healingItemInBank.isNotEmpty()){
+            val worstHealingItem = healingItemInBank.map { itemService.getItem(it.code) }.filter { it.craft != null }.minBy { it.level }
+            newCharacter = bankService.withdrawOne(worstHealingItem.code, min(100, bankService.getOne(worstHealingItem.code).quantity), newCharacter)
+        }
         return newCharacter
     }
 

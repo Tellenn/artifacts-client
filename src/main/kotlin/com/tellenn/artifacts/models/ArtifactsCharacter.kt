@@ -15,7 +15,7 @@ class ArtifactsCharacter(
     @JsonAlias("max_hp") val maxHp: Int,
     val x: Int,
     val y: Int,
-    val inventory: Array<InventorySlot>?,
+    val inventory: Array<InventorySlot>,
     val cooldown: Int,
     val skin: String?,
     val task: String?,
@@ -87,13 +87,6 @@ class ArtifactsCharacter(
     @JsonAlias("bag_slot") val bagSlot: String?,
     @JsonAlias("cooldown_expiration") val cooldownExpiration: Instant?
 ) {
-    fun position(): String {
-        return "{\"x\": " + this.x + " , \"y\": " + this.y + "}"
-    }
-
-    val remainingTask: Int
-        get() = taskTotal - taskProgress
-
     fun getLevelOf(job: String): Int {
         return when (job) {
             "mining" -> miningLevel
@@ -107,27 +100,6 @@ class ArtifactsCharacter(
             else -> 0
         }
     }
-
-    val lowestCraftLevel: String
-        /**
-         * Return the lowest level ranked by 5 levels in order weapon > gear > jewel
-         * @Example : Weapon 23, Gear 24, jewel 20 returns weapon
-         * @Example : Weapon 23, Gear 19, jewel 20 returns gear
-         * <     * @return the lowest skill level, floored by 5, with priority.
-         */
-        get() {
-            val modulo = 5
-            val min = min(
-                min(
-                    weaponcraftingLevel - (weaponcraftingLevel % modulo),
-                    jewelrycraftingLevel - (jewelrycraftingLevel % modulo)
-                ), gearcraftingLevel - (gearcraftingLevel % modulo)
-            )
-            if (min == AppConfig.maxLevel) return "none"
-            if (min == weaponcraftingLevel - (weaponcraftingLevel % modulo)) return "weaponcrafting"
-            if (min == gearcraftingLevel - (gearcraftingLevel % modulo)) return "gearcrafting"
-            return "jewelrycrafting"
-        }
 
     operator fun get(equipmentType: String): String? {
         return when (equipmentType) {

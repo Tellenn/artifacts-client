@@ -29,26 +29,15 @@ class BankService(
      * @return The updated character after moving to the bank, or the original character if already at a bank
      */
     fun moveToBank(character: ArtifactsCharacter): ArtifactsCharacter {
-        log.debug("Checking if character ${character.name} needs to move to a bank")
-
-        // Find the closest bank
         val closestBank = mapService.findClosestMap(character = character, contentCode = "bank")
-        log.debug("Closest bank for character ${character.name} is at position (${closestBank.x}, ${closestBank.y})")
-
-        // Check if the character is already at the bank
         if (character.x == closestBank.x && character.y == closestBank.y) {
-            log.debug("Character ${character.name} is already at the bank at position (${closestBank.x}, ${closestBank.y})")
             return character
         }
-
-        // Move the character to the bank
-        log.debug("Moving character ${character.name} to bank at position (${closestBank.x}, ${closestBank.y})")
         return movementService.moveCharacterToCell(closestBank.x, closestBank.y, character)
     }
 
     fun emptyInventory(character: ArtifactsCharacter) : ArtifactsCharacter{
-
-        val inventory = character.inventory ?: return character
+        val inventory = character.inventory
         val items = inventory.filter { it.quantity > 0 }.map { SimpleItem(it.code, it.quantity) }
         var newCharacter = deposit(character, items)
         return desositMoney(newCharacter, newCharacter.gold)
@@ -242,5 +231,13 @@ class BankService(
         moveToBank(newCharacter)
         val quantityLeft = bankedItem.quantity
         return withdrawOne(code, quantityLeft, newCharacter)
+    }
+
+    fun getAll(): List<SimpleItem> {
+        return bankRepository.findAll().map { SimpleItem(it.code, it.quantity) }
+    }
+
+    fun getOne(itemCode: String): SimpleItem {
+        return bankRepository.findByCode(itemCode)?.let { SimpleItem(it.code, it.quantity) } ?: SimpleItem("", 0)
     }
 }

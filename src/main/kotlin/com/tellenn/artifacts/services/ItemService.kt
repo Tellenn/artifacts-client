@@ -3,6 +3,7 @@ package com.tellenn.artifacts.services
 import com.tellenn.artifacts.db.documents.ItemDocument
 import com.tellenn.artifacts.db.repositories.ItemRepository
 import com.tellenn.artifacts.models.ItemDetails
+import com.tellenn.artifacts.models.SimpleItem
 import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Service
 import kotlin.math.max
@@ -77,6 +78,11 @@ class ItemService(
             .findByLevelBetween(level, max(1,minLevel))
             .filter { it.craft != null && skills.contains(it.craft.skill) }
             .map { ItemDocument.toItemDetails(it) }
+    }
+
+    fun getHealingItems(inventory: List<SimpleItem>): List<SimpleItem> {
+        val healingItems = itemRepository.findByEffectsCode("heal").map { it.code }
+        return inventory.filter { healingItems.contains(it.code) }
     }
 
 }

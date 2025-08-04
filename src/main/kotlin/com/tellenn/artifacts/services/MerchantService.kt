@@ -18,7 +18,6 @@ class MerchantService (
                 .filter { it.sellPrice != null }
 
         if(items.isNotEmpty()){
-            // TODO Search in bank and fetch
             for(item in items){
                 if(bankService.isInBank(item.code, 1)){
                     newCharacter = bankService.withdrawAllOfOne(newCharacter, item.code)

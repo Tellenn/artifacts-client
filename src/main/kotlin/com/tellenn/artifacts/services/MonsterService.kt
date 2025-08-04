@@ -17,7 +17,6 @@ class MonsterService(
 
     fun findMonsterMap(monsterCode: String): MapData {
         // Using the client instead of the database because of the dynamic event.
-        // TODO : Should we sync the db with event instead ?
         return mapClient.getMaps(content_code = monsterCode).data.first()
     }
 
