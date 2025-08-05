@@ -8,9 +8,9 @@ import com.tellenn.artifacts.models.SimpleItem
 class BankExtensionTransaction(
     @JsonAlias("cooldown") val cooldown: Cooldown,
     @JsonAlias("character") val character: ArtifactsCharacter,
-    @JsonAlias("transaction") val transaction: Transaction
+    @JsonAlias("transaction") val transaction: BankTransaction
 )
 
-class Transaction(
+class BankTransaction(
     @JsonAlias("price") val price: Int
 )

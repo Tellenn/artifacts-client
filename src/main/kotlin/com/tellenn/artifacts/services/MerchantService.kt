@@ -25,8 +25,8 @@ class MerchantService (
             }
             newCharacter = movementService.moveToNpc(newCharacter, npcName)
             for(item in items){
-                val itemToSell = newCharacter.inventory?.first { it.code == item.code }
-                newCharacter = npcClient.sellItem(npcName, item.code, itemToSell?.quantity ?: 1)
+                val itemToSell = newCharacter.inventory.first { it.code == item.code }
+                newCharacter = npcClient.sellItem(npcName, item.code, itemToSell.quantity ?: 1).data.character
             }
 
         }

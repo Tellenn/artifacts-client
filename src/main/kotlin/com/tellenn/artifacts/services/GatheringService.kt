@@ -5,6 +5,7 @@ import com.tellenn.artifacts.clients.CharacterClient
 import com.tellenn.artifacts.clients.CraftingClient
 import com.tellenn.artifacts.clients.GatheringClient
 import com.tellenn.artifacts.clients.ItemClient
+import com.tellenn.artifacts.clients.NpcClient
 import com.tellenn.artifacts.models.ArtifactsCharacter
 import com.tellenn.artifacts.models.ItemDetails
 import com.tellenn.artifacts.db.repositories.ItemRepository
@@ -31,7 +32,8 @@ class GatheringService(
     private val itemService: ItemService,
     private val battleService: BattleService,
     private val equipmentService: EquipmentService,
-    private val accountClient: AccountClient
+    private val accountClient: AccountClient,
+    private val npcClient: NpcClient
 ) {
     private val log = LogManager.getLogger(GatheringService::class.java)
 
@@ -84,6 +86,14 @@ class GatheringService(
             }else{
                 throw IllegalArgumentException("Cannot gather mob without fighting enabled")
             }
+        }else if(itemDetails.subtype == "npc"){
+            val npcItem = npcClient.getNpcByItemCode(itemDetails.code).data.first()
+            if(npcItem.currency == "gold" || npcItem.buyPrice == null){
+                throw IllegalArgumentException("Cannot gather npc with gold currency")
+            }
+            var newCharacter = craftOrGather(character, npcItem.currency, npcItem.buyPrice * quantity, functionLevel + 1, allowFight)
+            newCharacter = movementService.moveToNpc(newCharacter, npcItem.npc)
+            return npcClient.buyItem(newCharacter.name, npcItem.code, quantity).data.character
         }
         // Specific for tutorial item
         if(itemDetails.code == "wooden_stick"){

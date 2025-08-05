@@ -70,4 +70,11 @@ class AccountClient() : BaseArtifactsClient() {
             objectMapper.readValue<ArtifactsResponseBody<ArtifactsCharacter>>(responseBody)
         }
     }
+
+    fun getCharacters(): ArtifactsResponseBody<List<ArtifactsCharacter>> {
+        return sendGetRequest("/accounts/Tellenn/characters").use { response ->
+            val responseBody = response.body!!.string()
+            objectMapper.readValue<ArtifactsResponseBody<List<ArtifactsCharacter>>>(responseBody)
+        }
+    }
 }
