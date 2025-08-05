@@ -20,10 +20,6 @@ import kotlin.math.min
  */
 @Service
 class EquipmentService(
-    private val gatheringClient: GatheringClient,
-    private val itemClient: ItemClient,
-    private val mapService: MapService,
-    private val movementService: MovementService,
     private val bankService: BankService,
     private val monsterClient: MonsterClient,
     private val itemRepository: ItemRepository,
@@ -110,6 +106,8 @@ class EquipmentService(
         if(items.isEmpty()){
             return null
         }
+
+        // TODO : The score doesn't work properly, does not equip slime shield or re-equip copper ring (it should equip forest ring at lest), see if it's something about the rounding
         val attackAir = weapon?.effects?.filter { it.code.equals("attack_air")}?.map { it.value } ?.firstOrNull() ?: 0
         val attackWater = weapon?.effects?.filter { it.code.equals("attack_water")}?.map { it.value } ?.firstOrNull() ?: 0
         val attackEarth = weapon?.effects?.filter { it.code.equals("attack_earth")}?.map { it.value } ?.firstOrNull() ?: 0

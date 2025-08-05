@@ -128,8 +128,7 @@ class BankService(
 
     fun withdrawOne(itemCode: String, quantity: Int, character: ArtifactsCharacter): ArtifactsCharacter {
         // Implementation for fetching items from the bank
-        val newCharacter = bankClient.withdrawItems(character.name, listOf(SimpleItem(itemCode, quantity))).data.character
-        return newCharacter
+        return withdrawMany(ArrayList(listOf(SimpleItem(itemCode, quantity))), character)
     }
 
     fun isInBank(item: String?, quantityLeft: Int = 1): Boolean {
