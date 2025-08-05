@@ -52,7 +52,7 @@ class EquipmentService(
         val healingItemInBank = itemService.getHealingItems(bankService.getAll())
         if(healingItemInBank.isNotEmpty()){
             val worstHealingItem = healingItemInBank.map { itemService.getItem(it.code) }.filter { it.craft != null }.minBy { it.level }
-            newCharacter = bankService.withdrawOne(worstHealingItem.code, min(100, bankService.getOne(worstHealingItem.code).quantity), newCharacter)
+            newCharacter = bankService.withdrawOne(worstHealingItem.code, min(newCharacter.inventoryMaxItems -20, bankService.getOne(worstHealingItem.code).quantity), newCharacter)
         }
         return newCharacter
     }
