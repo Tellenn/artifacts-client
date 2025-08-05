@@ -6,6 +6,7 @@ import com.tellenn.artifacts.db.repositories.CraftedItemRepository
 import com.tellenn.artifacts.models.ArtifactsCharacter
 import com.tellenn.artifacts.models.ItemDetails
 import com.tellenn.artifacts.services.BankService
+import com.tellenn.artifacts.services.BattleService
 import com.tellenn.artifacts.services.CharacterService
 import com.tellenn.artifacts.services.GatheringService
 import com.tellenn.artifacts.services.ItemService
@@ -21,19 +22,19 @@ import java.lang.Thread.sleep
 @Component
 class CrafterJob(
     mapService: MapService,
-    applicationContext: ApplicationContext,
     movementService: MovementService,
     bankService: BankService,
     characterService: CharacterService,
     accountClient: AccountClient,
+    battleService: BattleService,
     private val itemService: ItemService,
     private val craftedItemRepository: CraftedItemRepository,
     private val gatheringService: GatheringService,
-) : GenericJob(mapService, applicationContext, movementService, bankService, characterService, accountClient) {
+) : GenericJob(mapService, movementService, bankService, characterService, accountClient, battleService) {
 
     lateinit var character: ArtifactsCharacter
     val rareItemCode = listOf("magical_cure", "jasper_crystal", "astralyte_crystal", "enchanted_fabric", "ruby", "sapphire", "emerald", "topaz", "diamond")
-
+        // TODO : Do a cleanup of the items in bank when reaching a new milestone
 
     fun run(characterName: String) {
         sleep(1000)

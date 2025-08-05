@@ -20,16 +20,15 @@ import org.springframework.stereotype.Component
 @Component
 class FighterJob(
     mapService: MapService,
-    applicationContext: ApplicationContext,
     movementService: MovementService,
     bankService: BankService,
     characterService: CharacterService,
     accountClient: AccountClient,
+    battleService: BattleService,
     private val taskService: TaskService,
     private val equipmentService: EquipmentService,
-    private val battleService: BattleService,
     private val monsterService: MonsterService
-) : GenericJob(mapService, applicationContext, movementService, bankService, characterService, accountClient) {
+) : GenericJob(mapService, movementService, bankService, characterService, accountClient, battleService) {
 
     lateinit var character: ArtifactsCharacter
 

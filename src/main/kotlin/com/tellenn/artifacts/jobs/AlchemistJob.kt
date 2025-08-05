@@ -7,6 +7,7 @@ import com.tellenn.artifacts.models.ArtifactsCharacter
 import com.tellenn.artifacts.models.ItemDetails
 import com.tellenn.artifacts.models.SimpleItem
 import com.tellenn.artifacts.services.BankService
+import com.tellenn.artifacts.services.BattleService
 import com.tellenn.artifacts.services.CharacterService
 import com.tellenn.artifacts.services.GatheringService
 import com.tellenn.artifacts.services.ItemService
@@ -25,25 +26,31 @@ import java.lang.Thread.sleep
 @Component
 class AlchemistJob(
     mapService: MapService,
-    applicationContext: ApplicationContext,
     movementService: MovementService,
     bankService: BankService,
     characterService: CharacterService,
     accountClient: AccountClient,
+    battleService: BattleService,
     private val gatheringService: GatheringService,
     private val itemService: ItemService,
     private val taskService: TaskService,
     private val itemRepository: ItemRepository,
-) : GenericJob(mapService, applicationContext, movementService, bankService, characterService, accountClient) {
+) : GenericJob(mapService, movementService, bankService, characterService, accountClient, battleService) {
 
     lateinit var character: ArtifactsCharacter
     val skill = "alchemy"
 
+    // TODO : Healing potion management
+    // TODO : Buff potion management
+    // TODO : Teleportation potion management
+    // TODO : dynamic assigned work
+    // TODO : Prototype the time gate system
+    // TODO : Improve and use the battlesim
     fun run(characterName: String) {
         sleep(2000)
         character = init(characterName)
-
         do{
+            character = catchBackCrafter(character)
             if(character.alchemyLevel == maxLevel && character.cookingLevel == maxLevel){
                 character = taskService.getNewItemTask(character)
                 character = taskService.doCharacterTask(character)

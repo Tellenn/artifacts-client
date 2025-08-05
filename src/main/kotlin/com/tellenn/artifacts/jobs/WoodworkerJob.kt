@@ -5,6 +5,7 @@ import com.tellenn.artifacts.clients.AccountClient
 import com.tellenn.artifacts.models.ArtifactsCharacter
 import com.tellenn.artifacts.models.SimpleItem
 import com.tellenn.artifacts.services.BankService
+import com.tellenn.artifacts.services.BattleService
 import com.tellenn.artifacts.services.CharacterService
 import com.tellenn.artifacts.services.GatheringService
 import com.tellenn.artifacts.services.ItemService
@@ -23,15 +24,15 @@ import java.lang.Thread.sleep
 @Component
 class WoodworkerJob(
     mapService: MapService,
-    applicationContext: ApplicationContext,
     movementService: MovementService,
     bankService: BankService,
     characterService: CharacterService,
     accountClient: AccountClient,
+    battleService: BattleService,
     val gatheringService: GatheringService,
     private val itemService: ItemService,
     private val taskService: TaskService,
-) : GenericJob(mapService, applicationContext, movementService, bankService, characterService, accountClient) {
+) : GenericJob(mapService, movementService, bankService, characterService, accountClient, battleService) {
 
     lateinit var character: ArtifactsCharacter
     val skill: String = "woodcutting"
@@ -41,6 +42,7 @@ class WoodworkerJob(
         character = init(characterName)
 
         do{
+            character = catchBackCrafter(character)
             val itemsToCraft = ArrayList<SimpleItem>()
             val gatheringItems = itemService.getAllCraftBySkillUnderLevel(skill, character.woodcuttingLevel).filter { it.subtype != "precious_stone" }
             for(it in gatheringItems){
