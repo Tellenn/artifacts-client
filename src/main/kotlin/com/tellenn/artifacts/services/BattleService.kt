@@ -9,6 +9,7 @@ import com.tellenn.artifacts.exceptions.CharacterInventoryFullException
 import com.tellenn.artifacts.models.SimpleItem
 import org.apache.logging.log4j.LogManager
 import org.springframework.stereotype.Service
+import kotlin.math.max
 import kotlin.math.min
 
 @Service
@@ -117,7 +118,7 @@ class BattleService(
                 val missingHealth = currentCharacter.maxHp - currentCharacter.hp
                 val healingValue = item.effects?.first { it.code == "heal" }?.value ?: 1
                 val numberToEat = missingHealth / healingValue
-                currentCharacter = characterClient.useItem(currentCharacter.name, item.code, min(numberToEat, owned)).data.character
+                currentCharacter = characterClient.useItem(currentCharacter.name, item.code, min(max(1,numberToEat), owned)).data.character
             }
             // If still wounded or still haven't eaten
             if(currentCharacter.hp < currentCharacter.maxHp ){

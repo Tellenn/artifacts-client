@@ -12,7 +12,6 @@ import com.tellenn.artifacts.services.GatheringService
 import com.tellenn.artifacts.services.ItemService
 import com.tellenn.artifacts.services.MapService
 import com.tellenn.artifacts.services.MovementService
-import org.springframework.context.ApplicationContext
 import org.springframework.stereotype.Component
 import java.lang.Thread.sleep
 
@@ -77,7 +76,7 @@ class CrafterJob(
             } else {
 
                 val itemToCraft =
-                    getTopLowestCostingItemForLevel(character.getLevelOf(skillToLevel), listOf(skillToLevel))
+                    getTopLowestCostingItemForLeveling(character.getLevelOf(skillToLevel), listOf(skillToLevel))
                 val oldLevel = character.getLevelOf(skillToLevel)
                 while (oldLevel == character.getLevelOf(skillToLevel)) {
                     character = gatheringService.craftOrGather(character, itemToCraft.code, 1, allowFight = true)
@@ -135,8 +134,8 @@ class CrafterJob(
         }
     }
 
-    private fun getTopLowestCostingItemForLevel(level: Int, skills : List<String>) : ItemDetails{
-        val minLevel = level / 5 * 5
+    private fun getTopLowestCostingItemForLeveling(level: Int, skills : List<String>) : ItemDetails{
+        val minLevel = level -10
         val items = itemService.getCrafterItemsBetweenLevel(minLevel-1, level +1, skills)
         val itemCostMatrix = HashMap<ItemDetails, Int>()
         // Exclude very hard items and the tutorial one
