@@ -1,7 +1,5 @@
 package com.tellenn.artifacts.services
 
-import com.tellenn.artifacts.clients.GatheringClient
-import com.tellenn.artifacts.clients.ItemClient
 import com.tellenn.artifacts.clients.MonsterClient
 import com.tellenn.artifacts.db.documents.BankItemDocument
 import com.tellenn.artifacts.models.ArtifactsCharacter
@@ -10,6 +8,7 @@ import com.tellenn.artifacts.models.MonsterData
 import com.tellenn.artifacts.models.SimpleItem
 import com.tellenn.artifacts.db.documents.ItemDocument
 import com.tellenn.artifacts.db.repositories.ItemRepository
+import com.tellenn.artifacts.exceptions.NotFoundException
 import org.apache.logging.log4j.LogManager
 import org.springframework.stereotype.Service
 import kotlin.math.min
@@ -33,26 +32,32 @@ class EquipmentService(
         var newCharacter = bankService.moveToBank(character)
         val bankWithdraw = ArrayList<SimpleItem>()
         bis.forEach { slot,item ->
-            if(item?.code != null) {
-                if(character.get(slot+"_slot") != item.code){
-                    bankWithdraw.add(SimpleItem(item.code, 1))
-                }
+            if(item?.code != null && character[slot+"_slot"] != item.code) {
+                bankWithdraw.add(SimpleItem(item.code, 1))
             }
         }
-        newCharacter = bankService.withdrawMany(bankWithdraw, newCharacter)
-        bis.forEach { slot,item ->
-            if(item?.code != null ) {
-                if(character.get(slot+"_slot") != item.code){
+        try {
+            newCharacter = bankService.withdrawMany(bankWithdraw, newCharacter)
+            bis.forEach { slot,item ->
+                if(item?.code != null && character[slot+"_slot"] != item.code) {
                     newCharacter = characterService.equip(newCharacter, item.code, slot, 1)
                 }
             }
+        }catch (_: NotFoundException){
+            return equipBestAvailableEquipmentForMonsterInBank(newCharacter, monsterCode)
         }
+
         newCharacter = bankService.emptyInventory(newCharacter)
 
         val healingItemInBank = itemService.getHealingItems(bankService.getAll())
         if(healingItemInBank.isNotEmpty()){
-            val worstHealingItem = healingItemInBank.map { itemService.getItem(it.code) }.filter { it.craft != null }.minBy { it.level }
-            newCharacter = bankService.withdrawOne(worstHealingItem.code, min(newCharacter.inventoryMaxItems -20, bankService.getOne(worstHealingItem.code).quantity), newCharacter)
+            val worstHealingItem = healingItemInBank
+                .map { itemService.getItem(it.code) }
+                .filter { it.craft != null && it.level <= newCharacter.level}
+            if(worstHealingItem.isNotEmpty()){
+                val worstHealingItemCode = worstHealingItem.minBy { it.level }.code
+                newCharacter = bankService.withdrawOne(worstHealingItemCode, min(newCharacter.inventoryMaxItems -20, bankService.getOne(worstHealingItemCode).quantity), newCharacter)
+            }
         }
         return newCharacter
     }
@@ -63,7 +68,7 @@ class EquipmentService(
         getEquippedItems(character = character).forEach { availableEquipment = addItemQuantityByOne(availableEquipment, it)}
         val monster = monsterClient.getMonster(monsterCode).data
         val bis = getHashMapSlot()
-        val bestWeapon = getBestScoreForItems(availableEquipment.filter { it -> it.type == "weapon" }, monster, null)
+        val bestWeapon = getBestScoreForItems(availableEquipment.filter { it.type == "weapon" }, monster, null)
         for(slot in bis){
             val item : BankItemDocument?
             if(slot.key == "artifacts1") {
@@ -108,10 +113,10 @@ class EquipmentService(
         }
 
         // TODO : The score doesn't work properly, does not equip slime shield or re-equip copper ring (it should equip forest ring at lest), see if it's something about the rounding
-        val attackAir = weapon?.effects?.filter { it.code.equals("attack_air")}?.map { it.value } ?.firstOrNull() ?: 0
-        val attackWater = weapon?.effects?.filter { it.code.equals("attack_water")}?.map { it.value } ?.firstOrNull() ?: 0
-        val attackEarth = weapon?.effects?.filter { it.code.equals("attack_earth")}?.map { it.value } ?.firstOrNull() ?: 0
-        val attackFire = weapon?.effects?.filter { it.code.equals("attack_fire")}?.map { it.value } ?.firstOrNull() ?: 0
+        val attackAir =   weapon?.effects?.filter { it.code == "attack_air"  }?.map { it.value } ?.firstOrNull() ?: 0
+        val attackWater = weapon?.effects?.filter { it.code == "attack_water"}?.map { it.value } ?.firstOrNull() ?: 0
+        val attackEarth = weapon?.effects?.filter { it.code == "attack_earth"}?.map { it.value } ?.firstOrNull() ?: 0
+        val attackFire =  weapon?.effects?.filter { it.code == "attack_fire" }?.map { it.value } ?.firstOrNull() ?: 0
         val itemMap = HashMap<BankItemDocument, Int>()
         for(item in items){
             var score = 1
@@ -119,23 +124,23 @@ class EquipmentService(
             if(item.effects != null){
                 for (effect in item.effects) {
                     when(effect.code) {
-                        "attack_air" -> score += (effect.value / (1+ monster.defenseAir/100.0)).toInt()
-                        "attack_water" -> score += (effect.value / (1+ monster.defenseWater/100.0)).toInt()
-                        "attack_earth" -> score += (effect.value / (1+ monster.defenseEarth/100.0)).toInt()
-                        "attack_fire" -> score += (effect.value / (1+ monster.defenseFire/100.0)).toInt()
-                        "critical_strike" -> multiplier += effect.value / 100.0
-                        "hp" -> score += effect.value / 10
-                        "dmg" -> multiplier += effect.value / 100.0
-                        "dmg_air" -> score += (attackAir * (1 + effect.value / 100.0) - attackAir).toInt()
-                        "dmg_water" -> score += (attackWater * (1 + effect.value / 100.0) - attackWater).toInt()
-                        "dmg_earth" -> score += (attackEarth * (1 + effect.value / 100.0) - attackEarth).toInt()
-                        "dmg_fire" -> score += (attackFire * (1 + effect.value / 100.0) - attackFire).toInt()
-                        "propecting" -> score += effect.value / 10
-                        "haste" -> score += effect.value
-                        "res_air" -> score += effect.value * monster.attackAir / 75
-                        "res_water" -> score += effect.value * monster.attackWater / 75
-                        "res_earth" -> score += effect.value * monster.attackEarth / 75
-                        "res_fire" -> score += effect.value * monster.attackFire / 75
+                        "critical_strike" -> multiplier +=  effect.value / 100.0
+                        "dmg" ->             multiplier +=  effect.value / 100.0
+                        "hp" ->              score +=       effect.value / 10
+                        "propecting" ->      score +=       effect.value / 10
+                        "haste" ->           score +=       effect.value
+                        "res_air" ->         score +=       monster.attackAir   / effect.value
+                        "res_water" ->       score +=       monster.attackWater / effect.value
+                        "res_earth" ->       score +=       monster.attackEarth / effect.value
+                        "res_fire" ->        score +=       monster.attackFire  / effect.value
+                        "attack_air" ->      score +=      (effect.value / (1+ monster.defenseAir/100.0)).toInt()
+                        "attack_water" ->    score +=      (effect.value / (1+ monster.defenseWater/100.0)).toInt()
+                        "attack_earth" ->    score +=      (effect.value / (1+ monster.defenseEarth/100.0)).toInt()
+                        "attack_fire" ->     score +=      (effect.value / (1+ monster.defenseFire/100.0)).toInt()
+                        "dmg_air" ->         score +=      (attackAir *   (1 + effect.value / 100.0) - attackAir).toInt()
+                        "dmg_water" ->       score +=      (attackWater * (1 + effect.value / 100.0) - attackWater).toInt()
+                        "dmg_earth" ->       score +=      (attackEarth * (1 + effect.value / 100.0) - attackEarth).toInt()
+                        "dmg_fire" ->        score +=      (attackFire *  (1 + effect.value / 100.0) - attackFire).toInt()
                     }
                 }
             }
@@ -147,37 +152,37 @@ class EquipmentService(
 
     private fun getHashMapSlot() : HashMap<String, BankItemDocument?>{
         val hashMap = HashMap<String, BankItemDocument?>()
-        hashMap["rune"] = null
-        hashMap["shield"] = null
-        hashMap["helmet"] = null
-        hashMap["body_armor"] = null
-        hashMap["leg_armor"] = null
-        hashMap["boots"] = null
-        hashMap["ring1"] = null
-        hashMap["ring2"] = null
-        hashMap["amulet"] = null
-        hashMap["artifact1"] = null
-        hashMap["artifact2"] = null
-        hashMap["artifact3"] = null
-        hashMap["bag"] = null
+        hashMap["rune"]         = null
+        hashMap["shield"]       = null
+        hashMap["helmet"]       = null
+        hashMap["body_armor"]   = null
+        hashMap["leg_armor"]    = null
+        hashMap["boots"]        = null
+        hashMap["ring1"]        = null
+        hashMap["ring2"]        = null
+        hashMap["amulet"]       = null
+        hashMap["artifact1"]    = null
+        hashMap["artifact2"]    = null
+        hashMap["artifact3"]    = null
+        hashMap["bag"]          = null
         return hashMap
     }
 
     private fun getEquippedItems(character: ArtifactsCharacter) : List<ItemDetails>{
         val equippedItems = mutableListOf<String>()
-        character.weaponSlot?.let { equippedItems.add(it) }
-        character.shieldSlot?.let { equippedItems.add(it) }
-        character.helmetSlot?.let { equippedItems.add(it) }
-        character.bodyArmorSlot?.let { equippedItems.add(it) }
-        character.legArmorSlot?.let { equippedItems.add(it) }
-        character.bootsSlot?.let { equippedItems.add(it) }
-        character.ring1Slot?.let { equippedItems.add(it) }
-        character.ring2Slot?.let { equippedItems.add(it) }
-        character.amuletSlot?.let { equippedItems.add(it) }
-        character.artifact1Slot?.let { equippedItems.add(it) }
-        character.artifact2Slot?.let { equippedItems.add(it) }
-        character.artifact3Slot?.let { equippedItems.add(it) }
-        character.bagSlot?.let { equippedItems.add(it) }
+        character.weaponSlot    ?.let { equippedItems.add(it) }
+        character.shieldSlot    ?.let { equippedItems.add(it) }
+        character.helmetSlot    ?.let { equippedItems.add(it) }
+        character.bodyArmorSlot ?.let { equippedItems.add(it) }
+        character.legArmorSlot  ?.let { equippedItems.add(it) }
+        character.bootsSlot     ?.let { equippedItems.add(it) }
+        character.ring1Slot     ?.let { equippedItems.add(it) }
+        character.ring2Slot     ?.let { equippedItems.add(it) }
+        character.amuletSlot    ?.let { equippedItems.add(it) }
+        character.artifact1Slot ?.let { equippedItems.add(it) }
+        character.artifact2Slot ?.let { equippedItems.add(it) }
+        character.artifact3Slot ?.let { equippedItems.add(it) }
+        character.bagSlot       ?.let { equippedItems.add(it) }
 
         return itemRepository.findByCodeIn(equippedItems).map { ItemDocument.toItemDetails(it) }
     }
