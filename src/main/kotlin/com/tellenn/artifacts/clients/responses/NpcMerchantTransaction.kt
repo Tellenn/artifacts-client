@@ -1,19 +1,19 @@
 package com.tellenn.artifacts.clients.responses
 
-import com.fasterxml.jackson.annotation.JsonAlias
+import com.fasterxml.jackson.annotation.JsonProperty
 import com.tellenn.artifacts.models.ArtifactsCharacter
 import com.tellenn.artifacts.models.Cooldown
 
 class NpcMerchantTransaction(
-    @JsonAlias("cooldown") val cooldown: Cooldown,
-    @JsonAlias("character") val character: ArtifactsCharacter,
-    @JsonAlias("transaction") val transaction: Transaction
+    @JsonProperty("cooldown") val cooldown: Cooldown,
+    @JsonProperty("character") val character: ArtifactsCharacter,
+    @JsonProperty("transaction") val transaction: Transaction
 )
 
 class Transaction(
-    @JsonAlias("code") val code: String,
-    @JsonAlias("quantity") val quantity: Int,
-    @JsonAlias("currency") val currency: String,
-    @JsonAlias("price") val price: Int,
-    @JsonAlias("total_price") val totalPrice: String,
+    @JsonProperty("code") val code: String,
+    @JsonProperty("quantity") val quantity: Int,
+    @JsonProperty("currency") val currency: String,
+    @JsonProperty("price") val price: Int,
+    @JsonProperty("total_price") val totalPrice: String,
 )

@@ -1,13 +1,13 @@
 package com.tellenn.artifacts.models
 
-import com.fasterxml.jackson.annotation.JsonAlias
+import com.fasterxml.jackson.annotation.JsonProperty
 import java.time.Instant
 
 @Suppress("unused")
 class AccountDetails(
-    @JsonAlias("username") val username: String,
-    @JsonAlias("email") val email: String,
-    @JsonAlias("created_at") val createdAt: Instant,
-    @JsonAlias("characters") val characters: List<String>,
-    @JsonAlias("max_characters") val maxCharacters: Int
+    @JsonProperty("username") val username: String,
+    @JsonProperty("email") val email: String,
+    @JsonProperty("created_at") val createdAt: Instant,
+    @JsonProperty("characters") val characters: List<String>,
+    @JsonProperty("max_characters") val maxCharacters: Int
 )

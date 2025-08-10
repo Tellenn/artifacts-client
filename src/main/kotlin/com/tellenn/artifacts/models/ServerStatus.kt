@@ -1,38 +1,38 @@
 package com.tellenn.artifacts.models
 
-import com.fasterxml.jackson.annotation.JsonAlias
+import com.fasterxml.jackson.annotation.JsonProperty
 import java.time.Instant
 
 @Suppress("unused")
 class ServerStatus(
-    @JsonAlias("version") val version : String,
-    @JsonAlias("max_level") val maxLevel : Int,
-    @JsonAlias("max_skill_level") val maxSkillLevel : Int,
-    @JsonAlias("characters_online") val charactersOnline : Int,
-    @JsonAlias("season") val season : SeasonInfo,
-    @JsonAlias("server_time") val serverTime : Instant,
-    @JsonAlias("announcements") val announcements : Array<Annoucement>,
-    @JsonAlias("rate_limits") val rateLimits : Array<RateLimit>
+    @JsonProperty("version") val version : String,
+    @JsonProperty("max_level") val maxLevel : Int,
+    @JsonProperty("max_skill_level") val maxSkillLevel : Int,
+    @JsonProperty("characters_online") val charactersOnline : Int,
+    @JsonProperty("season") val season : SeasonInfo,
+    @JsonProperty("server_time") val serverTime : Instant,
+    @JsonProperty("announcements") val announcements : Array<Annoucement>,
+    @JsonProperty("rate_limits") val rateLimits : Array<RateLimit>
 ) {
 }
 
 class SeasonInfo(
-    @JsonAlias("name") val name : String,
-    @JsonAlias("number") val number : Int,
-    @JsonAlias("start_date") val startDate : Instant,
-    @JsonAlias("badges") val badges : Array<Badge>,
-    @JsonAlias("skins") val skins : Array<Badge>
+    @JsonProperty("name") val name : String,
+    @JsonProperty("number") val number : Int,
+    @JsonProperty("start_date") val startDate : Instant,
+    @JsonProperty("badges") val badges : Array<Badge>,
+    @JsonProperty("skins") val skins : Array<Badge>
 )
 
 class Badge(
-    @JsonAlias("code") val code : String,
-    @JsonAlias("description") val description : String,
-    @JsonAlias("required_points") val requiredPoints : Int,
+    @JsonProperty("code") val code : String,
+    @JsonProperty("description") val description : String,
+    @JsonProperty("required_points") val requiredPoints : Int,
 )
 
 class RateLimit(
-    @JsonAlias("type") val type : String,
-    @JsonAlias("value") val value : String,
+    @JsonProperty("type") val type : String,
+    @JsonProperty("value") val value : String,
 )
 
 //{

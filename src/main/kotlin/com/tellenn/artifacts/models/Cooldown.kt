@@ -1,14 +1,14 @@
 package com.tellenn.artifacts.models
 
-import com.fasterxml.jackson.annotation.JsonAlias
+import com.fasterxml.jackson.annotation.JsonProperty
 import java.time.Instant
 
 @Suppress("unused")
 class Cooldown(
-    @JsonAlias("total_seconds") totalSeconds : Int,
-    @JsonAlias("remaining_seconds") remainingSeconds : Int,
-    @JsonAlias("started_at") startedAt : Instant,
-    @JsonAlias("expiration") expiration : Instant,
-    @JsonAlias("reason") reason : String,
+    @JsonProperty("total_seconds") totalSeconds : Int,
+    @JsonProperty("remaining_seconds") remainingSeconds : Int,
+    @JsonProperty("started_at") startedAt : Instant,
+    @JsonProperty("expiration") expiration : Instant,
+    @JsonProperty("reason") reason : String,
 ) {
 }

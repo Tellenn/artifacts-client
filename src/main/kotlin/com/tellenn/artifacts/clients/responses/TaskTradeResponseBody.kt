@@ -1,16 +1,16 @@
 package com.tellenn.artifacts.clients.responses
 
-import com.fasterxml.jackson.annotation.JsonAlias
+import com.fasterxml.jackson.annotation.JsonProperty
 import com.tellenn.artifacts.models.ArtifactsCharacter
 import com.tellenn.artifacts.models.Cooldown
 
 class TaskTradeResponseBody(
-    @JsonAlias("cooldown") val cooldown: Cooldown,
-    @JsonAlias("character") val character: ArtifactsCharacter,
-    @JsonAlias("trade") val trade: Trade
+    @JsonProperty("cooldown") val cooldown: Cooldown,
+    @JsonProperty("character") val character: ArtifactsCharacter,
+    @JsonProperty("trade") val trade: Trade
 )
 
 class Trade(
-    @JsonAlias("code") val items: String,
-    @JsonAlias("quantity") val gold: Int
+    @JsonProperty("code") val items: String,
+    @JsonProperty("quantity") val gold: Int
 )

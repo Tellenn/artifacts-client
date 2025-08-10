@@ -1,13 +1,13 @@
 package com.tellenn.artifacts.models
 
-import com.fasterxml.jackson.annotation.JsonAlias
+import com.fasterxml.jackson.annotation.JsonProperty
 
 class NpcItem(
-    @JsonAlias("code") val code: String,
-    @JsonAlias("npc") val npc: String,
-    @JsonAlias("currency") val currency: String,
-    @JsonAlias("buy_price") val buyPrice: Int?,
-    @JsonAlias("sell_price") val sellPrice: Int?,
+    @JsonProperty("code") val code: String,
+    @JsonProperty("npc") val npc: String,
+    @JsonProperty("currency") val currency: String,
+    @JsonProperty("buy_price") val buyPrice: Int?,
+    @JsonProperty("sell_price") val sellPrice: Int?,
 
     ){
 }

@@ -1,17 +1,17 @@
 package com.tellenn.artifacts.models
 
-import com.fasterxml.jackson.annotation.JsonAlias
+import com.fasterxml.jackson.annotation.JsonProperty
 
 @Suppress("unused")
 class MapData(
-    @JsonAlias("name") val name: String = "map",
-    @JsonAlias("skin") val skin: String,
-    @JsonAlias("x") val x: Int,
-    @JsonAlias("y") val y: Int,
-    @JsonAlias("content") val content: MapContent?
+    @JsonProperty("name") val name: String = "map",
+    @JsonProperty("skin") val skin: String,
+    @JsonProperty("x") val x: Int,
+    @JsonProperty("y") val y: Int,
+    @JsonProperty("content") val content: MapContent?
 )
 
 class MapCell(
-    @JsonAlias("type") val type: String,
-    @JsonAlias("content") val content: MapContent?,
+    @JsonProperty("type") val type: String,
+    @JsonProperty("content") val content: MapContent?,
 )

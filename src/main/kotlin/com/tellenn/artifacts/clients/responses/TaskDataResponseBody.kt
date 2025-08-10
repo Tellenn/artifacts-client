@@ -1,18 +1,18 @@
 package com.tellenn.artifacts.clients.responses
 
-import com.fasterxml.jackson.annotation.JsonAlias
+import com.fasterxml.jackson.annotation.JsonProperty
 import com.tellenn.artifacts.models.ArtifactsCharacter
 import com.tellenn.artifacts.models.Cooldown
 
 class TaskDataResponseBody(
-    @JsonAlias("cooldown") val cooldown: Cooldown,
-    @JsonAlias("character") val character: ArtifactsCharacter,
-    @JsonAlias("task") val task: Task
+    @JsonProperty("cooldown") val cooldown: Cooldown,
+    @JsonProperty("character") val character: ArtifactsCharacter,
+    @JsonProperty("task") val task: Task
 )
 
 class Task(
-    @JsonAlias("code") val items: String,
-    @JsonAlias("type") val type: String,
-    @JsonAlias("total") val total: String,
-    @JsonAlias("rewards") val rewards: Rewards
+    @JsonProperty("code") val items: String,
+    @JsonProperty("type") val type: String,
+    @JsonProperty("total") val total: String,
+    @JsonProperty("rewards") val rewards: Rewards
 )

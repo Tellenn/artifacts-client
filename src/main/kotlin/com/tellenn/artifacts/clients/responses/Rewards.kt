@@ -1,8 +1,8 @@
 package com.tellenn.artifacts.clients.responses
-import com.fasterxml.jackson.annotation.JsonAlias
+import com.fasterxml.jackson.annotation.JsonProperty
 import com.tellenn.artifacts.models.SimpleItem
 
 class Rewards(
-    @JsonAlias("items") val items: List<SimpleItem>,
-    @JsonAlias("gold") val gold: Int
+    @JsonProperty("items") val items: List<SimpleItem>,
+    @JsonProperty("gold") val gold: Int
 )

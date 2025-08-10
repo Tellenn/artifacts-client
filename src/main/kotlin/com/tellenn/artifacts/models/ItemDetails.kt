@@ -1,41 +1,41 @@
 package com.tellenn.artifacts.models
 
-import com.fasterxml.jackson.annotation.JsonAlias
+import com.fasterxml.jackson.annotation.JsonProperty
 
 @Suppress("unused")
 class ItemDetails(
-    @JsonAlias("code") val code: String,
-    @JsonAlias("name") val name: String,
-    @JsonAlias("description") val description: String,
-    @JsonAlias("type") val type: String,
-    @JsonAlias("subtype") val subtype: String,
-    @JsonAlias("level") val level: Int,
-    @JsonAlias("tradeable") val tradeable: Boolean,
-    @JsonAlias("craft") val craft: ItemCraft?,
-    @JsonAlias("effects") val effects: List<Effect>?,
-    @JsonAlias("conditions") val conditions: List<ItemCondition>?
+    @JsonProperty("code") val code: String,
+    @JsonProperty("name") val name: String,
+    @JsonProperty("description") val description: String,
+    @JsonProperty("type") val type: String,
+    @JsonProperty("subtype") val subtype: String,
+    @JsonProperty("level") val level: Int,
+    @JsonProperty("tradeable") val tradeable: Boolean,
+    @JsonProperty("craft") val craft: ItemCraft?,
+    @JsonProperty("effects") val effects: List<Effect>?,
+    @JsonProperty("conditions") val conditions: List<ItemCondition>?
 )
 
 class Effect(
-    @JsonAlias("code") val code: String,
-    @JsonAlias("value") val value: Int,
-    @JsonAlias("description") val description: String?
+    @JsonProperty("code") val code: String,
+    @JsonProperty("value") val value: Int,
+    @JsonProperty("description") val description: String?
 )
 
 class ItemCraft(
-    @JsonAlias("skill") val skill: String,
-    @JsonAlias("level") val level: Int,
-    @JsonAlias("items") val items: List<RecipeIngredient>,
-    @JsonAlias("quantity") val quantity: Int
+    @JsonProperty("skill") val skill: String,
+    @JsonProperty("level") val level: Int,
+    @JsonProperty("items") val items: List<RecipeIngredient>,
+    @JsonProperty("quantity") val quantity: Int
 )
 
 class RecipeIngredient(
-    @JsonAlias("code") val code: String,
-    @JsonAlias("quantity") val quantity: Int
+    @JsonProperty("code") val code: String,
+    @JsonProperty("quantity") val quantity: Int
 )
 
 class ItemCondition(
-    @JsonAlias("code") val code: String,
-    @JsonAlias("operator") val operator: String, // eq, ne, gt, lt
-    @JsonAlias("value") val value: Int
+    @JsonProperty("code") val code: String,
+    @JsonProperty("operator") val operator: String, // eq, ne, gt, lt
+    @JsonProperty("value") val value: Int
 )

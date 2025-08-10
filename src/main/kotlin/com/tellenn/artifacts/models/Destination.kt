@@ -1,12 +1,12 @@
 package com.tellenn.artifacts.models
 
-import com.fasterxml.jackson.annotation.JsonAlias
+import com.fasterxml.jackson.annotation.JsonProperty
 
 class Destination(
-    @JsonAlias("name") name : String,
-    @JsonAlias("skin") skin : String,
-    @JsonAlias("x") x : Int,
-    @JsonAlias("y") y : Int,
-    @JsonAlias("content") content : MapContent,
+    @JsonProperty("name") name : String,
+    @JsonProperty("skin") skin : String,
+    @JsonProperty("x") x : Int,
+    @JsonProperty("y") y : Int,
+    @JsonProperty("content") content : MapContent,
 ) {
 }

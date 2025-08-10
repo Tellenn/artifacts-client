@@ -1,11 +1,11 @@
 package com.tellenn.artifacts.clients.responses
 
-import com.fasterxml.jackson.annotation.JsonAlias
+import com.fasterxml.jackson.annotation.JsonProperty
 import com.tellenn.artifacts.models.ArtifactsCharacter
 import com.tellenn.artifacts.models.Cooldown
 
 class RestResponseBody(
-    @JsonAlias("cooldown") val cooldown: Cooldown,
-    @JsonAlias("character") val character: ArtifactsCharacter,
-    @JsonAlias("hp_restored") val hpRestored: Int
+    @JsonProperty("cooldown") val cooldown: Cooldown,
+    @JsonProperty("character") val character: ArtifactsCharacter,
+    @JsonProperty("hp_restored") val hpRestored: Int
 )

@@ -1,11 +1,11 @@
 package com.tellenn.artifacts.models
 
-import com.fasterxml.jackson.annotation.JsonAlias
+import com.fasterxml.jackson.annotation.JsonProperty
 import java.util.Date
 
 class InventorySlot(
-    @JsonAlias("slot") val slot : Int,
-    @JsonAlias("code") val code : String,
-    @JsonAlias("quantity") val quantity : Int
+    @JsonProperty("slot") val slot : Int,
+    @JsonProperty("code") val code : String,
+    @JsonProperty("quantity") val quantity : Int
 ) {
 }

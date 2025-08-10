@@ -1,21 +1,21 @@
 package com.tellenn.artifacts.clients.responses
 
-import com.fasterxml.jackson.annotation.JsonAlias
+import com.fasterxml.jackson.annotation.JsonProperty
 import com.tellenn.artifacts.models.ArtifactsCharacter
 import com.tellenn.artifacts.models.Cooldown
 import com.tellenn.artifacts.models.SimpleItem
 
 class CombatResponseBody(
-    @JsonAlias("cooldown") val cooldown: Cooldown,
-    @JsonAlias("character") val character: ArtifactsCharacter,
-    @JsonAlias("fight") val fight: Fight?
+    @JsonProperty("cooldown") val cooldown: Cooldown,
+    @JsonProperty("character") val character: ArtifactsCharacter,
+    @JsonProperty("fight") val fight: Fight?
 )
 
 class Fight(
-    @JsonAlias("xp") val xp: Int,
-    @JsonAlias("gold") val gold: Int,
-    @JsonAlias("drops") val drops: List<SimpleItem>,
-    @JsonAlias("turns") val turns: Int,
-    @JsonAlias("logs") val logs: List<String>,
-    @JsonAlias("result") val result: String
+    @JsonProperty("xp") val xp: Int,
+    @JsonProperty("gold") val gold: Int,
+    @JsonProperty("drops") val drops: List<SimpleItem>,
+    @JsonProperty("turns") val turns: Int,
+    @JsonProperty("logs") val logs: List<String>,
+    @JsonProperty("result") val result: String
 )

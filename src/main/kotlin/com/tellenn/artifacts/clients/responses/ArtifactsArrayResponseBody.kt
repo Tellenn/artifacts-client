@@ -1,9 +1,9 @@
 package com.tellenn.artifacts.clients.responses
 
-import com.fasterxml.jackson.annotation.JsonAlias
+import com.fasterxml.jackson.annotation.JsonProperty
 
 class ArtifactsArrayResponseBody<T>(
-    @JsonAlias("data") val data: List<T>,
+    @JsonProperty("data") val data: List<T>,
     val total: Int,
     val page: Int,
     val size: Int,

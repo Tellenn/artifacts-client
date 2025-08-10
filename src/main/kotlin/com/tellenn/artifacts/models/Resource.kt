@@ -1,6 +1,6 @@
 package com.tellenn.artifacts.models
 
-import com.fasterxml.jackson.annotation.JsonAlias
+import com.fasterxml.jackson.annotation.JsonProperty
 
 /**
  * Represents a resource in the game that can be gathered by characters.
@@ -21,6 +21,6 @@ class Resource(
 class ResourceDrop(
     val code: String,
     val rate: Int,
-    @JsonAlias("min_quantity") val minQuantity: Int,
-    @JsonAlias("max_quantity") val maxQuantity: Int
+    @JsonProperty("min_quantity") val minQuantity: Int,
+    @JsonProperty("max_quantity") val maxQuantity: Int
 )

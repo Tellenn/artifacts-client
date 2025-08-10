@@ -1,11 +1,11 @@
 package com.tellenn.artifacts.models
 
-import com.fasterxml.jackson.annotation.JsonAlias
+import com.fasterxml.jackson.annotation.JsonProperty
 
 @Suppress("unused")
 class BankDetails(
-    @JsonAlias("gold") val gold: Int,
-    @JsonAlias("next_expansion_cost") val nextExpansionCost: Int,
-    @JsonAlias("expansions") val expansions: Int,
-    @JsonAlias("slots") val slots: Int
+    @JsonProperty("gold") val gold: Int,
+    @JsonProperty("next_expansion_cost") val nextExpansionCost: Int,
+    @JsonProperty("expansions") val expansions: Int,
+    @JsonProperty("slots") val slots: Int
 )

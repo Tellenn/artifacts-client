@@ -1,16 +1,16 @@
 package com.tellenn.artifacts.clients.responses
 
-import com.fasterxml.jackson.annotation.JsonAlias
+import com.fasterxml.jackson.annotation.JsonProperty
 import com.tellenn.artifacts.models.ArtifactsCharacter
 import com.tellenn.artifacts.models.Cooldown
 import com.tellenn.artifacts.models.SimpleItem
 
 class BankGoldTransaction(
-    @JsonAlias("cooldown") val cooldown: Cooldown,
-    @JsonAlias("character") val character: ArtifactsCharacter,
-    @JsonAlias("bank") val bank: GoldTransaction
+    @JsonProperty("cooldown") val cooldown: Cooldown,
+    @JsonProperty("character") val character: ArtifactsCharacter,
+    @JsonProperty("bank") val bank: GoldTransaction
 )
 
 class GoldTransaction(
-    @JsonAlias("gold") val quantity: Int
+    @JsonProperty("gold") val quantity: Int
 )

@@ -1,10 +1,10 @@
 package com.tellenn.artifacts.models
 
-import com.fasterxml.jackson.annotation.JsonAlias
+import com.fasterxml.jackson.annotation.JsonProperty
 import java.util.Date
 
 class MapContent(
-    @JsonAlias("type") val type: String,
-    @JsonAlias("code") val code: String
+    @JsonProperty("type") val type: String,
+    @JsonProperty("code") val code: String
 ) {
 }
