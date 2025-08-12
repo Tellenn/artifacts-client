@@ -75,8 +75,8 @@ class GatheringService(
         }
 
         if(functionLevel > 0 && bankService.isInBank(itemDetails.code, quantity)){
-            bankService.moveToBank(character)
-            return bankService.withdrawOne(itemDetails.code, quantity, character)
+            val newCharacter = bankService.moveToBank(character)
+            return bankService.withdrawOne(itemDetails.code, quantity, newCharacter)
         }
         if(itemDetails.subtype == "mob"){
             if(allowFight){

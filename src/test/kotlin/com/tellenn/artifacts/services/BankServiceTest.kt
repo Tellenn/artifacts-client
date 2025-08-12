@@ -1,8 +1,6 @@
 package com.tellenn.artifacts.services
 
 import com.tellenn.artifacts.clients.BankClient
-import com.tellenn.artifacts.clients.responses.ArtifactsResponseBody
-import com.tellenn.artifacts.clients.responses.BankItemTransaction
 import com.tellenn.artifacts.models.ArtifactsCharacter
 import com.tellenn.artifacts.models.InventorySlot
 import com.tellenn.artifacts.models.MapContent
@@ -12,13 +10,10 @@ import com.tellenn.artifacts.db.documents.BankItemDocument
 import com.tellenn.artifacts.db.documents.ItemDocument
 import com.tellenn.artifacts.db.repositories.BankItemRepository
 import com.tellenn.artifacts.db.repositories.ItemRepository
-import com.tellenn.artifacts.models.Cooldown
-import com.tellenn.artifacts.models.SimpleItem
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.Assertions.*
-import org.mockito.ArgumentMatchers.any
 import org.mockito.Mockito
 import org.mockito.Mockito.`when`
 import org.mockito.Mockito.verify
@@ -27,7 +22,6 @@ import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.boot.test.context.SpringBootTest
 import org.springframework.context.annotation.Import
 import org.testcontainers.junit.jupiter.Testcontainers
-import java.time.Instant
 
 @SpringBootTest
 @Import(MongoTestConfiguration::class)
@@ -57,7 +51,13 @@ class BankServiceTest {
         itemRepository.deleteAll()
 
         // Create the service with real repositories and mocked clients
-        bankService = BankService(bankClient, bankRepository, itemRepository, mapService, movementService)
+        bankService = BankService(
+            bankClient,
+            bankRepository,
+            itemRepository,
+            mapService,
+            movementService
+        )
     }
 
     @AfterEach
@@ -188,9 +188,9 @@ class BankServiceTest {
             artifact1Slot = null,
             artifact2Slot = null,
             artifact3Slot = null,
-            utility1Slot = null,
+            utility1Slot = "",
             utility1SlotQuantity = 0,
-            utility2Slot = null,
+            utility2Slot = "",
             utility2SlotQuantity = 0,
             bagSlot = null,
             cooldownExpiration = null

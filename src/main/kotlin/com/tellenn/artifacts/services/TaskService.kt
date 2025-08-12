@@ -127,7 +127,7 @@ class TaskService(
 
         while(quantityLeft > 0 && count < 5) {
             try {
-                newCharacter = battleService.battle(newCharacter)
+                newCharacter = battleService.battle(newCharacter, character.task!!)
                 quantityLeft--
                 if (characterService.isInventoryFull(newCharacter)){
                     newCharacter = bankService.moveToBank(newCharacter)

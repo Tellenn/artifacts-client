@@ -179,9 +179,9 @@ class MapProximityServiceTest {
             artifact1Slot = null,
             artifact2Slot = null,
             artifact3Slot = null,
-            utility1Slot = null,
+            utility1Slot = "",
             utility1SlotQuantity = 0,
-            utility2Slot = null,
+            utility2Slot = "",
             utility2SlotQuantity = 0,
             bagSlot = null,
             cooldownExpiration = Instant.now()

@@ -4,344 +4,9 @@ import com.tellenn.artifacts.models.ArtifactsCharacter
 import com.tellenn.artifacts.models.Effect
 import com.tellenn.artifacts.db.repositories.ItemRepository
 import com.tellenn.artifacts.db.repositories.MonsterRepository
+import org.springframework.stereotype.Service
 import kotlin.math.roundToInt
 
-/*
-The battle is made turn by turn.
-Assuming the character starts, it will do damage based on his various attack values, minus the percentage of defense of the monster
-Then the opposite exist.
-
-In order to do an optimised battle simulator, create the mean damage output and check in how many turn either one of the character/monster dies (0 or less hp)
-
-Then, take into account any potential item such as :
-
-Food for hp boost at the beginning, potion that can increase damage or restore health. They are indicated in the character in the consumable slots.
-You also need to take in account the rune equipped.
-
-Here is a list of effect to take into account for now : 
-
-{
-  "data": [
-    {
-      "name": "Boost HP",
-      "code": "boost_hp",
-      "description": "Add {value}HP at the start of the fight and for the rest of the fight.",
-      "type": "combat",
-      "subtype": "buff"
-    },
-    {
-      "name": "Boost Damage Fire",
-      "code": "boost_dmg_fire",
-      "description": "Add {value}% fire damage at the start of the fight and for the rest of the fight.",
-      "type": "combat",
-      "subtype": "buff"
-    },
-    {
-      "name": "Boost Damage Water",
-      "code": "boost_dmg_water",
-      "description": "Add {value}% water damage at the start of the fight and for the rest of the fight.",
-      "type": "combat",
-      "subtype": "buff"
-    },
-    {
-      "name": "Boost Damage Air",
-      "code": "boost_dmg_air",
-      "description": "Add {value}% air damage at the start of the fight and for the rest of the fight.",
-      "type": "combat",
-      "subtype": "buff"
-    },
-    {
-      "name": "Boost Damage Earth",
-      "code": "boost_dmg_earth",
-      "description": "Add {value}% earth damage at the start of the fight and for the rest of the fight.",
-      "type": "combat",
-      "subtype": "buff"
-    },
-    {
-      "name": "Restore",
-      "code": "restore",
-      "description": "Restores {value}HP at the start of the turn if the player has lost more than 50% of their health points.",
-      "type": "combat",
-      "subtype": "heal"
-    },
-    {
-      "name": "Healing",
-      "code": "healing",
-      "description": "Every 3 played turns, restores {value}% of HP at the start of the turn.\n",
-      "type": "combat",
-      "subtype": "special"
-    },
-    {
-      "name": "Antipoison",
-      "code": "antipoison",
-      "description": "At the beginning of the turn, if the character has at least one poison on him, removes {value} poison damage.",
-      "type": "combat",
-      "subtype": "other"
-    },
-    {
-      "name": "Poison",
-      "code": "poison",
-      "description": "At the start of its first turn, applies a {value} poison to its opponent. Loses {value} HP per turn.",
-      "type": "combat",
-      "subtype": "special"
-    },
-    {
-      "name": "Lifesteal",
-      "code": "lifesteal",
-      "description": "Restores {value}% of the total attack of all elements in HP after a critical strike.",
-      "type": "combat",
-      "subtype": "special"
-    },
-    {
-      "name": "Reconstitution",
-      "code": "reconstitution",
-      "description": "At the beginning of the turn {value}, regains all HP.",
-      "type": "combat",
-      "subtype": "special"
-    },
-    {
-      "name": "Burn",
-      "code": "burn",
-      "description": "On his first turn, apply a burn effect of {value}% of your attack of all elements. The damage is applied each turn and decreases by 10% each time.",
-      "type": "combat",
-      "subtype": "special"
-    },
-    {
-      "name": "Boost Resistance Air",
-      "code": "boost_res_air",
-      "description": "Gives {value}% air resistance at the start of fight.",
-      "type": "combat",
-      "subtype": "buff"
-    },
-    {
-      "name": "Boost Resistance Water",
-      "code": "boost_res_water",
-      "description": "Gives {value}% water resistance at the start of fight.",
-      "type": "combat",
-      "subtype": "buff"
-    },
-    {
-      "name": "Boost Resistance Earth",
-      "code": "boost_res_earth",
-      "description": "Gives {value}% earth resistance at the start of fight.",
-      "type": "combat",
-      "subtype": "buff"
-    },
-    {
-      "name": "Boost Resistance Fire",
-      "code": "boost_res_fire",
-      "description": "Gives {value}% fire resistance at the start of fight.",
-      "type": "combat",
-      "subtype": "buff"
-    },
-    {
-      "name": "Corrupted",
-      "code": "corrupted",
-      "description": "After every time the bearer of this effect is attacked, their resistance to the attack's element is reduced by {value}%, and can go negative.",
-      "type": "combat",
-      "subtype": "special"
-    },
-    {
-      "name": "Heal",
-      "code": "heal",
-      "description": "Heal {value} HP when the item is used.",
-      "type": "consumable",
-      "subtype": "heal"
-    },
-    {
-      "name": "Teleport X",
-      "code": "teleport_x",
-      "description": "Teleports to x-coordinate {value} when the item is used.",
-      "type": "consumable",
-      "subtype": "teleport"
-    },
-    {
-      "name": "Gold",
-      "code": "gold",
-      "description": "Adds {value} gold in your inventory.",
-      "type": "consumable",
-      "subtype": "gold"
-    },
-    {
-      "name": "Teleport Y",
-      "code": "teleport_y",
-      "description": "Teleports to y-coordinate {value} when the item is used.",
-      "type": "consumable",
-      "subtype": "teleport"
-    },
-    {
-      "name": "Fire Attack",
-      "code": "attack_fire",
-      "description": "Adds {value} Fire Attack to its stats when equipped.",
-      "type": "equipment",
-      "subtype": "stat"
-    },
-    {
-      "name": "Water Attack",
-      "code": "attack_water",
-      "description": "Adds {value} Water Attack to its stats when equipped.",
-      "type": "equipment",
-      "subtype": "stat"
-    },
-    {
-      "name": "Air Attack",
-      "code": "attack_air",
-      "description": "Adds {value} Air Attack to its stats when equipped.",
-      "type": "equipment",
-      "subtype": "stat"
-    },
-    {
-      "name": "Earth Attack",
-      "code": "attack_earth",
-      "description": "Adds {value} Earth Attack to its stats when equipped.",
-      "type": "equipment",
-      "subtype": "stat"
-    },
-    {
-      "name": "Damage",
-      "code": "dmg",
-      "description": "Adds {value}% Damage to its stats when equipped.",
-      "type": "equipment",
-      "subtype": "stat"
-    },
-    {
-      "name": "Fire Damage",
-      "code": "dmg_fire",
-      "description": "Adds {value}% Fire Damage to its stats when equipped.",
-      "type": "equipment",
-      "subtype": "stat"
-    },
-    {
-      "name": "Water Damage",
-      "code": "dmg_water",
-      "description": "Adds {value}% Water Damage to its stats when equipped.",
-      "type": "equipment",
-      "subtype": "stat"
-    },
-    {
-      "name": "Air Damage",
-      "code": "dmg_air",
-      "description": "Adds {value}% Air Damage to its stats when equipped.",
-      "type": "equipment",
-      "subtype": "stat"
-    },
-    {
-      "name": "Earth Damage",
-      "code": "dmg_earth",
-      "description": "Adds {value}% Earth Damage to its stats when equipped.",
-      "type": "equipment",
-      "subtype": "stat"
-    },
-    {
-      "name": "Fire Resistance",
-      "code": "res_fire",
-      "description": "Adds {value}% Fire Res to its stats when equipped.",
-      "type": "equipment",
-      "subtype": "stat"
-    },
-    {
-      "name": "Water Resistance",
-      "code": "res_water",
-      "description": "Adds {value}% Water Res to its stats when equipped.",
-      "type": "equipment",
-      "subtype": "stat"
-    },
-    {
-      "name": "Air Resistance",
-      "code": "res_air",
-      "description": "Adds {value}% Air Res to its stats when equipped.",
-      "type": "equipment",
-      "subtype": "stat"
-    },
-    {
-      "name": "Earth Resistance",
-      "code": "res_earth",
-      "description": "Adds {value}% Earth Res to its stats when equipped.",
-      "type": "equipment",
-      "subtype": "stat"
-    },
-    {
-      "name": "Critical Strike",
-      "code": "critical_strike",
-      "description": "Adds {value}% Critical Strike to its stats when equipped. Critical strikes adds 50% extra damage to an attack (1.5x). ",
-      "type": "equipment",
-      "subtype": "stat"
-    },
-    {
-      "name": "Wisdom",
-      "code": "wisdom",
-      "description": "Adds {value} Wisdom to its stats when equipped. Each point of wisdom increases your xp in combat and with skills. (1% extra per 10 wisdom)",
-      "type": "equipment",
-      "subtype": "stat"
-    },
-    {
-      "name": "Prospecting",
-      "code": "prospecting",
-      "description": "Adds {value} Prospecting to its stats when equipped. Each PP increases your chance of obtaining drops in combat and with skills. (1% extra per 10 PP)",
-      "type": "equipment",
-      "subtype": "stat"
-    },
-    {
-      "name": "Woodcutting",
-      "code": "woodcutting",
-      "description": "Reduces cooldown by {value}% when a character logs a tree.",
-      "type": "equipment",
-      "subtype": "gathering"
-    },
-    {
-      "name": "Fishing",
-      "code": "fishing",
-      "description": "Reduces cooldown by {value}% when a character is fishing.",
-      "type": "equipment",
-      "subtype": "gathering"
-    },
-    {
-      "name": "Mining",
-      "code": "mining",
-      "description": "Reduces cooldown by {value}% when a character mines a resource.",
-      "type": "equipment",
-      "subtype": "gathering"
-    },
-    {
-      "name": "Alchemy",
-      "code": "alchemy",
-      "description": "Reduces cooldown by {value}% when a character harvest a plant.",
-      "type": "equipment",
-      "subtype": "gathering"
-    },
-    {
-      "name": "Hit points",
-      "code": "hp",
-      "description": "Adds {value} HP to its stats when equipped.",
-      "type": "equipment",
-      "subtype": "stat"
-    },
-    {
-      "name": "Inventory Space",
-      "code": "inventory_space",
-      "description": "Adds {value} to the maximum number of items in the inventory when equipped.",
-      "type": "equipment",
-      "subtype": "stat"
-    },
-    {
-      "name": "Haste",
-      "code": "haste",
-      "description": "Adds {value} Haste to its stats when equipped. The haste reduces the cooldown of a fight. ",
-      "type": "equipment",
-      "subtype": "stat"
-    }
-  ],
-  "total": 44,
-  "page": 1,
-  "size": 50,
-  "pages": 1
-}
-
-
-The result should be BattleSimulatorResult and all information related to it.
-
-Make tests out of it as well
- */
 
 // Class to represent item information for battle simulation
 data class ItemInformation(
@@ -361,6 +26,7 @@ data class BattleAnalysis(
     val utility2: ItemInformation?
 )
 
+@Service
 class BattleSimulatorService(
     private val monsterRepository: MonsterRepository,
     private val itemRepository: ItemRepository
@@ -395,13 +61,231 @@ class BattleSimulatorService(
     fun simulate(monsterCode: String, character: ArtifactsCharacter): BattleSimulatorResult {
         val monster = monsterRepository.findByCode(monsterCode)
             ?: throw IllegalArgumentException("Monster with code $monsterCode not found")
+        // TODO : Doesn't work, exemple of fight :
 
+        /**
+         * Fight start: Character HP: 455/455, Monster HP: 650/650
+         * Turn 1: Character used fire attack and dealt 60 damage. (Monster HP: 590/650)
+         * Turn 2: Monster used earth attack and dealt 70 damage. (Character HP: 385/455)
+         * Turn 3: Character used fire attack and dealt 60 damage. (Monster HP: 530/650)
+         * Turn 4: Monster used earth attack and dealt 70 damage. (Character HP: 315/455)
+         * Turn 5: Character used fire attack and dealt 60 damage. (Monster HP: 470/650)
+         * Turn 6: Monster used earth attack and dealt 70 damage. (Character HP: 245/455)
+         * Turn 7: Character used fire attack and dealt 60 damage. (Monster HP: 410/650)
+         * Turn 8: Monster used earth attack and dealt 105 damage (Critical strike). (Character HP: 140/455)
+         * Turn 9: Character used Minor Health Potion and restored 45 HP. (HP: 185/455)
+         * Turn 9: Character used fire attack and dealt 60 damage. (Monster HP: 350/650)
+         * Turn 10: Monster used earth attack and dealt 70 damage. (Character HP: 115/455)
+         * Turn 11: Character used Minor Health Potion and restored 45 HP. (HP: 160/455)
+         * Turn 11: Character used fire attack and dealt 60 damage. (Monster HP: 290/650)
+         * Turn 12: Monster used earth attack and dealt 70 damage. (Character HP: 90/455)
+         * Turn 13: Character used Minor Health Potion and restored 45 HP. (HP: 135/455)
+         * Turn 13: Character used fire attack and dealt 90 damage (Critical strike). (Monster HP: 200/650)
+         * Turn 14: Monster used earth attack and dealt 70 damage. (Character HP: 65/455)
+         * Turn 15: Character used Minor Health Potion and restored 45 HP. (HP: 110/455)
+         * Turn 15: Character used fire attack and dealt 60 damage. (Monster HP: 140/650)
+         * Turn 16: Monster used earth attack and dealt 70 damage. (Character HP: 40/455)
+         * Turn 17: Character used Minor Health Potion and restored 45 HP. (HP: 85/455)
+         * Turn 17: Character used fire attack and dealt 60 damage. (Monster HP: 80/650)
+         * Turn 18: Monster used earth attack and dealt 70 damage. (Character HP: 15/455)
+         * Turn 19: Character used Minor Health Potion and restored 45 HP. (HP: 60/455)
+         * Turn 19: Character used fire attack and dealt 60 damage. (Monster HP: 20/650)
+         * Turn 20: Monster used earth attack and dealt 70 damage. (Character HP: 0/455)
+         * Fight result: loss. Character HP: 0/455, Monster HP: 20/650
+         *
+         * Renoir
+         *
+         *     {
+         *       "name": "Renoir",
+         *       "account": "Tellenn",
+         *       "skin": "men1",
+         *       "level": 26,
+         *       "xp": 33,
+         *       "max_xp": 14600,
+         *       "gold": 0,
+         *       "speed": 100,
+         *       "mining_level": 7,
+         *       "mining_xp": 819,
+         *       "mining_max_xp": 1200,
+         *       "woodcutting_level": 1,
+         *       "woodcutting_xp": 0,
+         *       "woodcutting_max_xp": 150,
+         *       "fishing_level": 1,
+         *       "fishing_xp": 0,
+         *       "fishing_max_xp": 150,
+         *       "weaponcrafting_level": 20,
+         *       "weaponcrafting_xp": 3295,
+         *       "weaponcrafting_max_xp": 8200,
+         *       "gearcrafting_level": 15,
+         *       "gearcrafting_xp": 4050,
+         *       "gearcrafting_max_xp": 4400,
+         *       "jewelrycrafting_level": 16,
+         *       "jewelrycrafting_xp": 114,
+         *       "jewelrycrafting_max_xp": 5100,
+         *       "cooking_level": 1,
+         *       "cooking_xp": 0,
+         *       "cooking_max_xp": 150,
+         *       "alchemy_level": 16,
+         *       "alchemy_xp": 104,
+         *       "alchemy_max_xp": 5100,
+         *       "hp": 455,
+         *       "max_hp": 455,
+         *       "haste": 4,
+         *       "critical_strike": 5,
+         *       "wisdom": 0,
+         *       "prospecting": 0,
+         *       "attack_fire": 40,
+         *       "attack_earth": 0,
+         *       "attack_water": 0,
+         *       "attack_air": 0,
+         *       "dmg": 0,
+         *       "dmg_fire": 26,
+         *       "dmg_earth": 10,
+         *       "dmg_water": 8,
+         *       "dmg_air": 8,
+         *       "res_fire": 13,
+         *       "res_earth": 13,
+         *       "res_water": 2,
+         *       "res_air": 2,
+         *       "x": 4,
+         *       "y": 1,
+         *       "cooldown": 21,
+         *       "cooldown_expiration": "2025-08-12T14:15:37.540Z",
+         *       "weapon_slot": "skull_staff",
+         *       "rune_slot": "",
+         *       "shield_slot": "wooden_shield",
+         *       "helmet_slot": "iron_helm",
+         *       "body_armor_slot": "leather_armor",
+         *       "leg_armor_slot": "iron_legs_armor",
+         *       "boots_slot": "leather_boots",
+         *       "ring1_slot": "fire_ring",
+         *       "ring2_slot": "fire_ring",
+         *       "amulet_slot": "life_amulet",
+         *       "artifact1_slot": "",
+         *       "artifact2_slot": "",
+         *       "artifact3_slot": "",
+         *       "utility1_slot": "minor_health_potion",
+         *       "utility1_slot_quantity": 87,
+         *       "utility2_slot": "",
+         *       "utility2_slot_quantity": 0,
+         *       "bag_slot": "",
+         *       "task": "",
+         *       "task_type": "",
+         *       "task_progress": 0,
+         *       "task_total": 0,
+         *       "inventory_max_items": 150,
+         *       "inventory": [
+         *         {
+         *           "slot": 1,
+         *           "code": "adventurer_pants",
+         *           "quantity": 1
+         *         },
+         *         {
+         *           "slot": 2,
+         *           "code": "air_and_water_amulet",
+         *           "quantity": 1
+         *         },
+         *         {
+         *           "slot": 3,
+         *           "code": "battlestaff",
+         *           "quantity": 1
+         *         },
+         *         {
+         *           "slot": 4,
+         *           "code": "water_ring",
+         *           "quantity": 2
+         *         },
+         *         {
+         *           "slot": 5,
+         *           "code": "lucky_wizard_hat",
+         *           "quantity": 1
+         *         },
+         *         {
+         *           "slot": 6,
+         *           "code": "adventurer_boots",
+         *           "quantity": 1
+         *         },
+         *         {
+         *           "slot": 7,
+         *           "code": "",
+         *           "quantity": 0
+         *         },
+         *         {
+         *           "slot": 8,
+         *           "code": "",
+         *           "quantity": 0
+         *         },
+         *         {
+         *           "slot": 9,
+         *           "code": "",
+         *           "quantity": 0
+         *         },
+         *         {
+         *           "slot": 10,
+         *           "code": "",
+         *           "quantity": 0
+         *         },
+         *         {
+         *           "slot": 11,
+         *           "code": "",
+         *           "quantity": 0
+         *         },
+         *         {
+         *           "slot": 12,
+         *           "code": "",
+         *           "quantity": 0
+         *         },
+         *         {
+         *           "slot": 13,
+         *           "code": "",
+         *           "quantity": 0
+         *         },
+         *         {
+         *           "slot": 14,
+         *           "code": "",
+         *           "quantity": 0
+         *         },
+         *         {
+         *           "slot": 15,
+         *           "code": "",
+         *           "quantity": 0
+         *         },
+         *         {
+         *           "slot": 16,
+         *           "code": "",
+         *           "quantity": 0
+         *         },
+         *         {
+         *           "slot": 17,
+         *           "code": "",
+         *           "quantity": 0
+         *         },
+         *         {
+         *           "slot": 18,
+         *           "code": "",
+         *           "quantity": 0
+         *         },
+         *         {
+         *           "slot": 19,
+         *           "code": "",
+         *           "quantity": 0
+         *         },
+         *         {
+         *           "slot": 20,
+         *           "code": "",
+         *           "quantity": 0
+         *         }
+         *       ]
+         *     }
+         *
+         *
+         */
         // Get utility items
-        val utility1: ItemInformation? = if (character.utility1Slot != null && !character.utility1Slot.isEmpty()) {
+        val utility1: ItemInformation? = if (character.utility1Slot != null && character.utility1Slot != "") {
             itemUtils.getItemInfo(character.utility1Slot)
         } else null
 
-        val utility2: ItemInformation? = if (character.utility2Slot != null && !character.utility2Slot.isEmpty()) {
+        val utility2: ItemInformation? = if (character.utility2Slot != null && character.utility2Slot != "") {
             itemUtils.getItemInfo(character.utility2Slot)
         } else null
 

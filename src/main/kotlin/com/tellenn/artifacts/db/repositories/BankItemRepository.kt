@@ -9,37 +9,10 @@ import org.springframework.stereotype.Repository
 
 @Repository
 interface BankItemRepository : MongoRepository<BankItemDocument, String> {
-    // Find by name containing (case-insensitive)
-    fun findByNameContainingIgnoreCase(name: String, pageable: Pageable): Page<BankItemDocument>
-
-    // Find by type
-    fun findByType(type: String, pageable: Pageable): Page<BankItemDocument>
-
     // Find By Item Code
     fun findByCode(code: String): BankItemDocument?
 
-    /**
-     * Find resources by skill type and with level less than or equal to the specified level.
-     *
-     * @param skill The skill type to filter by
-     * @param level The maximum level to filter by
-     * @return List of resources for the specified skill with level <= the specified level
-     */
-    fun findByTypeAndLevelIsLessThanEqual(type: String, level: Int): List<BankItemDocument>
-
     fun findByTypeInAndLevelIsLessThanEqual(type: List<String>, level: Int): List<BankItemDocument>
 
-
-    // Find by subtype
-    fun findBySubtype(subtype: String, pageable: Pageable): Page<BankItemDocument>
-
-    // Find by level
-    fun findByLevel(level: Int, pageable: Pageable): Page<BankItemDocument>
-
-    // Find by tradeable
-    fun findByTradeable(tradable: Boolean, pageable: Pageable): Page<BankItemDocument>
-
-    // Custom query to find items with multiple criteria
-    @Query("{}")
-    fun findByDynamicQuery(pageable: Pageable): Page<BankItemDocument>
+    fun findByCodeContainingIgnoreCase(code: String): List<BankItemDocument>
 }

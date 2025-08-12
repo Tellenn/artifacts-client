@@ -76,6 +76,7 @@ class CrafterJob(
                     }catch (e : UnknownMapException){
                         // If the item is in one of the monsterEvents or depend on it, skip it
                         log.warn("Could not craft item ${itemDetail.code} because the map is not found")
+                        character = accountClient.getCharacter(character.name).data
                     }
 
                 }

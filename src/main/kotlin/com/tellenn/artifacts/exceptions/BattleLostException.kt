@@ -1,5 +1,5 @@
 package com.tellenn.artifacts.exceptions
 
-class BattleLostException : RuntimeException("Battle failed"){
+class BattleLostException(monsterCode: String) : RuntimeException("Battle failed against ${monsterCode}"){
 
 }

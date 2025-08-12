@@ -18,7 +18,8 @@ class BankService(
     private val bankRepository: BankItemRepository,
     private val itemRepository: ItemRepository,
     private val mapService: MapService,
-    private val movementService: MovementService
+    private val movementService: MovementService,
+    private val characterService: CharacterService
 ) {
     private val log = LogManager.getLogger(BankService::class.java)
 
@@ -40,10 +41,18 @@ class BankService(
         val inventory = character.inventory
         val items = inventory.filter { it.quantity > 0 }.map { SimpleItem(it.code, it.quantity) }
         var newCharacter = deposit(character, items)
-        return desositMoney(newCharacter, newCharacter.gold)
+        if(newCharacter.utility1Slot != ""){
+            characterService.unequip(newCharacter, "utility1", newCharacter.utility1SlotQuantity)
+            newCharacter = deposit(character, listOf(SimpleItem(newCharacter.utility1Slot, newCharacter.utility1SlotQuantity)))
+        }
+        if(newCharacter.utility2Slot != ""){
+            characterService.unequip(newCharacter, "utility2", newCharacter.utility2SlotQuantity)
+            newCharacter = deposit(character, listOf(SimpleItem(newCharacter.utility2Slot, newCharacter.utility2SlotQuantity)))
+        }
+        return depositMoney(newCharacter, newCharacter.gold)
     }
 
-    fun desositMoney(character: ArtifactsCharacter, amount: Int) : ArtifactsCharacter{
+    fun depositMoney(character: ArtifactsCharacter, amount: Int) : ArtifactsCharacter{
         if(amount <= 0){
             return character
         }
@@ -238,5 +247,9 @@ class BankService(
 
     fun getOne(itemCode: String): SimpleItem {
         return bankRepository.findByCode(itemCode)?.let { SimpleItem(it.code, it.quantity) } ?: SimpleItem("", 0)
+    }
+
+    fun getHealingPotions() : List<ItemDetails> {
+        return bankRepository.findByCodeContainingIgnoreCase("health").map { ItemDocument.toItemDetails(itemRepository.findByCode(it.code)) }
     }
 }

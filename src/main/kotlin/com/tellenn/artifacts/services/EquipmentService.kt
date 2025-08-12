@@ -1,5 +1,6 @@
 package com.tellenn.artifacts.services
 
+import com.tellenn.artifacts.clients.AccountClient
 import com.tellenn.artifacts.clients.MonsterClient
 import com.tellenn.artifacts.db.documents.BankItemDocument
 import com.tellenn.artifacts.models.ArtifactsCharacter
@@ -9,6 +10,7 @@ import com.tellenn.artifacts.models.SimpleItem
 import com.tellenn.artifacts.db.documents.ItemDocument
 import com.tellenn.artifacts.db.repositories.ItemRepository
 import com.tellenn.artifacts.exceptions.NotFoundException
+import com.tellenn.artifacts.services.battlesim.BattleSimulatorService
 import org.apache.logging.log4j.LogManager
 import org.springframework.stereotype.Service
 import kotlin.math.min
@@ -23,7 +25,8 @@ class EquipmentService(
     private val monsterClient: MonsterClient,
     private val itemRepository: ItemRepository,
     private val characterService: CharacterService,
-    private val itemService: ItemService
+    private val itemService: ItemService,
+    private val battleSimulatorService: BattleSimulatorService
 ) {
     private val log = LogManager.getLogger(EquipmentService::class.java)
 
@@ -49,6 +52,10 @@ class EquipmentService(
 
         newCharacter = bankService.emptyInventory(newCharacter)
 
+        // Fetch healing potions if there are any interesting
+        newCharacter = equipBestPotionsForFight(newCharacter, monsterCode)
+
+        // Fetch healing outside of combat items if there are any interesting
         val healingItemInBank = itemService.getHealingItems(bankService.getAll())
         if(healingItemInBank.isNotEmpty()){
             val worstHealingItem = healingItemInBank
@@ -60,6 +67,65 @@ class EquipmentService(
             }
         }
         return newCharacter
+    }
+
+    fun equipBestPotionsForFight(
+        character: ArtifactsCharacter,
+        monsterCode: String
+    ): ArtifactsCharacter {
+        val initialResult = battleSimulatorService.simulate(monsterCode, character)
+        if(initialResult.win){
+            return character
+        }
+        var fakeCharacter = character
+        var weakestPotion: ItemDetails? = null
+        val potions = bankService.getHealingPotions().toMutableList()
+        while( potions.isNotEmpty()){
+            weakestPotion = potions.minBy { it.level }
+            potions.remove(weakestPotion)
+            fakeCharacter.utility1Slot = weakestPotion.code
+
+            val healingPotionBattle = battleSimulatorService.simulate(monsterCode, character)
+            if(healingPotionBattle.win){
+                var newCharacter = bankService.moveToBank(character)
+                val maxAvailable = bankService.getOne(weakestPotion.code)
+                newCharacter = bankService.withdrawOne(weakestPotion.code, min(100, maxAvailable.quantity), newCharacter)
+                return characterService.equip(newCharacter, weakestPotion.code, "utility1",min(100, maxAvailable.quantity))
+            }
+        }
+
+
+        val monster = monsterClient.getMonster(monsterCode).data
+        val attacks = mapOf(
+            "fire"   to monster.attackFire,
+            "earth"  to monster.attackEarth,
+            "water"  to monster.attackWater,
+            "air"    to monster.attackAir
+        )
+        val bestMonsterElement = attacks.maxByOrNull { it.value }?.key ?: "fire"
+        val effectPotion = "${bestMonsterElement}_boost_potion"
+        fakeCharacter.utility2Slot = effectPotion
+
+        val damageBoostBattle = battleSimulatorService.simulate(monsterCode, character)
+
+        if(damageBoostBattle.win){
+            var newCharacter = bankService.moveToBank(character)
+            if(weakestPotion != null){
+                val maxAvailable = bankService.getOne(weakestPotion.code)
+                newCharacter = bankService.withdrawOne(weakestPotion.code, min(100, maxAvailable.quantity), newCharacter)
+                newCharacter = characterService.equip(newCharacter, weakestPotion.code, "utility1",min(100, maxAvailable.quantity))
+            }
+            val maxAvailable = bankService.getOne(effectPotion)
+            if(maxAvailable.quantity > 0) {
+                newCharacter = bankService.withdrawOne(effectPotion, min(100, maxAvailable.quantity), newCharacter)
+                newCharacter =
+                    characterService.equip(newCharacter, effectPotion, "utility2", min(100, maxAvailable.quantity))
+            }else{
+                // TODO : Equip the potion if it exists in bank, otherwise ... ?
+            }
+            return newCharacter
+        }
+        return character
     }
 
     fun findBestEquipmentForMonsterInBank(character: ArtifactsCharacter, monsterCode: String) : Map<String, ItemDetails?>{
@@ -112,7 +178,6 @@ class EquipmentService(
             return null
         }
 
-        // TODO : The score doesn't work properly, does not equip slime shield or re-equip copper ring (it should equip forest ring at lest), see if it's something about the rounding
         val attackAir =   weapon?.effects?.filter { it.code == "attack_air"  }?.map { it.value } ?.firstOrNull() ?: 0
         val attackWater = weapon?.effects?.filter { it.code == "attack_water"}?.map { it.value } ?.firstOrNull() ?: 0
         val attackEarth = weapon?.effects?.filter { it.code == "attack_earth"}?.map { it.value } ?.firstOrNull() ?: 0
@@ -216,14 +281,20 @@ class EquipmentService(
         val storedEquipment = bankService.getAllEquipmentsUnderLevel(character.level)
         var availableEquipment : MutableList<BankItemDocument> = storedEquipment.toMutableList()
         getEquippedItems(character = character).forEach { availableEquipment = addItemQuantityByOne(availableEquipment, it)}
-        val itemCode = availableEquipment
+        val filteredAvailableEquipment = availableEquipment
             .filter {
                         it.subtype == "tool" &&
                         it.level <= character.getLevelOf(skillType) &&
                         it.effects?.any { it.code.equals(skillType) } == true
             }
-            .map { Pair(it.code, it.effects?.find { it.code.equals(skillType) }?.value) }
-            .maxBy { it.second ?: 0 }
+        var itemCode: Pair<String, Int?>? = null
+        if(filteredAvailableEquipment.isNotEmpty()) {
+            itemCode = filteredAvailableEquipment
+                .map { Pair(it.code, it.effects?.find { it.code.equals(skillType) }?.value) }
+                .maxBy { it.second ?: 0 }
+
+        }
+
         if(itemCode != null && itemCode.first != (character.weaponSlot ?: "")){
             var newCharacter = bankService.moveToBank(character)
             newCharacter = bankService.withdrawOne(itemCode.first, 1, newCharacter)

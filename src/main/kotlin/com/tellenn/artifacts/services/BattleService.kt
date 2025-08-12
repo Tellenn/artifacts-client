@@ -29,7 +29,7 @@ class BattleService(
     private val log = LogManager.getLogger(GatheringService::class.java)
 
 
-    fun battleUntilInvIsFull(character: ArtifactsCharacter): ArtifactsCharacter{
+    fun battleUntilInvIsFull(character: ArtifactsCharacter, monsterCode: String): ArtifactsCharacter{
         var currentCharacter = character
 
         log.debug("Character ${character.name} starting to gather resource until inventory full")
@@ -37,7 +37,7 @@ class BattleService(
         // Continue gathering until inventory is full
         while (!characterService.isInventoryFull(currentCharacter)) {
             try {
-                currentCharacter = battle(currentCharacter)
+                currentCharacter = battle(currentCharacter, monsterCode)
             } catch (e: Exception) {
                 log.error("Error while gathering: ${e.message}")
                 break
@@ -60,7 +60,7 @@ class BattleService(
         try {
             while (!characterService.has(newCharacter, quantity, itemCode)){
                 try {
-                    newCharacter = battle(newCharacter)
+                    newCharacter = battle(newCharacter, monster.code)
                 }catch (e : CharacterInventoryFullException){
                     newCharacter = bankService.moveToBank(newCharacter)
                     newCharacter = bankService.emptyInventory(newCharacter)
@@ -82,10 +82,10 @@ class BattleService(
         val mapData = mapService.findClosestMap(character, contentCode = monster.code)
         var newCharacter = equipmentService.equipBestAvailableEquipmentForMonsterInBank(character, monster.code)
 
-        newCharacter = movementService.moveCharacterToCell(mapData.x, mapData.y, character)
+        newCharacter = movementService.moveCharacterToCell(mapData.x, mapData.y, newCharacter)
         try {
             while (character.level == newCharacter.level){
-                newCharacter = battle(newCharacter)
+                newCharacter = battle(newCharacter, monster.code)
             }
         }catch (e : BattleLostException){
             newCharacter = accountClient.getCharacter(newCharacter.name).data
@@ -94,21 +94,14 @@ class BattleService(
         return newCharacter
     }
 
-    fun battle(character: ArtifactsCharacter) : ArtifactsCharacter{
+    fun battle(character: ArtifactsCharacter, monsterCode: String) : ArtifactsCharacter{
         var currentCharacter = character
         val response = battleClient.fight(currentCharacter.name)
 
         // Update character with the latest data
         currentCharacter = response.data.character
-
         log.debug("Character ${currentCharacter.name} gathered resource, inventory: ${characterService.countInventoryItems(currentCharacter)}/${currentCharacter.inventoryMaxItems}")
 
-        // If no items were gathered, break the loop
-        if (response.data.fight?.result.equals("loss")) {
-            currentCharacter = characterService.rest(currentCharacter)
-            log.error("Character ${currentCharacter.name} lost the fight, resting...")
-            throw BattleLostException()
-        }
         if(currentCharacter.hp * 2 < (currentCharacter.maxHp * 1.1)){
             log.debug("Character ${currentCharacter.name} is wounded, resting...")
             val ownedHealingItems = itemService.getHealingItems(character.inventory.map { SimpleItem(it.code, it.quantity) })
@@ -123,6 +116,18 @@ class BattleService(
             // If still wounded or still haven't eaten
             if(currentCharacter.hp < currentCharacter.maxHp ){
                 currentCharacter = characterService.rest(currentCharacter)
+            }
+
+            if(response.data.fight?.result.equals("loss")){
+                // If we ran out of potion during the fight, then we try to fetch some more
+                if((character.utility1Slot != "" && currentCharacter.utility1Slot == "" )||
+                   (character.utility2Slot != "" && currentCharacter.utility2Slot == "" )){
+                    currentCharacter = equipmentService.equipBestPotionsForFight(currentCharacter, monsterCode)
+                    return battle(currentCharacter, monsterCode)
+                }else{
+                    // We lost because the fight is too tough or bad luck
+                    throw BattleLostException(monsterCode)
+                }
             }
         }
 
