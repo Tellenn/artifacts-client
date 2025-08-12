@@ -44,7 +44,9 @@ class WoodworkerJob(
         do{
             character = catchBackCrafter(character)
             val itemsToCraft = ArrayList<SimpleItem>()
-            val gatheringItems = itemService.getAllCraftBySkillUnderLevel(skill, character.woodcuttingLevel).filter { it.subtype != "precious_stone" }
+            val gatheringItems = itemService.getAllCraftBySkillUnderLevel(skill, character.woodcuttingLevel)
+                .filter { it.subtype != "precious_stone" }
+                .filter { it.code != "cursed_plank" && it.code != "magical_plank" && it.code != "magic_sap"}
             for(it in gatheringItems){
                 if(!bankService.isInBank(it.code, 200)){
                     itemsToCraft.add(SimpleItem(it.code, (character.inventoryMaxItems - 20) / itemService.getInvSizeToCraft(it) ))
@@ -61,8 +63,10 @@ class WoodworkerJob(
                 continue
                 // Otherwise levelup
             }else if(character.woodcuttingLevel < maxLevel){
-                val item =
-                    itemService.getBestCraftableItemsBySkillAndSubtypeAndMaxLevel(skill, "plank", character.woodcuttingLevel)
+                val items =
+                    itemService.getAllCraftableItemsBySkillAndSubtypeAndMaxLevel(skill, "plank", character.woodcuttingLevel)
+                        .filter { it.code != "cursed_plank" && it.code != "magical_plank" }
+                val item = items.first()
                 if (item == null) {
                     throw Exception("No craftable item found")
                 }

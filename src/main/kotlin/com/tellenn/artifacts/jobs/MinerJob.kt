@@ -17,6 +17,7 @@ import jdk.jshell.spi.ExecutionControl
 import org.springframework.context.ApplicationContext
 import org.springframework.stereotype.Component
 import java.lang.Thread.sleep
+import kotlin.collections.filter
 
 /**
  * Job implementation for characters with the "miner" job.
@@ -45,7 +46,10 @@ class MinerJob(
         do{
             character = catchBackCrafter(character)
             val itemsToCraft = ArrayList<SimpleItem>()
-            val gatheringItems = itemService.getAllCraftBySkillUnderLevel(skill, character.miningLevel).filter { it.subtype != "precious_stone" }.sortedBy { it.level }
+            val gatheringItems = itemService.getAllCraftBySkillUnderLevel(skill, character.miningLevel)
+                .filter { it.subtype != "precious_stone" }
+                .filter { it.code != "strangold_bar" }
+                .sortedBy { it.level }
             for(it in gatheringItems){
                 if(!bankService.isInBank(it.code, 200)){
                     itemsToCraft.add(SimpleItem(it.code, (character.inventoryMaxItems - 20) / itemService.getInvSizeToCraft(it) ))
@@ -62,8 +66,10 @@ class MinerJob(
                 continue
                 // Otherwise levelup
             }else if(character.miningLevel < maxLevel){
-                val item =
-                    itemService.getBestCraftableItemsBySkillAndSubtypeAndMaxLevel(skill, "bar", character.miningLevel)
+                val items =
+                    itemService.getAllCraftableItemsBySkillAndSubtypeAndMaxLevel(skill, "bar", character.miningLevel)
+                        .filter { it.code != "strangold_bar" }
+                val item = items.first()
                 if (item == null) {
                     throw Exception("No craftable item found")
                 }

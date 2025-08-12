@@ -12,5 +12,5 @@ class BankGoldTransaction(
 )
 
 class GoldTransaction(
-    @JsonProperty("gold") val quantity: Int
+    @JsonProperty("quantity") val quantity: Int
 )

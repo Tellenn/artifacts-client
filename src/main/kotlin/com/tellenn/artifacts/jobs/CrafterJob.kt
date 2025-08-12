@@ -3,6 +3,7 @@ package com.tellenn.artifacts.jobs
 import com.tellenn.artifacts.clients.AccountClient
 import com.tellenn.artifacts.db.documents.CraftedItemDocument
 import com.tellenn.artifacts.db.repositories.CraftedItemRepository
+import com.tellenn.artifacts.exceptions.UnknownMapException
 import com.tellenn.artifacts.models.ArtifactsCharacter
 import com.tellenn.artifacts.models.ItemDetails
 import com.tellenn.artifacts.services.BankService
@@ -68,9 +69,15 @@ class CrafterJob(
                 }
 
                 for (itemDetail in itemsToCraft) {
-                    character = gatheringService.craftOrGather(character, itemDetail.code, 1, allowFight = true)
-                    character = bankService.emptyInventory(character)
-                    saveOrUpdateCraftedItem(itemDetail)
+                    try{
+                        character = gatheringService.craftOrGather(character, itemDetail.code, 1, allowFight = true)
+                        character = bankService.emptyInventory(character)
+                        saveOrUpdateCraftedItem(itemDetail)
+                    }catch (e : UnknownMapException){
+                        // If the item is in one of the monsterEvents or depend on it, skip it
+                        log.warn("Could not craft item ${itemDetail.code} because the map is not found")
+                    }
+
                 }
 
             } else {
