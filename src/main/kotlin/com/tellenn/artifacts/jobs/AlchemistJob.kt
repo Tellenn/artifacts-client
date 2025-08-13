@@ -12,6 +12,7 @@ import com.tellenn.artifacts.services.CharacterService
 import com.tellenn.artifacts.services.GatheringService
 import com.tellenn.artifacts.services.ItemService
 import com.tellenn.artifacts.services.MapService
+import com.tellenn.artifacts.services.MerchantService
 import com.tellenn.artifacts.services.MovementService
 import com.tellenn.artifacts.services.ResourceService
 import com.tellenn.artifacts.services.TaskService
@@ -35,6 +36,7 @@ class AlchemistJob(
     private val itemService: ItemService,
     private val taskService: TaskService,
     private val itemRepository: ItemRepository,
+    private val merchantService: MerchantService,
 ) : GenericJob(mapService, movementService, bankService, characterService, accountClient, battleService) {
 
     lateinit var character: ArtifactsCharacter
@@ -61,6 +63,9 @@ class AlchemistJob(
                     if(!bankService.isInBank(it.code, 400)){
                         itemsToCraft.add(SimpleItem(it.code, (character.inventoryMaxItems - 10) / itemService.getInvSizeToCraft(it) ))
                     }
+                }
+                if(character.alchemyLevel >= 20 && !bankService.isInBank("small_antidote", 400)){
+                    itemsToCraft.add(SimpleItem("small_antidote", (character.inventoryMaxItems - 10) / itemService.getInvSizeToCraft(itemService.getItem("small_antidote")) ))
                 }
 
                 // Do some stock for the crafter
@@ -96,7 +101,7 @@ class AlchemistJob(
     }
 
     private fun getHealingPotions(): List<ItemDetails>{
-        val potions = itemService.getAllCraftableItemsBySkillAndSubtypeAndMaxLevel("alchemy", "potion", character.alchemyLevel)
+        val potions = itemService.getAllCraftableItemsBySkillAndSubtypeAndMaxLevel("alchemy", "potion", character.alchemyLevel).toMutableList()
         return potions.filter { it.effects?.none { effect -> effect.code != "restore" } ?: false }
     }
 

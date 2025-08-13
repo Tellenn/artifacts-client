@@ -44,6 +44,7 @@ class FighterJob(
                     character = taskService.exchangeRewardFromBank(character)
                 }
             }catch (e: TaskFailedException){
+                character = accountClient.getCharacter(characterName).data
                 if(bankService.isInBank("tasks_coin",1)) {
                     character = taskService.abandonMonsterTask(character)
                 }else{

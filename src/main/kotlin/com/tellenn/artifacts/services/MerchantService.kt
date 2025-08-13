@@ -9,13 +9,17 @@ import org.springframework.stereotype.Service
 class MerchantService (
     private val npcClient: NpcClient,
     private val bankService: BankService,
-    private val movementService: MovementService
+    private val movementService: MovementService,
+    private val itemService: ItemService
 ){
 
     fun sellBankItemTo(chararacter : ArtifactsCharacter, npcName : String) : ArtifactsCharacter{
         var newCharacter = chararacter
         val items = npcClient.getNpcItems(npcName).data
-                .filter { it.sellPrice != null }
+                .filter { it.sellPrice != null
+                        && it.sellPrice > 99
+                        && itemService.getItem(it.code).craft == null
+                        && npcClient.getItemsBoughtWith(it.code).total == 0}
 
         if(items.isNotEmpty()){
             for(item in items){

@@ -78,8 +78,28 @@ class EquipmentService(
             return character
         }
         var fakeCharacter = character
+        val monster = monsterClient.getMonster(monsterCode).data
+
+        val monsterEffects = monster.effects.map { it.code }
+
+        if(monsterEffects.isNotEmpty() && monsterEffects.contains("poison")){
+            val antidote = "small_antidote"
+            fakeCharacter.utility2Slot = antidote
+            val antipoisonBattle = battleSimulatorService.simulate(monsterCode, character)
+            if(antipoisonBattle.win){
+
+                val maxAvailable = bankService.getOne(antidote)
+                if(maxAvailable.quantity > 0) {
+                    val newCharacter = bankService.withdrawOne(antidote, min(100, maxAvailable.quantity), character)
+                    return characterService.equip(newCharacter, antidote, "utility2", min(100, maxAvailable.quantity))
+                }
+            }
+        }
+
         var weakestPotion: ItemDetails? = null
-        val potions = bankService.getHealingPotions().toMutableList()
+        val potions = bankService.getHealingPotions()
+            .filter { it.level <= character.level }
+            .toMutableList()
         while( potions.isNotEmpty()){
             weakestPotion = potions.minBy { it.level }
             potions.remove(weakestPotion)
@@ -95,7 +115,7 @@ class EquipmentService(
         }
 
 
-        val monster = monsterClient.getMonster(monsterCode).data
+
         val attacks = mapOf(
             "fire"   to monster.attackFire,
             "earth"  to monster.attackEarth,

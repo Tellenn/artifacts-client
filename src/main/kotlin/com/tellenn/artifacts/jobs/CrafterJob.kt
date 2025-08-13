@@ -81,16 +81,14 @@ class CrafterJob(
 
                 }
 
-            } else {
-
-                val itemToCraft =
-                    getTopLowestCostingItemForLeveling(character.getLevelOf(skillToLevel), listOf(skillToLevel))
-                val oldLevel = character.getLevelOf(skillToLevel)
-                while (oldLevel == character.getLevelOf(skillToLevel)) {
-                    character = gatheringService.craftOrGather(character, itemToCraft.code, 1, allowFight = true)
-                    character = gatheringService.recycle(character, itemToCraft, 1)
-                    character = bankService.emptyInventory(character)
-                }
+            }
+            val itemToCraft =
+                getTopLowestCostingItemForLeveling(character.getLevelOf(skillToLevel), listOf(skillToLevel))
+            val oldLevel = character.getLevelOf(skillToLevel)
+            while (oldLevel == character.getLevelOf(skillToLevel)) {
+                character = gatheringService.craftOrGather(character, itemToCraft.code, 1, allowFight = true)
+                character = gatheringService.recycle(character, itemToCraft, 1)
+                character = bankService.emptyInventory(character)
             }
         }while (true)
     }

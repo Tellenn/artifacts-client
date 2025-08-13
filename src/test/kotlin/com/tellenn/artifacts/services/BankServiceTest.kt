@@ -28,6 +28,8 @@ import org.testcontainers.junit.jupiter.Testcontainers
 @Testcontainers
 class BankServiceTest {
 
+    @Autowired
+    private lateinit var characterService: CharacterService
     private lateinit var bankService: BankService
     private lateinit var bankClient: BankClient
     private lateinit var mapService: MapService
@@ -56,7 +58,8 @@ class BankServiceTest {
             bankRepository,
             itemRepository,
             mapService,
-            movementService
+            movementService,
+            characterService
         )
     }
 

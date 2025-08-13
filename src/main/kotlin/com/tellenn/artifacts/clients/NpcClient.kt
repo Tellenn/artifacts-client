@@ -14,10 +14,16 @@ import org.springframework.stereotype.Component
 @Component
 class NpcClient : BaseArtifactsClient() {
 
-    fun getNpcItems(npcCode: String): ArtifactsResponseBody<List<NpcItem>> {
-        return sendGetRequest("/npcs/details/$npcCode").use { response ->
+    fun getNpcItems(npcCode: String): ArtifactsArrayResponseBody<NpcItem> {
+        return sendGetRequest("/npcs/items?npc=$npcCode").use { response ->
             val responseBody = response.body!!.string()
-            objectMapper.readValue<ArtifactsResponseBody<List<NpcItem>>>(responseBody)
+            objectMapper.readValue<ArtifactsArrayResponseBody<NpcItem>>(responseBody)
+        }
+    }
+    fun getItemsBoughtWith(itemCode: String): ArtifactsArrayResponseBody<NpcItem> {
+        return sendGetRequest("/npcs/items?currency=$itemCode").use { response ->
+            val responseBody = response.body!!.string()
+            objectMapper.readValue<ArtifactsArrayResponseBody<NpcItem>>(responseBody)
         }
     }
 

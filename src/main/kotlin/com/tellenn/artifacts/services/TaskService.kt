@@ -64,10 +64,10 @@ class TaskService(
         if(character.taskType.isNullOrEmpty()){
             throw IllegalStateException("Character ${character.name} already has no task")
         }
-        bankService.moveToBank(character)
-        bankService.withdrawOne("tasks_coin", 1, character)
-        movementService.moveCharacterToMaster("monsters", character)
-        return taskClient.abandonTask(character.name).data.character
+        var newCharacter = bankService.moveToBank(character)
+        newCharacter = bankService.withdrawOne("tasks_coin", 1, newCharacter)
+        newCharacter = movementService.moveCharacterToMaster("monsters", newCharacter)
+        return taskClient.abandonTask(newCharacter.name).data.character
     }
 
     fun doCharacterTask(character: ArtifactsCharacter): ArtifactsCharacter {

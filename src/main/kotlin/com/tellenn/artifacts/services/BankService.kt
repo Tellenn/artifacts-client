@@ -224,6 +224,7 @@ class BankService(
         var newCharacter = emptyInventory(character)
         newCharacter = movementService.moveCharacterToCell(oldx, oldy, newCharacter)
         newCharacter = callable()
+        // TODO : When gathering, sometime you get extra items and fail to fetch the previous items, how to prevent this ?
         newCharacter = moveToBank(newCharacter)
         newCharacter = withdrawMany(ArrayList(oldInventory), newCharacter)
         return newCharacter
