@@ -9,6 +9,7 @@ import com.tellenn.artifacts.services.BattleService
 import com.tellenn.artifacts.services.CharacterService
 import com.tellenn.artifacts.services.MapService
 import com.tellenn.artifacts.services.MovementService
+import com.tellenn.artifacts.services.TaskService
 import org.apache.logging.log4j.LogManager
 import org.springframework.context.ApplicationContext
 import org.springframework.stereotype.Component
@@ -25,7 +26,7 @@ open class GenericJob(
     val bankService: BankService,
     val characterService: CharacterService,
     val accountClient: AccountClient,
-    val battleService: BattleService
+    val taskService: TaskService
 ) {
     val log = LogManager.getLogger(MainRuntime::class.java)
 
@@ -48,7 +49,8 @@ open class GenericJob(
         if(newCharacter.level < lowestCraftLevel){
             log.info("Character ${newCharacter.name} need to catch back crafter : craft level is $lowestCraftLevel, character level is ${character.level}")
             while(newCharacter.level < lowestCraftLevel){
-                newCharacter = battleService.train(newCharacter, 0)
+                newCharacter = taskService.getNewMonsterTask(newCharacter)
+                newCharacter = taskService.doCharacterTask(newCharacter)
             }
         }
         return newCharacter

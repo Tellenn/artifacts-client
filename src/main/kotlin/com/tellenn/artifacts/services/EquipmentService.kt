@@ -63,7 +63,7 @@ class EquipmentService(
                 .filter { it.craft != null && it.level <= newCharacter.level}
             if(worstHealingItem.isNotEmpty()){
                 val worstHealingItemCode = worstHealingItem.minBy { it.level }.code
-                newCharacter = bankService.withdrawOne(worstHealingItemCode, min(newCharacter.inventoryMaxItems -20, bankService.getOne(worstHealingItemCode).quantity), newCharacter)
+                newCharacter = bankService.withdrawOne(worstHealingItemCode, min(newCharacter.inventoryMaxItems -40, bankService.getOne(worstHealingItemCode).quantity), newCharacter)
             }
         }
         return newCharacter
@@ -213,11 +213,11 @@ class EquipmentService(
                         "dmg" ->             multiplier +=  effect.value / 100.0
                         "hp" ->              score +=       effect.value / 10
                         "propecting" ->      score +=       effect.value / 10
-                        "haste" ->           score +=       effect.value
-                        "res_air" ->         score +=       monster.attackAir   / effect.value
-                        "res_water" ->       score +=       monster.attackWater / effect.value
-                        "res_earth" ->       score +=       monster.attackEarth / effect.value
-                        "res_fire" ->        score +=       monster.attackFire  / effect.value
+                        "haste" ->           score +=       effect.value / 10
+                        "res_air" ->         score +=      (monster.attackAir   * effect.value /100.0).toInt()
+                        "res_water" ->       score +=      (monster.attackWater * effect.value /100.0).toInt()
+                        "res_earth" ->       score +=      (monster.attackEarth * effect.value /100.0).toInt()
+                        "res_fire" ->        score +=      (monster.attackFire  * effect.value /100.0).toInt()
                         "attack_air" ->      score +=      (effect.value / (1+ monster.defenseAir/100.0)).toInt()
                         "attack_water" ->    score +=      (effect.value / (1+ monster.defenseWater/100.0)).toInt()
                         "attack_earth" ->    score +=      (effect.value / (1+ monster.defenseEarth/100.0)).toInt()

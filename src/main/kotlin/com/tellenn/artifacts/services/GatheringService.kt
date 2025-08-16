@@ -65,7 +65,7 @@ class GatheringService(
         return currentCharacter
     }
 
-    fun craftOrGather(character: ArtifactsCharacter, itemCode: String, quantity: Int, functionLevel: Int = 0, allowFight: Boolean = false) : ArtifactsCharacter{
+    fun craftOrGather(character: ArtifactsCharacter, itemCode: String, quantity: Int, functionLevel: Int = 0, allowFight: Boolean = false, shouldTrain: Boolean = true) : ArtifactsCharacter{
         val itemDetails = itemService.getItem(itemCode)
         val sizeForOne = itemService.getInvSizeToCraft(itemDetails)
         val inventorySizeNeeded = quantity * sizeForOne;
@@ -81,7 +81,7 @@ class GatheringService(
         if(itemDetails.subtype == "mob"){
             if(allowFight){
                 return bankService.storeItemsToDoThenGetThemBack(character) {
-                    battleService.fightToGetItem(character, itemDetails.code, quantity, true)
+                    battleService.fightToGetItem(character, itemDetails.code, quantity, shouldTrain)
                 }
             }else{
                 throw IllegalArgumentException("Cannot gather mob without fighting enabled")
@@ -91,7 +91,7 @@ class GatheringService(
             if(npcItem.currency == "gold" || npcItem.buyPrice == null){
                 throw IllegalArgumentException("Cannot gather npc with gold currency")
             }
-            var newCharacter = craftOrGather(character, npcItem.currency, npcItem.buyPrice * quantity, functionLevel + 1, allowFight)
+            var newCharacter = craftOrGather(character, npcItem.currency, npcItem.buyPrice * quantity, functionLevel + 1, allowFight, shouldTrain)
             newCharacter = movementService.moveToNpc(newCharacter, npcItem.npc)
             return npcClient.buyItem(newCharacter.name, npcItem.code, quantity).data.character
         }
@@ -106,7 +106,7 @@ class GatheringService(
             // Otherwise we craft (and call the same function for it)
             var newCharacter = character
             for( i in itemDetails.craft.items){
-                newCharacter = craftOrGather(newCharacter, i.code, i.quantity*quantity, functionLevel + 1, allowFight)
+                newCharacter = craftOrGather(newCharacter, i.code, i.quantity*quantity, functionLevel + 1, allowFight, shouldTrain)
             }
             return craft(newCharacter, itemDetails, quantity)
         }

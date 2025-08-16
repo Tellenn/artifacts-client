@@ -24,11 +24,11 @@ class FighterJob(
     bankService: BankService,
     characterService: CharacterService,
     accountClient: AccountClient,
-    battleService: BattleService,
-    private val taskService: TaskService,
+    taskService: TaskService,
+    private val battleService: BattleService,
     private val equipmentService: EquipmentService,
     private val monsterService: MonsterService
-) : GenericJob(mapService, movementService, bankService, characterService, accountClient, battleService) {
+) : GenericJob(mapService, movementService, bankService, characterService, accountClient, taskService) {
 
     lateinit var character: ArtifactsCharacter
 

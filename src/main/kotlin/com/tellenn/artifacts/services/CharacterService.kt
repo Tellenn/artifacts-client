@@ -82,4 +82,12 @@ class CharacterService(
         return count >= quantity
     }
 
+    fun destroyAllOfOne(character: ArtifactsCharacter, code: String): ArtifactsCharacter {
+        val inventory = character.inventory.firstOrNull { it.code == code }
+        if(inventory != null){
+             return characterClient.destroy(character.name, code, inventory.quantity).data.character
+        }
+        return character
+    }
+
 }

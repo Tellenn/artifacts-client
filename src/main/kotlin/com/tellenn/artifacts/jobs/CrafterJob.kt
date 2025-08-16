@@ -1,10 +1,16 @@
 package com.tellenn.artifacts.jobs
 
+import com.tellenn.artifacts.AppConfig
 import com.tellenn.artifacts.clients.AccountClient
+import com.tellenn.artifacts.db.documents.BankItemDocument
 import com.tellenn.artifacts.db.documents.CraftedItemDocument
+import com.tellenn.artifacts.db.documents.ItemDocument
 import com.tellenn.artifacts.db.repositories.CraftedItemRepository
+import com.tellenn.artifacts.exceptions.BattleLostException
+import com.tellenn.artifacts.exceptions.MissingItemException
 import com.tellenn.artifacts.exceptions.UnknownMapException
 import com.tellenn.artifacts.models.ArtifactsCharacter
+import com.tellenn.artifacts.models.BankItem
 import com.tellenn.artifacts.models.ItemDetails
 import com.tellenn.artifacts.services.BankService
 import com.tellenn.artifacts.services.BattleService
@@ -13,8 +19,10 @@ import com.tellenn.artifacts.services.GatheringService
 import com.tellenn.artifacts.services.ItemService
 import com.tellenn.artifacts.services.MapService
 import com.tellenn.artifacts.services.MovementService
+import com.tellenn.artifacts.services.TaskService
 import org.springframework.stereotype.Component
 import java.lang.Thread.sleep
+import kotlin.math.min
 
 /**
  * Job implementation for characters with the "crafter" job.
@@ -26,11 +34,11 @@ class CrafterJob(
     bankService: BankService,
     characterService: CharacterService,
     accountClient: AccountClient,
-    battleService: BattleService,
+    taskService: TaskService,
     private val itemService: ItemService,
     private val craftedItemRepository: CraftedItemRepository,
     private val gatheringService: GatheringService,
-) : GenericJob(mapService, movementService, bankService, characterService, accountClient, battleService) {
+) : GenericJob(mapService, movementService, bankService, characterService, accountClient, taskService) {
 
     lateinit var character: ArtifactsCharacter
     val rareItemCode = listOf("magical_cure", "jasper_crystal", "astralyte_crystal", "enchanted_fabric", "ruby", "sapphire", "emerald", "topaz", "diamond")
@@ -45,6 +53,8 @@ class CrafterJob(
                 character = bankService.withdrawMoney(character, bankDetails.nextExpansionCost)
                 character = bankService.buyBankSlot(character)
             }
+
+            character = cleanUpBank()
 
             val skillToLevel = getLowestSkillLevel(character)
             val itemsToCraft = getListOfItemToCraftUnderLevel(
@@ -70,13 +80,21 @@ class CrafterJob(
 
                 for (itemDetail in itemsToCraft) {
                     try{
-                        character = gatheringService.craftOrGather(character, itemDetail.code, 1, allowFight = true)
+                        character = gatheringService.craftOrGather(character, itemDetail.code, 1, allowFight = true, shouldTrain = false)
                         character = bankService.emptyInventory(character)
                         saveOrUpdateCraftedItem(itemDetail)
                     }catch (e : UnknownMapException){
                         // If the item is in one of the monsterEvents or depend on it, skip it
-                        log.warn("Could not craft item ${itemDetail.code} because the map is not found")
+                        log.warn("Could not craft item ${itemDetail.code} because the map is not found", e)
                         character = accountClient.getCharacter(character.name).data
+                    }catch (e: MissingItemException){
+                        // This case happens when we try to craft something, but we fail to battle, but still try to craft the item
+                        log.warn("Could not craft item ${itemDetail.code} because an item is missing, probably due to a lost fight. Should not happen again", e)
+                        character = accountClient.getCharacter(character.name).data
+                    }catch (e: BattleLostException){
+                        log.warn("Failed to get items for crafting ${itemDetail.code}", e)
+                        character = accountClient.getCharacter(character.name).data
+                        character = bankService.emptyInventory(character)
                     }
 
                 }
@@ -157,5 +175,35 @@ class CrafterJob(
                 itemService.getWeightToCraft(it))
         }
         return itemCostMatrix.minWith(compareBy { it.value }).key
+    }
+
+    private fun cleanUpBank(): ArtifactsCharacter {
+        character = bankService.emptyInventory(character)
+        var nbItems = 10
+        var itemsToRecycle = arrayListOf<ItemDetails>().toMutableList()
+        val minCrafterLevel = min(character.weaponcraftingLevel, min( character.gearcraftingLevel, character.jewelrycraftingLevel)) -10
+        bankService.getAllEquipmentsUnderLevel(minCrafterLevel)
+            .map { BankItemDocument.toItemDetails(it) }
+            .forEach {
+                // If it's not not, not the tutorial weapon and it's a craftable item, recycle it
+            if(nbItems>0 && it != null && it.code != "wooden_staff" && it.craft != null){
+                character = bankService.withdrawAllOfOne(character, it.code)
+
+                itemsToRecycle.add(it)
+                nbItems--
+            }
+                // If it's the tutorial item, destroy it
+            if(nbItems>0 && it != null && it.code == "wooden_staff"){
+                character = bankService.withdrawAllOfOne(character, it.code)
+                character = characterService.destroyAllOfOne(character, it.code)
+            }
+            // If it's a dropped item, it'll be taken care of when an event happens
+        }
+        if(itemsToRecycle.isNotEmpty()){
+            itemsToRecycle.forEach {
+                character = gatheringService.recycle(character, it, 1)
+            }
+        }
+        return bankService.emptyInventory(character)
     }
 }

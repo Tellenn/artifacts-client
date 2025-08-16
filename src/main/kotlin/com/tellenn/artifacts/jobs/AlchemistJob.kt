@@ -31,13 +31,12 @@ class AlchemistJob(
     bankService: BankService,
     characterService: CharacterService,
     accountClient: AccountClient,
-    battleService: BattleService,
+    taskService: TaskService,
     private val gatheringService: GatheringService,
     private val itemService: ItemService,
-    private val taskService: TaskService,
     private val itemRepository: ItemRepository,
     private val merchantService: MerchantService,
-) : GenericJob(mapService, movementService, bankService, characterService, accountClient, battleService) {
+) : GenericJob(mapService, movementService, bankService, characterService, accountClient, taskService) {
 
     lateinit var character: ArtifactsCharacter
     val skill = "alchemy"

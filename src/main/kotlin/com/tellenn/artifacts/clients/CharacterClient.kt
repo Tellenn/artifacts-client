@@ -49,4 +49,13 @@ class CharacterClient : BaseArtifactsClient() {
         }
     }
 
+    fun destroy(characterName: String, code: String, quantity: Int) : ArtifactsResponseBody<UseItemResponseBody> {
+        val request = SimpleItem(code, quantity)
+        val requestBody = objectMapper.writeValueAsString(request)
+        return sendPostRequest("/my/$characterName/action/delete", requestBody).use { response ->
+            val responseBody = response.body!!.string()
+            objectMapper.readValue<ArtifactsResponseBody<UseItemResponseBody>>(responseBody)
+        }
+    }
+
 }

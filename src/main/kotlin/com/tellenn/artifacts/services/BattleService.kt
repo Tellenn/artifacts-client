@@ -6,6 +6,7 @@ import com.tellenn.artifacts.clients.CharacterClient
 import com.tellenn.artifacts.models.ArtifactsCharacter
 import com.tellenn.artifacts.exceptions.BattleLostException
 import com.tellenn.artifacts.exceptions.CharacterInventoryFullException
+import com.tellenn.artifacts.exceptions.MapNotFoundException
 import com.tellenn.artifacts.models.SimpleItem
 import org.apache.logging.log4j.LogManager
 import org.springframework.stereotype.Service
@@ -72,24 +73,32 @@ class BattleService(
             if(shouldTrain){
                 newCharacter = train(newCharacter, -1)
                 return fightToGetItem(newCharacter, itemCode, quantity, shouldTrain)
+            }else{
+                throw e
             }
         }
         return newCharacter
     }
 
     fun train(character: ArtifactsCharacter, penalty: Int) : ArtifactsCharacter{
-        val monster = monsterService.findStrongestMonsterUnderLevel(character.level + penalty)
-        val mapData = mapService.findClosestMap(character, contentCode = monster.code)
-        var newCharacter = equipmentService.equipBestAvailableEquipmentForMonsterInBank(character, monster.code)
+        var newCharacter = character
+        try{
+            val monster = monsterService.findStrongestMonsterUnderLevel(character.level + penalty)
+            val mapData = mapService.findClosestMap(character, contentCode = monster.code)
+            newCharacter = equipmentService.equipBestAvailableEquipmentForMonsterInBank(character, monster.code)
 
-        newCharacter = movementService.moveCharacterToCell(mapData.x, mapData.y, newCharacter)
-        try {
+            newCharacter = movementService.moveCharacterToCell(mapData.x, mapData.y, newCharacter)
+
             while (character.level == newCharacter.level){
                 newCharacter = battle(newCharacter, monster.code)
             }
         }catch (e : BattleLostException){
             newCharacter = accountClient.getCharacter(newCharacter.name).data
             newCharacter = train(newCharacter, penalty-1)
+        }catch (e : MapNotFoundException){
+            newCharacter = accountClient.getCharacter(newCharacter.name).data
+            log.warn("Map not found for character ${character.name}", e)
+            return train(newCharacter, penalty-1)
         }
         return newCharacter
     }

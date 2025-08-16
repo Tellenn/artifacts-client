@@ -28,11 +28,10 @@ class WoodworkerJob(
     bankService: BankService,
     characterService: CharacterService,
     accountClient: AccountClient,
-    battleService: BattleService,
+    taskService: TaskService,
     val gatheringService: GatheringService,
-    private val itemService: ItemService,
-    private val taskService: TaskService,
-) : GenericJob(mapService, movementService, bankService, characterService, accountClient, battleService) {
+    private val itemService: ItemService
+) : GenericJob(mapService, movementService, bankService, characterService, accountClient, taskService) {
 
     lateinit var character: ArtifactsCharacter
     val skill: String = "woodcutting"

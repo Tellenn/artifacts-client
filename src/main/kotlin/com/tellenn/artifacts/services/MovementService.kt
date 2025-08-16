@@ -33,7 +33,7 @@ class MovementService(
             return character
         }
 
-        return movementClient.makeMovementCall(character.name, x, y).data.character
+        return movementClient.move(character.name, x, y).data.character
     }
 
     fun moveCharacterToMaster(masterType: String, character: ArtifactsCharacter): ArtifactsCharacter {

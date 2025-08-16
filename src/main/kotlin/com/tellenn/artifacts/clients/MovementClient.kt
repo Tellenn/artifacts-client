@@ -12,16 +12,7 @@ import org.springframework.stereotype.Component
 class MovementClient : BaseArtifactsClient() {
     private val logger = LoggerFactory.getLogger(MovementClient::class.java)
 
-    /* Body :
-    {
-        "x": 0,
-        "y": 0
-    }*/
-    fun moveCharacterToCell(characterName: String, x: Int, y: Int) : ArtifactsResponseBody<MovementResponseBody> {
-        return makeMovementCall(characterName, x, y)
-    }
-
-    fun makeMovementCall(characterName: String, x: Int, y: Int): ArtifactsResponseBody<MovementResponseBody> {
+    fun move(characterName: String, x: Int, y: Int): ArtifactsResponseBody<MovementResponseBody> {
         var response = sendPostRequest("/my/$characterName/action/move", "{\"x\": ${x}, \"y\": ${y}}")
         var movementResponse : ArtifactsResponseBody<MovementResponseBody> =
             objectMapper.readValue<ArtifactsResponseBody<MovementResponseBody>>(response.body!!.string())

@@ -42,11 +42,11 @@ class BankService(
         val items = inventory.filter { it.quantity > 0 }.map { SimpleItem(it.code, it.quantity) }
         var newCharacter = deposit(character, items)
         if(newCharacter.utility1Slot != ""){
-            characterService.unequip(newCharacter, "utility1", newCharacter.utility1SlotQuantity)
+            newCharacter = characterService.unequip(newCharacter, "utility1", newCharacter.utility1SlotQuantity)
             newCharacter = deposit(character, listOf(SimpleItem(newCharacter.utility1Slot, newCharacter.utility1SlotQuantity)))
         }
         if(newCharacter.utility2Slot != ""){
-            characterService.unequip(newCharacter, "utility2", newCharacter.utility2SlotQuantity)
+            newCharacter = characterService.unequip(newCharacter, "utility2", newCharacter.utility2SlotQuantity)
             newCharacter = deposit(character, listOf(SimpleItem(newCharacter.utility2Slot, newCharacter.utility2SlotQuantity)))
         }
         return depositMoney(newCharacter, newCharacter.gold)
