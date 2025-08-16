@@ -23,7 +23,7 @@ services:
     networks:
       - tellenn-network
 
-   ui:
+  ui:
     image: tellenn/ui-tellenn-artifacts-client:latest
     ports:
       - "8888:8080"

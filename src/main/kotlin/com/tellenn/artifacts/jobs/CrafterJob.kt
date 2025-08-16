@@ -96,9 +96,7 @@ class CrafterJob(
                         character = accountClient.getCharacter(character.name).data
                         character = bankService.emptyInventory(character)
                     }
-
                 }
-
             }
             val itemToCraft =
                 getTopLowestCostingItemForLeveling(character.getLevelOf(skillToLevel), listOf(skillToLevel))
