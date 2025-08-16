@@ -4,7 +4,7 @@ services:
   app:
     image: tellenn/tellenn-artifacts-client:latest
     ports:
-      - "8080:8080"
+      - "8880:8888"
     environment:
       - ARTIFACTS_API_KEY=${ARTIFACTS_API_KEY}
       - ARTIFACTS_API_URL=https://api.artifactsmmo.com
@@ -26,7 +26,7 @@ services:
   ui:
     image: tellenn/ui-tellenn-artifacts-client:latest
     ports:
-      - "8880:8888"
+      - "8888:8080"
     depends_on:
       - app
     networks:
