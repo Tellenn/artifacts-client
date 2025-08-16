@@ -6,6 +6,7 @@ services:
     ports:
       - "8080:8080"
     environment:
+      - ARTIFACTS_API_KEY=${ARTIFACTS_API_KEY}
       - ARTIFACTS_API_URL=https://api.artifactsmmo.com
       - SPRING_DATA_MONGODB_URI=mongodb://mongo:27017/tellenn-artifacts
     depends_on:
