@@ -3,6 +3,7 @@ version: '3.8'
 services:
   app:
     build: .
+    image: tellenn/tellenn-artifacts-client:latest
     ports:
       - "8080:8080"
     environment:
