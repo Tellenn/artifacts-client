@@ -35,4 +35,6 @@ jobs:
       run: docker pull tellenn/tellenn-artifacts-client:latest
 
     - name: Run docker-compose
+      env:
+        ARTIFACTS_API_KEY: ${{ secrets.ARTIFACTS_KEY }}
       run: docker-compose up -d
