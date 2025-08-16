@@ -132,6 +132,8 @@ class TaskService(
                 if (characterService.isInventoryFull(newCharacter)){
                     newCharacter = bankService.moveToBank(newCharacter)
                     newCharacter = bankService.emptyInventory(newCharacter)
+                    newCharacter = equipmentService.equipBestAvailableEquipmentForMonsterInBank(newCharacter, monsterCode)
+                    newCharacter = movementService.moveCharacterToCell(monsterMap.x, monsterMap.y, newCharacter)
                 }
             }catch (e: BattleLostException){
                 newCharacter = accountClient.getCharacter(newCharacter.name).data
