@@ -148,6 +148,7 @@ class GatheringService(
 
     private fun craft(character: ArtifactsCharacter, item: ItemDetails, quantity: Int) : ArtifactsCharacter {
         val skill = item.craft?.skill
+        // TODO if does not have level, raise exception ?
         val mapData = mapService.findClosestMap(character = character, contentCode = skill)
         var newCharacter = movementService.moveCharacterToCell(mapData.x, mapData.y, character)
         newCharacter = craftingClient.craft(newCharacter.name, item.code, quantity).data.character
