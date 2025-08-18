@@ -7,6 +7,7 @@ import com.tellenn.artifacts.db.documents.CraftedItemDocument
 import com.tellenn.artifacts.db.documents.ItemDocument
 import com.tellenn.artifacts.db.repositories.CraftedItemRepository
 import com.tellenn.artifacts.exceptions.BattleLostException
+import com.tellenn.artifacts.exceptions.CharacterSkillTooLow
 import com.tellenn.artifacts.exceptions.MissingItemException
 import com.tellenn.artifacts.exceptions.UnknownMapException
 import com.tellenn.artifacts.models.ArtifactsCharacter
@@ -95,11 +96,16 @@ class CrafterJob(
                         log.warn("Failed to get items for crafting ${itemDetail.code}", e)
                         character = accountClient.getCharacter(character.name).data
                         character = bankService.emptyInventory(character)
+                    }catch (e: CharacterSkillTooLow){
+                        log.warn("A sub component of the crafting of ${itemDetail.code} failed because the character has too low skill level", e)
+                        character = accountClient.getCharacter(character.name).data
+                        character = bankService.emptyInventory(character)
                     }
                 }
             }
             val itemToCraft =
                 getTopLowestCostingItemForLeveling(character.getLevelOf(skillToLevel), listOf(skillToLevel))
+            // TODO : If itemTocraft is empty, it means the crafts are becoming too hard to do and may need to include rare items
             val oldLevel = character.getLevelOf(skillToLevel)
             while (oldLevel == character.getLevelOf(skillToLevel)) {
                 character = gatheringService.craftOrGather(character, itemToCraft.code, 1, allowFight = true)

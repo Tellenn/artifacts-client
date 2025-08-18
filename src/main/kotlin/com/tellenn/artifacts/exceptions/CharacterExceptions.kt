@@ -111,5 +111,11 @@ class CharacterNotFoundException(message: String = "Character not found") :
 /**
  * Exception thrown when a character is in cooldown.
  */
-class CharacterInCooldownException(message: String = "Character is in cooldown") : 
+class CharacterInCooldownException(message: String = "Character is in cooldown") :
     ArtifactsApiException(ErrorCodes.CHARACTER_IN_COOLDOWN, message)
+
+/**
+ * Exception thrown when a character is in cooldown.
+ */
+class CharacterSkillTooLow(message: String = "Character skill is too low") :
+    ArtifactsApiException(1001, message)
