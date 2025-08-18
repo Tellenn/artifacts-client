@@ -43,7 +43,6 @@ class CrafterJob(
 
     lateinit var character: ArtifactsCharacter
     val rareItemCode = listOf("magical_cure", "jasper_crystal", "astralyte_crystal", "enchanted_fabric", "ruby", "sapphire", "emerald", "topaz", "diamond")
-        // TODO : Do a cleanup of the items in bank when reaching a new milestone
 
     fun run(characterName: String) {
         sleep(1000)

@@ -23,11 +23,10 @@ class BankItemSyncService(
      * Empties the items collection in MongoDB and fills it with all items from the API.
      * Handles pagination to fetch all items.
      *
-     * @param forceSync Whether to force the sync regardless of server version (default: false)
      * @return The number of items synced
      */
     @Transactional
-    fun syncAllItems(forceSync: Boolean = false): Int {
+    fun syncAllItems(): Int {
         logger.debug("Starting bank sync process")
 
         // Empty the database

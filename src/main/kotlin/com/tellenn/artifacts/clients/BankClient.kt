@@ -8,12 +8,14 @@ import com.tellenn.artifacts.clients.responses.BankExtensionTransaction
 import com.tellenn.artifacts.clients.responses.BankGoldTransaction
 import com.tellenn.artifacts.clients.responses.BankItemTransaction
 import com.tellenn.artifacts.models.BankDetails
+import com.tellenn.artifacts.services.sync.BankItemSyncService
 import lombok.extern.slf4j.Slf4j
 import org.springframework.stereotype.Component
 
 @Slf4j
 @Component
-class BankClient : BaseArtifactsClient() {
+class BankClient(val bankItemSyncService: BankItemSyncService) : BaseArtifactsClient() {
+
 
     fun getBankedItems(itemCode: String? = null, page: Int = 1): ArtifactsArrayResponseBody<SimpleItem> {
         val path = if (itemCode != null) {
@@ -37,6 +39,9 @@ class BankClient : BaseArtifactsClient() {
 
     fun withdrawItems(characterName: String, items : List<SimpleItem>) : ArtifactsResponseBody<BankItemTransaction>{
         return sendPostRequest("/my/$characterName/action/bank/withdraw/item",  objectMapper.writeValueAsString(items)).use { response ->
+            if(response.code == 404) {
+                bankItemSyncService.syncAllItems()
+            }
             val responseBody = response.body!!.string()
             objectMapper.readValue<ArtifactsResponseBody<BankItemTransaction>>(responseBody)
         }

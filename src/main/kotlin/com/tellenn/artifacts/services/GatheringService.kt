@@ -149,7 +149,6 @@ class GatheringService(
 
     private fun craft(character: ArtifactsCharacter, item: ItemDetails, quantity: Int) : ArtifactsCharacter {
         val skill = item.craft?.skill
-        // TODO if does not have level, raise exception ?
         if(skill != null && item.level > character.getLevelOf(skill)){
             throw CharacterSkillTooLow()
         }
