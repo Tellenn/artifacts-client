@@ -8,7 +8,9 @@ import com.tellenn.artifacts.db.documents.BankItemDocument
 import com.tellenn.artifacts.db.documents.ItemDocument
 import com.tellenn.artifacts.db.repositories.BankItemRepository
 import com.tellenn.artifacts.db.repositories.ItemRepository
+import com.tellenn.artifacts.exceptions.BankCorruptedException
 import com.tellenn.artifacts.models.BankDetails
+import com.tellenn.artifacts.services.sync.BankItemSyncService
 import org.apache.logging.log4j.LogManager
 import org.springframework.stereotype.Service
 
@@ -19,7 +21,8 @@ class BankService(
     private val itemRepository: ItemRepository,
     private val mapService: MapService,
     private val movementService: MovementService,
-    private val characterService: CharacterService
+    private val characterService: CharacterService,
+    private val bankItemSyncService: BankItemSyncService
 ) {
     private val log = LogManager.getLogger(BankService::class.java)
 
@@ -159,8 +162,14 @@ class BankService(
         if(items.isEmpty()){
             return character
         }
-        val newCharacter = bankClient.withdrawItems(character.name, items).data.character
-        
+        var newCharacter = character
+        try {
+            newCharacter = bankClient.withdrawItems(newCharacter.name, items).data.character
+        }catch (e: BankCorruptedException){
+            bankItemSyncService.syncAllItems()
+            throw e
+        }
+
         // Remove items from the local database
         try {
             items.forEach { item ->
