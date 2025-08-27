@@ -10,6 +10,7 @@ import com.tellenn.artifacts.models.ArtifactsCharacter
 import com.tellenn.artifacts.models.ItemDetails
 import com.tellenn.artifacts.db.repositories.ItemRepository
 import com.tellenn.artifacts.exceptions.CharacterInventoryFullException
+import com.tellenn.artifacts.exceptions.CharacterSkillTooLow
 import org.apache.logging.log4j.LogManager
 import org.springframework.stereotype.Service
 
@@ -148,7 +149,9 @@ class GatheringService(
 
     private fun craft(character: ArtifactsCharacter, item: ItemDetails, quantity: Int) : ArtifactsCharacter {
         val skill = item.craft?.skill
-        // TODO if does not have level, raise exception ?
+        if(skill != null && item.level > character.getLevelOf(skill)){
+            throw CharacterSkillTooLow()
+        }
         val mapData = mapService.findClosestMap(character = character, contentCode = skill)
         var newCharacter = movementService.moveCharacterToCell(mapData.x, mapData.y, character)
         newCharacter = craftingClient.craft(newCharacter.name, item.code, quantity).data.character

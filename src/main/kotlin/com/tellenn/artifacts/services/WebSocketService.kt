@@ -325,12 +325,10 @@ class WebSocketService(
                                     restartCharacterThread("Aerith"
                                     )
                                 }else if (event.map.content?.type == "resource"){
-
                                     logger.info("Resource spawned: ${event.map.content.code}")
                                     // TODO : Gather resource until event is over
 
                                 }else if (event.map.content?.type == "monster"){
-
                                     logger.info("Monster spawned: ${event.map.content.code}")
                                     // TODO : Fight if it's interesting or that you can
                                 }

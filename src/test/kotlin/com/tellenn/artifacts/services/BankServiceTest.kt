@@ -10,6 +10,7 @@ import com.tellenn.artifacts.db.documents.BankItemDocument
 import com.tellenn.artifacts.db.documents.ItemDocument
 import com.tellenn.artifacts.db.repositories.BankItemRepository
 import com.tellenn.artifacts.db.repositories.ItemRepository
+import com.tellenn.artifacts.services.sync.BankItemSyncService
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
@@ -34,6 +35,7 @@ class BankServiceTest {
     private lateinit var bankClient: BankClient
     private lateinit var mapService: MapService
     private lateinit var movementService: MovementService
+    private lateinit var bankItemSyncService: BankItemSyncService
 
     @Autowired
     private lateinit var bankRepository: BankItemRepository
@@ -47,6 +49,7 @@ class BankServiceTest {
         bankClient = Mockito.mock(BankClient::class.java)
         mapService = Mockito.mock(MapService::class.java)
         movementService = Mockito.mock(MovementService::class.java)
+        bankItemSyncService = Mockito.mock(BankItemSyncService::class.java)
 
         // Clear repositories
         bankRepository.deleteAll()
@@ -59,7 +62,8 @@ class BankServiceTest {
             itemRepository,
             mapService,
             movementService,
-            characterService
+            characterService,
+            bankItemSyncService
         )
     }
 
