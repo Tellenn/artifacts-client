@@ -9,7 +9,7 @@ class EventData (
     @JsonProperty("duration") val duration: String,
     @JsonProperty("rate") val rate: Int,
     @JsonProperty("content") val content: Content,
-    @JsonProperty("map") val map: EventMap
+    @JsonProperty("maps") val maps: List<EventMap>
 )
 
 class Content(

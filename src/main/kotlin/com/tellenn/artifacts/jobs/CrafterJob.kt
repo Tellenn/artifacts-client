@@ -45,10 +45,11 @@ class CrafterJob(
 
     lateinit var character: ArtifactsCharacter
     val rareItemCode = listOf("magical_cure", "jasper_crystal", "astralyte_crystal", "enchanted_fabric", "ruby", "sapphire", "emerald", "topaz", "diamond")
-    val eventBasedItemCodes = eventService.getAllEventMaterials()
+    var eventBasedItemCodes = listOf<String>()
 
     fun run(characterName: String) {
         sleep(1000)
+        eventBasedItemCodes = eventService.getAllEventMaterials()
         character = init(characterName)
         do {
             val bankDetails = bankService.getBankDetails()

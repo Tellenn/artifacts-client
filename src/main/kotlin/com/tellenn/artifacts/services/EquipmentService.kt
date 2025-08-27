@@ -38,11 +38,17 @@ class EquipmentService(
         val ring2 = bis["ring2"]
 
         if(ring1?.code != ring2?.code){
-            if(ring1?.code != character.ring1Slot && ring2?.code == character.ring2Slot){
+            if(ring1?.code == character.ring1Slot){
+                bis["ring1"] = null
+            }
+            if(ring2?.code == character.ring2Slot){
+                bis["ring2"] = null
+            }
+            if(ring1?.code != character.ring1Slot && ring1?.code == character.ring2Slot){
                 bis["ring1"] = null
             }
 
-            if(ring2?.code != character.ring1Slot && ring1?.code == character.ring2Slot){
+            if(ring2?.code != character.ring2Slot && ring2?.code == character.ring1Slot){
                 bis["ring2"] = null
             }
         }
@@ -57,7 +63,6 @@ class EquipmentService(
             }
         }
         try {
-            // TODO flawed logic here, for the rings, the bis and the equipped can mess up thing, fix it
             newCharacter = bankService.withdrawMany(bankWithdraw, newCharacter)
             bis.forEach { slot,item ->
                 if(item?.code != null && character[slot+"_slot"] != item.code) {
@@ -209,6 +214,114 @@ class EquipmentService(
         bis["weapon"] = bestWeapon
         return bis.mapValues { BankItemDocument.toItemDetails(it.value) }.toMutableMap()
 
+    }
+
+    fun equipBestAvailableEquipmentForCraftingOrGatheringInBank(character: ArtifactsCharacter) : ArtifactsCharacter{
+        val bis = getBestWisdomEquipmentInBank(character)
+        var newCharacter = character
+        val bankWithdraw = ArrayList<SimpleItem>()
+        val ring1 = bis["ring1"]
+        val ring2 = bis["ring2"]
+
+        if(ring1?.code != ring2?.code){
+            if(ring1?.code == character.ring1Slot){
+                bis["ring1"] = null
+            }
+            if(ring2?.code == character.ring2Slot){
+                bis["ring2"] = null
+            }
+            if(ring1?.code != character.ring1Slot && ring1?.code == character.ring2Slot){
+                bis["ring1"] = null
+            }
+
+            if(ring2?.code != character.ring2Slot && ring2?.code == character.ring1Slot){
+                bis["ring2"] = null
+            }
+        }
+        if(bis.any { it.value != null }) {
+            newCharacter = bankService.moveToBank(character)
+
+            bis.forEach { slot, item ->
+                if (item?.code != null && character[slot + "_slot"] != item.code) {
+                    // Ring specific case
+                    if (bankWithdraw.contains(SimpleItem(item.code, 1))) {
+                        bankWithdraw.remove(SimpleItem(item.code, 1))
+                        bankWithdraw.add(SimpleItem(item.code, 2))
+                    }
+                    bankWithdraw.add(SimpleItem(item.code, 1))
+                }
+            }
+            try {
+                newCharacter = bankService.withdrawMany(bankWithdraw, newCharacter)
+                bis.forEach { slot, item ->
+                    if (item?.code != null && character[slot + "_slot"] != item.code) {
+                        newCharacter = characterService.equip(newCharacter, item.code, slot, 1)
+                    }
+                }
+            } catch (_: NotFoundException) {
+                return equipBestAvailableEquipmentForCraftingOrGatheringInBank(newCharacter)
+            }
+            // We do not empty the inventory in this case because the character may be crafting or gathering with requirements. There should be enough spaces tho
+            //newCharacter = bankService.emptyInventory(newCharacter)
+        }
+        return newCharacter
+    }
+
+    fun getBestWisdomEquipmentInBank(character: ArtifactsCharacter) : MutableMap<String, ItemDetails?>{
+        val storedEquipment = bankService.getAllEquipmentsUnderLevel(character.level)
+        var availableEquipment : MutableList<BankItemDocument> = storedEquipment.toMutableList()
+        getEquippedItems(character = character).forEach { availableEquipment = addItemQuantityByOne(availableEquipment, it)}
+        val bis = getHashMapSlot()
+        for(slot in bis){
+            val item : BankItemDocument?
+            if(slot.key == "artifacts1") {
+                item = getBestWisdomGear(
+                    availableEquipment
+                        .filter { it.type == "artifacts" })
+            }else if(slot.key == "artifacts2"){
+                item = getBestWisdomGear(
+                    availableEquipment
+                        .filter { it.type == "artifacts" }
+                        .filter { it.code != bis["artifacts1"]?.code })
+            }else if(slot.key == "artifacts3"){
+                item = getBestWisdomGear(
+                    availableEquipment
+                        .filter { it.type == "artifacts" }
+                        .filter { it.code != bis["artifacts1"]?.code }
+                        .filter { it.code != bis["artifacts2"]?.code })
+            }else if(slot.key == "ring1" || slot.key == "ring2"){
+                item =
+                    getBestWisdomGear(availableEquipment.filter { it.type == "ring" })
+            }else{
+                item =
+                    getBestWisdomGear(availableEquipment.filter { it.type == slot.key })
+            }
+            bis[slot.key] = item
+            availableEquipment = reduceItemQuantityByOne(availableEquipment, item?.code ?: "")
+        }
+        bis["weapon"] = null
+        return bis.mapValues { BankItemDocument.toItemDetails(it.value) }.toMutableMap()
+
+    }
+
+    private fun getBestWisdomGear(items: List<BankItemDocument>) : BankItemDocument? {
+        if(items.isEmpty()){
+            return null
+        }
+        val itemMap = HashMap<BankItemDocument, Int>()
+        for(item in items){
+            var score = 0
+            if(item.effects != null){
+                for (effect in item.effects) {
+                    when(effect.code) {
+                        "wisdom" -> score += effect.value
+                    }
+                }
+            }
+            itemMap[item] = score
+        }
+
+        return itemMap.maxBy { it.value }.key
     }
 
     fun getBestScoreForItems(items: List<BankItemDocument>, monster: MonsterData, weapon: BankItemDocument?) : BankItemDocument? {

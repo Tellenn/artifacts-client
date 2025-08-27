@@ -128,6 +128,8 @@ class GatheringService(
             var quantityGathered = 0
             val mapData = mapService.findClosestMap(character = character, contentCode = resourceService.findResourceContaining(item.code, skillLevel).code)
             var newCharacter = equipmentService.equipBestToolForSkill(character, item.subtype)
+            newCharacter = equipmentService.equipBestAvailableEquipmentForCraftingOrGatheringInBank(newCharacter)
+            newCharacter = bankService.emptyInventory(newCharacter)
             newCharacter = movementService.moveCharacterToCell(mapData.x, mapData.y, newCharacter)
             while (quantityToCraft >= quantityGathered) {
                 try{
@@ -152,8 +154,9 @@ class GatheringService(
         if(skill != null && item.level > character.getLevelOf(skill)){
             throw CharacterSkillTooLow()
         }
-        val mapData = mapService.findClosestMap(character = character, contentCode = skill)
-        var newCharacter = movementService.moveCharacterToCell(mapData.x, mapData.y, character)
+        var newCharacter = equipmentService.equipBestAvailableEquipmentForCraftingOrGatheringInBank(character)
+        val mapData = mapService.findClosestMap(character = newCharacter, contentCode = skill)
+        newCharacter = movementService.moveCharacterToCell(mapData.x, mapData.y, newCharacter)
         newCharacter = craftingClient.craft(newCharacter.name, item.code, quantity).data.character
 
         return newCharacter
