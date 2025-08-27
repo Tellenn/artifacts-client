@@ -9,6 +9,8 @@ services:
       - ARTIFACTS_API_KEY=${ARTIFACTS_API_KEY}
       - ARTIFACTS_API_URL=https://api.artifactsmmo.com
       - SPRING_DATA_MONGODB_URI=mongodb://mongo:27017/tellenn-artifacts
+      - SPRING_DATA_MONGODB_USERNAME=artifacts
+      - SPRING_DATA_MONGODB_PASSWORD=<f6}]Y49<O-iz7B3.\*)/?(M;o~Hp"#iQ
     depends_on:
       - mongo
     networks:
@@ -18,6 +20,9 @@ services:
     image: mongo:8.0
     ports:
       - "27017:27017"
+    environment:
+      - MONGO_INITDB_ROOT_USERNAME=artifacts
+      - MONGO_INITDB_ROOT_PASSWORD=<f6}]Y49<O-iz7B3.\*)/?(M;o~Hp"#iQ
     volumes:
       - mongo-data:/data/db
     networks:
