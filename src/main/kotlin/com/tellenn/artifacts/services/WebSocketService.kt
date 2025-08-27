@@ -328,6 +328,13 @@ class WebSocketService(
                                     )
                                 }else if (event.map.content?.type == "resource"){
                                     logger.info("Resource spawned: ${event.map.content.code}")
+                                    logger.info("Resource is about ${event.code}")
+                                    val characterName = when (event.code) {
+                                        "strange_apparition" -> "Gustave"
+                                        "magic_apparition" -> "Kepo"
+                                        else -> ""
+                                    }
+                                    logger.info("I want to call ${characterName} to handle it")
                                     // TODO : Gather resource until event is over
 
                                 }else if (event.map.content?.type == "monster"){
@@ -336,7 +343,7 @@ class WebSocketService(
                                 }
                             }
                             "event_removed", "grandexchange_sell", "grandexchange_neworder", "achievement_unlocked" -> {
-
+                                logger.info("Message received but not handled: $messageType")
                             }
                         }
 
