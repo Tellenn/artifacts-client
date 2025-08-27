@@ -318,8 +318,10 @@ class WebSocketService(
                                 val event = objectMapper.readValue<Event>(jsonNode.get("data").toString())
                                 if (event.map.content?.type == "npc"){
 
-                                    logger.info("Merchant spawned: ${event.map.content.code}")
+                                    logger.info("!!!!!!!! Merchant spawned: ${event.map.content.code}")
                                     interruptCharacterThread("Aerith")
+                                    logger.info("!!!!!!!! Interrupted the thread of Aerith")
+
                                     var character = accountClient.getCharacter("Aerith").data
                                     merchantService.sellBankItemTo(character, event.map.content.code)
                                     restartCharacterThread("Aerith"
