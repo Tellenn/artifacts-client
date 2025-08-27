@@ -8,6 +8,7 @@ import com.tellenn.artifacts.clients.responses.BankExtensionTransaction
 import com.tellenn.artifacts.clients.responses.BankGoldTransaction
 import com.tellenn.artifacts.clients.responses.BankItemTransaction
 import com.tellenn.artifacts.exceptions.BankCorruptedException
+import com.tellenn.artifacts.exceptions.NotFoundException
 import com.tellenn.artifacts.models.BankDetails
 import com.tellenn.artifacts.services.sync.BankItemSyncService
 import lombok.extern.slf4j.Slf4j
@@ -39,13 +40,15 @@ class BankClient : BaseArtifactsClient() {
     }
 
     fun withdrawItems(characterName: String, items : List<SimpleItem>) : ArtifactsResponseBody<BankItemTransaction>{
-        return sendPostRequest("/my/$characterName/action/bank/withdraw/item",  objectMapper.writeValueAsString(items)).use { response ->
-            if(response.code == 404) {
-                throw BankCorruptedException()
+        try{
+            return sendPostRequest("/my/$characterName/action/bank/withdraw/item",  objectMapper.writeValueAsString(items)).use { response ->
+                val responseBody = response.body!!.string()
+                objectMapper.readValue<ArtifactsResponseBody<BankItemTransaction>>(responseBody)
             }
-            val responseBody = response.body!!.string()
-            objectMapper.readValue<ArtifactsResponseBody<BankItemTransaction>>(responseBody)
+        }catch (e: NotFoundException){
+            throw BankCorruptedException()
         }
+
     }
 
     fun depositGold(characterName: String, amount: Int)  : ArtifactsResponseBody<BankGoldTransaction> {

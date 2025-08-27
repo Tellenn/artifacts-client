@@ -40,6 +40,7 @@ class EquipmentService(
             }
         }
         try {
+            // TODO flawed logic here, for the rings, the bis and the equipped can mess up thing, fix it
             newCharacter = bankService.withdrawMany(bankWithdraw, newCharacter)
             bis.forEach { slot,item ->
                 if(item?.code != null && character[slot+"_slot"] != item.code) {
