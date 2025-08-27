@@ -34,8 +34,25 @@ class EquipmentService(
         val bis = findBestEquipmentForMonsterInBank(character, monsterCode)
         var newCharacter = bankService.moveToBank(character)
         val bankWithdraw = ArrayList<SimpleItem>()
+        val ring1 = bis["ring1"]
+        val ring2 = bis["ring2"]
+
+        if(ring1?.code != ring2?.code){
+            if(ring1?.code != character.ring1Slot && ring2?.code == character.ring2Slot){
+                bis["ring1"] = null
+            }
+
+            if(ring2?.code != character.ring1Slot && ring1?.code == character.ring2Slot){
+                bis["ring2"] = null
+            }
+        }
         bis.forEach { slot,item ->
             if(item?.code != null && character[slot+"_slot"] != item.code) {
+                // Ring specific case
+                if(bankWithdraw.contains(SimpleItem(item.code, 1))){
+                    bankWithdraw.remove(SimpleItem(item.code, 1))
+                    bankWithdraw.add(SimpleItem(item.code, 2))
+                }
                 bankWithdraw.add(SimpleItem(item.code, 1))
             }
         }
@@ -149,7 +166,7 @@ class EquipmentService(
         return character
     }
 
-    fun findBestEquipmentForMonsterInBank(character: ArtifactsCharacter, monsterCode: String) : Map<String, ItemDetails?>{
+    fun findBestEquipmentForMonsterInBank(character: ArtifactsCharacter, monsterCode: String) : MutableMap<String, ItemDetails?>{
         val storedEquipment = bankService.getAllEquipmentsUnderLevel(character.level)
         var availableEquipment : MutableList<BankItemDocument> = storedEquipment.toMutableList()
         getEquippedItems(character = character).forEach { availableEquipment = addItemQuantityByOne(availableEquipment, it)}
@@ -190,7 +207,7 @@ class EquipmentService(
             availableEquipment = reduceItemQuantityByOne(availableEquipment, item?.code ?: "")
         }
         bis["weapon"] = bestWeapon
-        return bis.mapValues { BankItemDocument.toItemDetails(it.value) }
+        return bis.mapValues { BankItemDocument.toItemDetails(it.value) }.toMutableMap()
 
     }
 
