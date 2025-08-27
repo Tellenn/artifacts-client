@@ -16,6 +16,7 @@ import com.tellenn.artifacts.models.ItemDetails
 import com.tellenn.artifacts.services.BankService
 import com.tellenn.artifacts.services.BattleService
 import com.tellenn.artifacts.services.CharacterService
+import com.tellenn.artifacts.services.EventService
 import com.tellenn.artifacts.services.GatheringService
 import com.tellenn.artifacts.services.ItemService
 import com.tellenn.artifacts.services.MapService
@@ -39,10 +40,12 @@ class CrafterJob(
     private val itemService: ItemService,
     private val craftedItemRepository: CraftedItemRepository,
     private val gatheringService: GatheringService,
+    private val eventService: EventService
 ) : GenericJob(mapService, movementService, bankService, characterService, accountClient, taskService) {
 
     lateinit var character: ArtifactsCharacter
     val rareItemCode = listOf("magical_cure", "jasper_crystal", "astralyte_crystal", "enchanted_fabric", "ruby", "sapphire", "emerald", "topaz", "diamond")
+    val eventBasedItemCodes = eventService.getAllEventMaterials()
 
     fun run(characterName: String) {
         sleep(1000)
@@ -99,7 +102,7 @@ class CrafterJob(
                         log.warn("A sub component of the crafting of ${itemDetail.code} failed because the character has too low skill level", e)
                         character = accountClient.getCharacter(character.name).data
                         character = bankService.emptyInventory(character)
-                    }
+                    } // TODO Another failure case can be because of an event base requirement. Need to do something about it
                 }
             }
             val itemToCraft =
@@ -145,6 +148,10 @@ class CrafterJob(
                     if(rareItemCode.contains(item.code)){
                         !bankService.isInBank(item.code, item.quantity)
                     }else{ false } } ?: false }
+            .filter { it.craft?.items?.none { item ->
+                if(eventBasedItemCodes.contains(item.code)){
+                    !bankService.isInBank(item.code, item.quantity)
+                }else{ false } } ?: false }
             .sortedBy { it.level }
     }
 
@@ -172,6 +179,10 @@ class CrafterJob(
                     if(rareItemCode.contains(item.code)){
                         !bankService.isInBank(item.code, item.quantity)
                     }else{ false } } ?: false }
+            .filter { it.craft?.items?.none { item ->
+                if(eventBasedItemCodes.contains(item.code)){
+                    !bankService.isInBank(item.code, item.quantity)
+                }else{ false } } ?: false }
             .forEach {
             itemCostMatrix.put(
                 it,

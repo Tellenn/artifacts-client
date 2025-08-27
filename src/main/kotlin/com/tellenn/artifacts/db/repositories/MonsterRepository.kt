@@ -10,7 +10,7 @@ import org.springframework.stereotype.Repository
 @Repository
 interface MonsterRepository : MongoRepository<MonsterDocument, String> {
     // Find by code
-    fun findByCode(code: String): MonsterDocument?
+    fun findByCode(code: String): MonsterDocument
 
     // Find the weakest monster that drop a specific item
     fun findFirstByDropsCodeOrderByLevelAsc(itemId: String): MonsterDocument

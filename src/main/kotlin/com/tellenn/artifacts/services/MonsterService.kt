@@ -31,4 +31,10 @@ class MonsterService(
             monsterRepository.findFirstByLevelLessThanEqualOrderByLevelDesc(level.coerceAtLeast(1))
         )
     }
+
+    fun findMonster(monsterCode: String) : MonsterData{
+        return MonsterDocument.toMonsterData(
+            monsterRepository.findByCode(monsterCode)
+        )
+    }
 }
