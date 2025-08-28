@@ -11,6 +11,7 @@ import com.tellenn.artifacts.clients.AccountClient
 import com.tellenn.artifacts.config.CharacterConfig
 import com.tellenn.artifacts.config.CharacterConfig.Companion.getCharacterByName
 import com.tellenn.artifacts.config.CharacterConfig.Companion.getPredefinedCharacters
+import com.tellenn.artifacts.exceptions.MapContentNotFoundException
 import com.tellenn.artifacts.models.Event
 import com.tellenn.artifacts.services.sync.CharacterSyncService
 import okhttp3.*
@@ -30,7 +31,7 @@ import java.util.concurrent.atomic.AtomicBoolean
 interface WebSocketMessageHandler {
     /**
      * Called when a message is received from the WebSocket
-     * 
+     *
      * @param messageType The type of message received
      * @param messageData The message data as a JsonNode
      */
@@ -41,6 +42,8 @@ interface WebSocketMessageHandler {
 class WebSocketService(
     private val merchantService: MerchantService,
     private val accountClient: AccountClient,
+    private val bankService: BankService,
+    private val gatheringService: GatheringService
 ) {
     val objectMapper = jacksonObjectMapper().apply {
         registerModule(JavaTimeModule())
@@ -72,7 +75,7 @@ class WebSocketService(
 
     /**
      * Connects to the Artifacts MMO WebSocket server and subscribes to events.
-     * 
+     *
      * @return true if connection was successful, false otherwise
      */
     fun connect(): Boolean {
@@ -169,7 +172,7 @@ class WebSocketService(
 
     /**
      * Registers a message handler to receive WebSocket messages.
-     * 
+     *
      * @param handler The handler to register
      */
     fun registerMessageHandler(handler: WebSocketMessageHandler) {
@@ -179,7 +182,7 @@ class WebSocketService(
 
     /**
      * Unregisters a message handler.
-     * 
+     *
      * @param handler The handler to unregister
      * @return true if the handler was removed, false if it wasn't registered
      */
@@ -324,9 +327,8 @@ class WebSocketService(
 
                                     var character = accountClient.getCharacter("Aerith").data
                                     merchantService.sellBankItemTo(character, event.map.content.code)
-                                    restartCharacterThread("Aerith"
-                                    )
-                                }else if (event.map.content?.type == "resource"){
+                                    restartCharacterThread("Aerith")
+                                }else if (event.map.content?.type == "resource") {
                                     logger.info("Resource spawned: ${event.map.content.code}")
                                     logger.info("Resource is about ${event.code}")
                                     val characterName = when (event.code) {
@@ -335,8 +337,25 @@ class WebSocketService(
                                         else -> ""
                                     }
                                     logger.info("I want to call ${characterName} to handle it")
-                                    // TODO : Gather resource until event is over
 
+                                    interruptCharacterThread(characterName)
+                                    try {
+                                        var character = accountClient.getCharacter("Aerith").data
+                                        do {
+                                            character = bankService.emptyInventory(character)
+                                            character = gatheringService.craftOrGather(
+                                                character,
+                                                event.map.content.code,
+                                                character.inventoryMaxItems - 30
+                                            )
+                                        } while (true)
+                                    }catch (_: MapContentNotFoundException){
+
+                                    }catch (e: Exception){
+                                        logger.error("Uncaught error occured while gathering in the event", e);
+                                    }finally {
+                                        restartCharacterThread(characterName)
+                                    }
                                 }else if (event.map.content?.type == "monster"){
                                     logger.info("Monster spawned: ${event.map.content.code}")
                                     // TODO : Fight if it's interesting or that you can
@@ -397,10 +416,10 @@ class WebSocketService(
             val subscriptionMessage = mapOf(
                 "token" to apiKey,
                 "subscriptions" to listOf(
-                    "event_spawn", 
-                    "event_removed", 
-                    "grandexchange_sell", 
-                    "grandexchange_neworder", 
+                    "event_spawn",
+                    "event_removed",
+                    "grandexchange_sell",
+                    "grandexchange_neworder",
                     "achievement_unlocked"
                 )
             )

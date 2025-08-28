@@ -20,6 +20,7 @@ import jdk.jshell.spi.ExecutionControl
 import org.springframework.context.ApplicationContext
 import org.springframework.stereotype.Component
 import java.lang.Thread.sleep
+import kotlin.math.max
 
 /**
  * Job implementation for characters with the "alchemist" job.
@@ -45,13 +46,13 @@ class AlchemistJob(
     // TODO : Buff potion management
     // TODO : Teleportation potion management
     // TODO : dynamic assigned work
-    // TODO : Prototype the time gate system
     // TODO : Improve and use the battlesim
     fun run(characterName: String) {
         sleep(2000)
         character = init(characterName)
         do{
             character = catchBackCrafter(character)
+            cookEasyItemsInBank()
             if(character.alchemyLevel == maxLevel && character.cookingLevel == maxLevel){
                 log.info("${character.name} is doing a new itemTask")
                 character = taskService.getNewItemTask(character)
@@ -115,5 +116,23 @@ class AlchemistJob(
             .filter { it.craft?.items?.size == 1 && itemRepository.findByCode(it.craft.items[0].code).subtype == "fishing" }
             .filter { it.level <= character.fishingLevel }
             .maxBy { it.level }
+    }
+
+    private fun cookEasyItemsInBank(){
+         bankService.getAllResources().forEach {
+            val craftableItems = itemService.getItemsCraftedBySkillAndItemUnderLevel(it.code, "cooking", character.cookingLevel)
+            when(craftableItems.size){
+                0 -> log.debug("Error when analysing ${it.name}, it's a craftable item that does not have crafts ?")
+                1 -> {
+                    val craftableItem = craftableItems.first()
+                    if(craftableItem.craft?.items?.size == 1) {
+                        character = gatheringService.craftOrGather(character, craftableItem.code, max(character.inventoryMaxItems - 20, it.quantity) / craftableItem.craft.items[0].quantity)
+                    }else{
+                        log.debug("We have 1 craft, but it requires other items, unsure what to do so we abort")
+                    }
+                }
+                else -> log.debug("There is more than 1 craft, so we need further analysis")
+            }
+        }
     }
 }

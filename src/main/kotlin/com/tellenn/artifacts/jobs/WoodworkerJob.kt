@@ -69,10 +69,10 @@ class WoodworkerJob(
                 val items =
                     itemService.getAllCraftableItemsBySkillAndSubtypeAndMaxLevel(skill, "plank", character.woodcuttingLevel)
                         .filter { it.code != "cursed_plank" && it.code != "magical_plank" }
-                val item = items.first()
-                if (item == null) {
+                if (items.isEmpty()) {
                     throw Exception("No craftable item found")
                 }
+                val item = items.first()
                 character = gatheringService.craftOrGather(
                     character,
                     item.code,

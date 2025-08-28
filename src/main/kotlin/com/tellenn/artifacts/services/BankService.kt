@@ -1,5 +1,6 @@
 package com.tellenn.artifacts.services
 
+import com.tellenn.artifacts.AppConfig
 import com.tellenn.artifacts.clients.BankClient
 import com.tellenn.artifacts.models.ArtifactsCharacter
 import com.tellenn.artifacts.models.ItemDetails
@@ -41,9 +42,10 @@ class BankService(
     }
 
     fun emptyInventory(character: ArtifactsCharacter) : ArtifactsCharacter{
+        var newCharacter = moveToBank(character)
         val inventory = character.inventory
         val items = inventory.filter { it.quantity > 0 }.map { SimpleItem(it.code, it.quantity) }
-        var newCharacter = deposit(character, items)
+        newCharacter = deposit(newCharacter, items)
         if(newCharacter.utility1Slot != ""){
             newCharacter = characterService.unequip(newCharacter, "utility1", newCharacter.utility1SlotQuantity)
             newCharacter = deposit(character, listOf(SimpleItem(newCharacter.utility1Slot, newCharacter.utility1SlotQuantity)))
@@ -155,6 +157,13 @@ class BankService(
         val dbItem = ArrayList<BankItemDocument>()
         dbItem.addAll(bankRepository.findByTypeInAndLevelIsLessThanEqual(
             listOf("helmet", "ring", "weapon", "amulet", "artifact", "boots", "leg_armor", "body_armor", "rune", "bag", "shield"), level))
+        return dbItem
+    }
+
+    fun getAllResources() : List<BankItemDocument>{
+        val dbItem = ArrayList<BankItemDocument>()
+        dbItem.addAll(bankRepository.findByTypeInAndLevelIsLessThanEqual(
+            listOf("resource"), AppConfig.maxLevel))
         return dbItem
     }
 

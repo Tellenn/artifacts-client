@@ -40,4 +40,6 @@ interface ItemRepository : MongoRepository<ItemDocument, String> {
     fun findByLevelBetween(minLevel: Int, maxLevel: Int) : List<ItemDocument>
 
     fun findByEffectsCode(code: String) : List<ItemDocument>
+
+    fun findByCraftItemsCodeAndCraftSkillAndLevel(code: String, skill: String, level: Int) : List<ItemDocument>
 }

@@ -71,10 +71,10 @@ class MinerJob(
                 val items =
                     itemService.getAllCraftableItemsBySkillAndSubtypeAndMaxLevel(skill, "bar", character.miningLevel)
                         .filter { it.code != "strangold_bar" }
-                val item = items.first()
-                if (item == null) {
+                if (items.isEmpty()) {
                     throw Exception("No craftable item found")
                 }
+                val item = items.first()
                 character = gatheringService.craftOrGather(
                     character,
                     item.code,

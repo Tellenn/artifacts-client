@@ -85,4 +85,8 @@ class ItemService(
         return inventory.filter { healingItems.contains(it.code) }
     }
 
+    fun getItemsCraftedBySkillAndItemUnderLevel(code: String, skill: String, level: Int) : List<ItemDetails> {
+        return itemRepository.findByCraftItemsCodeAndCraftSkillAndLevel(code, skill, level).map { ItemDocument.toItemDetails(it) }
+    }
+
 }
