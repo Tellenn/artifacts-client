@@ -87,7 +87,6 @@ class CrafterJob(
                 for (itemDetail in itemsToCraft) {
                     try{
                         log.info("${character.name} is gathering and crafting a ${itemDetail.code} for use in bank")
-
                         character = gatheringService.craftOrGather(character, itemDetail.code, 1, allowFight = true, shouldTrain = false)
                         character = bankService.emptyInventory(character)
                         saveOrUpdateCraftedItem(itemDetail)
@@ -153,6 +152,10 @@ class CrafterJob(
                 it.craft?.items?.none { item ->
                     if(rareItemCode.contains(item.code)){
                         !bankService.isInBank(item.code, item.quantity)
+                        || ( it.level > 30 && bankService.isInBank(
+                            "tasks_coins",
+                            40
+                        ))
                     }else{ false } } ?: false }
             .filter { it.craft?.items?.none { item ->
                 if(eventBasedItemCodes.contains(item.code)){

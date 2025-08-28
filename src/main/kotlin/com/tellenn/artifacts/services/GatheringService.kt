@@ -11,6 +11,7 @@ import com.tellenn.artifacts.models.ItemDetails
 import com.tellenn.artifacts.db.repositories.ItemRepository
 import com.tellenn.artifacts.exceptions.CharacterInventoryFullException
 import com.tellenn.artifacts.exceptions.CharacterSkillTooLow
+import com.tellenn.artifacts.exceptions.MissingItemException
 import org.apache.logging.log4j.LogManager
 import org.springframework.stereotype.Service
 
@@ -79,7 +80,24 @@ class GatheringService(
             val newCharacter = bankService.moveToBank(character)
             return bankService.withdrawOne(itemDetails.code, quantity, newCharacter)
         }
-        if(itemDetails.subtype == "mob"){
+        if(itemDetails.subtype == "task"){
+            // We don't have it and it's a task item
+            val npcItem = npcClient.getNpcItems("tasks_trader")
+                .data
+                .filter { it.buyPrice != null }
+                .first { itemDetails.code == it.code }
+            if(npcItem.buyPrice != null && bankService.isInBank("tasks_coin", npcItem.buyPrice.times(quantity).plus(10))){
+                var newCharacter = bankService.moveToBank(character)
+                newCharacter = bankService.withdrawOne("tasks_coin", npcItem.buyPrice!!.times(quantity), newCharacter)
+                newCharacter = movementService.moveToNpc(newCharacter, npcItem.npc)
+                return npcClient.buyItem(newCharacter.name, npcItem.code, quantity).data.character
+
+            }else{
+                throw MissingItemException() // TODO : Better exception
+            }
+        }
+        else if(itemDetails.subtype == "mob"){
+            // We don't have it and it's a mob item
             if(allowFight){
                 return bankService.storeItemsToDoThenGetThemBack(character) {
                     battleService.fightToGetItem(character, itemDetails.code, quantity, shouldTrain)
@@ -88,6 +106,7 @@ class GatheringService(
                 throw IllegalArgumentException("Cannot gather mob without fighting enabled")
             }
         }else if(itemDetails.subtype == "npc"){
+            // We don't have it and it's a npc selling it
             val npcItem = npcClient.getNpcByItemCode(itemDetails.code).data.first()
             if(npcItem.currency == "gold" || npcItem.buyPrice == null){
                 throw IllegalArgumentException("Cannot gather npc with gold currency")
