@@ -53,6 +53,7 @@ class AlchemistJob(
         do{
             character = catchBackCrafter(character)
             if(character.alchemyLevel == maxLevel && character.cookingLevel == maxLevel){
+                log.info("${character.name} is doing a new itemTask")
                 character = taskService.getNewItemTask(character)
                 character = taskService.doCharacterTask(character)
 
@@ -70,6 +71,7 @@ class AlchemistJob(
                 // Do some stock for the crafter
                 if(itemsToCraft.isNotEmpty()){
                     itemsToCraft.forEach {
+                        log.info("${character.name} is crafting ${it.code} for stocks")
                         character = gatheringService.craftOrGather(character, it.code, it.quantity)
                         character = bankService.emptyInventory(character)
                     }
@@ -81,6 +83,7 @@ class AlchemistJob(
                     if (item == null) {
                         throw Exception("No craftable item found")
                     }
+                    log.info("${character.name} is crafting ${item.code} to level up their alchemy")
                     character = gatheringService.craftOrGather(
                         character = character,
                         itemCode = item.code,
@@ -94,6 +97,7 @@ class AlchemistJob(
                 }
             }else{
                 val itemsToCraft = getBestFishBasedFood()
+                log.info("${character.name} is crafting ${itemsToCraft.code} to level up their fishing / cooking")
                 character = gatheringService.craftOrGather(character, itemsToCraft.code, character.inventoryMaxItems - 20)
             }
         }while(true)

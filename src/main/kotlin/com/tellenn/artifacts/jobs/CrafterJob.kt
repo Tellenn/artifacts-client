@@ -54,6 +54,7 @@ class CrafterJob(
         do {
             val bankDetails = bankService.getBankDetails()
             if(bankDetails.slots - bankService.getBankSize() < 20 && bankDetails.slots < 200 && bankDetails.gold > bankDetails.nextExpansionCost){
+                log.info("${character.name} is buying a bankSlot for ${bankDetails.nextExpansionCost}")
                 character = bankService.withdrawMoney(character, bankDetails.nextExpansionCost)
                 character = bankService.buyBankSlot(character)
             }
@@ -71,6 +72,7 @@ class CrafterJob(
                 var instantCraft = false
                 for (itemDetail in itemsToCraft) {
                     if(bankService.canCraftFromBank(itemDetail)){
+                        log.info("${character.name} is crafting a ${itemDetail.code} from items in bank for use in bank")
                         character = gatheringService.craftOrGather(character, itemDetail.code, 1, allowFight = false)
                         character = bankService.emptyInventory(character)
                         saveOrUpdateCraftedItem(itemDetail)
@@ -84,6 +86,8 @@ class CrafterJob(
 
                 for (itemDetail in itemsToCraft) {
                     try{
+                        log.info("${character.name} is gathering and crafting a ${itemDetail.code} for use in bank")
+
                         character = gatheringService.craftOrGather(character, itemDetail.code, 1, allowFight = true, shouldTrain = false)
                         character = bankService.emptyInventory(character)
                         saveOrUpdateCraftedItem(itemDetail)
@@ -111,6 +115,7 @@ class CrafterJob(
             // TODO : If itemTocraft is empty, it means the crafts are becoming too hard to do and may need to include rare items
             val oldLevel = character.getLevelOf(skillToLevel)
             while (oldLevel == character.getLevelOf(skillToLevel)) {
+                log.info("${character.name} is gathering and crafting a ${itemToCraft.code} for leveling")
                 character = gatheringService.craftOrGather(character, itemToCraft.code, 1, allowFight = true)
                 character = gatheringService.recycle(character, itemToCraft, 1)
                 character = bankService.emptyInventory(character)

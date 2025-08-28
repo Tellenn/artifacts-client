@@ -372,7 +372,7 @@ abstract class BaseArtifactsClient() {
         try {
             throw mapResponseCodeToException(response?.code ?: 999, "Request failed with status code ${response?.code ?: 999}")
         } catch (e: ArtifactsApiException) {
-
+            log.error("We have an issue with the request at $path")
             var character: ArtifactsCharacter? = null
             if(path.contains("Kepo")){
                 character = getCharacterForError("Kepo").data
@@ -402,6 +402,7 @@ abstract class BaseArtifactsClient() {
     }
 
     private fun getCharacterForError(name: String): ArtifactsResponseBody<ArtifactsCharacter> {
+        log.error("Getting $name for logging an error")
         return sendGetRequest("/characters/$name").use { response ->
             val responseBody = response.body!!.string()
             objectMapper.readValue<ArtifactsResponseBody<ArtifactsCharacter>>(responseBody)

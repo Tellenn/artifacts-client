@@ -16,7 +16,9 @@ import com.tellenn.artifacts.services.TaskService
 import jdk.jshell.spi.ExecutionControl
 import org.springframework.context.ApplicationContext
 import org.springframework.stereotype.Component
+import org.springframework.util.StringUtils
 import java.lang.Thread.sleep
+import kotlin.text.isNullOrEmpty
 
 /**
  * Job implementation for characters with the "woodworker" job.
@@ -56,12 +58,14 @@ class WoodworkerJob(
             // Do some stock for the crafter
             if(itemsToCraft.isNotEmpty()){
                 for(it in itemsToCraft){
+                    log.info("${character.name} is stocking up on some ${it.code}")
                     character = gatheringService.craftOrGather(character, it.code, it.quantity)
                     character = bankService.emptyInventory(character)
                 }
                 continue
                 // Otherwise levelup
             }else if(character.woodcuttingLevel < maxLevel){
+                log.info("${character.name} is leveling his woodcutting skill")
                 val items =
                     itemService.getAllCraftableItemsBySkillAndSubtypeAndMaxLevel(skill, "plank", character.woodcuttingLevel)
                         .filter { it.code != "cursed_plank" && it.code != "magical_plank" }
@@ -78,10 +82,12 @@ class WoodworkerJob(
 
                 // Or do some tasks to get task coins
             }else{
-                character = taskService.getNewItemTask(character)
+                log.info("${character.name} is doing a new itemTask")
+                if(character.task.isNullOrEmpty()){
+                    character = taskService.getNewItemTask(character)
+                }
                 character = taskService.doCharacterTask(character)
             }
-
         }while(true)
     }
 }

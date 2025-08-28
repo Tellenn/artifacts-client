@@ -51,6 +51,7 @@ class MinerJob(
                 .sortedBy { it.level }
             for(it in gatheringItems){
                 if(!bankService.isInBank(it.code, 200)){
+
                     itemsToCraft.add(SimpleItem(it.code, (character.inventoryMaxItems - 20) / itemService.getInvSizeToCraft(it) ))
                     break
                  }
@@ -59,12 +60,14 @@ class MinerJob(
             // Do some stock for the crafter
             if(itemsToCraft.isNotEmpty()){
                 itemsToCraft.forEach {
+                    log.info("${character.name} is stocking up on some ${it.code}")
                     character = gatheringService.craftOrGather(character, it.code, it.quantity)
                     character = bankService.emptyInventory(character)
                 }
                 continue
                 // Otherwise levelup
             }else if(character.miningLevel < maxLevel){
+                log.info("${character.name} is leveling his mining skill")
                 val items =
                     itemService.getAllCraftableItemsBySkillAndSubtypeAndMaxLevel(skill, "bar", character.miningLevel)
                         .filter { it.code != "strangold_bar" }
@@ -81,7 +84,10 @@ class MinerJob(
 
                 // Or do some tasks to get task coins
             }else{
-                character = taskService.getNewItemTask(character)
+                log.info("${character.name} is doing a new itemTask")
+                if(character.task.isNullOrEmpty()){
+                    character = taskService.getNewItemTask(character)
+                }
                 character = taskService.doCharacterTask(character)
             }
 

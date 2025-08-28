@@ -38,12 +38,14 @@ class FighterJob(
 
             try {
                 character = taskService.getNewMonsterTask(character)
+                log.info("${character.name} is doing a new monster task")
                 character = taskService.doCharacterTask(character)
                 character = bankService.emptyInventory(character)
                 if(bankService.isInBank("tasks_coin",16)) {
                     character = taskService.exchangeRewardFromBank(character)
                 }
             }catch (e: TaskFailedException){
+                log.info("The task is too hard for ${character.name}, he's switching out")
                 character = accountClient.getCharacter(characterName).data
                 if(bankService.isInBank("tasks_coin",1)) {
                     character = taskService.abandonMonsterTask(character)
