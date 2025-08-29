@@ -35,6 +35,8 @@ interface ItemRepository : MongoRepository<ItemDocument, String> {
 
     fun findByCraftSkillAndSubtypeAndLevelLessThanEqualOrderByLevelDesc(skillType: String, subtype: String, maxLevel: Int) : List<ItemDocument>
 
+    fun findByCraftSkillAndLevelLessThanEqualOrderByLevelDesc(skillType: String, maxLevel: Int) : List<ItemDocument>
+
     fun findByCraftSkillAndLevelLessThanEqualOrderByLevelAsc(skillType: String, maxLevel: Int) : List<ItemDocument>
 
     fun findByLevelBetween(minLevel: Int, maxLevel: Int) : List<ItemDocument>

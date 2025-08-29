@@ -114,10 +114,27 @@ class CrafterJob(
             // TODO : If itemTocraft is empty, it means the crafts are becoming too hard to do and may need to include rare items
             val oldLevel = character.getLevelOf(skillToLevel)
             while (oldLevel == character.getLevelOf(skillToLevel)) {
-                log.info("${character.name} is gathering and crafting a ${itemToCraft.code} for leveling")
-                character = gatheringService.craftOrGather(character, itemToCraft.code, 1, allowFight = true)
-                character = gatheringService.recycle(character, itemToCraft, 1)
-                character = bankService.emptyInventory(character)
+                try {
+                    log.info("${character.name} is gathering and crafting a ${itemToCraft.code} for leveling")
+                    character = gatheringService.craftOrGather(character, itemToCraft.code, 1, allowFight = true)
+                    character = gatheringService.recycle(character, itemToCraft, 1)
+                    character = bankService.emptyInventory(character)
+                }catch (e: CharacterSkillTooLow){
+                    // Usually caused by a crating of a sub object, it can be nice if the main crafter level the sub resource
+                    character = accountClient.getCharacter(character.name).data
+                    do {
+                        val item =
+                            itemService.getAllCraftableItemsBySkillAndMaxLevel(e.skill, character.getLevelOf(e.skill))
+                                .first { it.code != "cursed_plank" && it.code != "magical_plank" && it.code != "strangold_bar" }
+                        character = gatheringService.craftOrGather(
+                            character,
+                            item.code,
+                            (character.inventoryMaxItems - 10) / itemService.getInvSizeToCraft(item)
+                        )
+                    }while (e.level == character.getLevelOf(e.skill))
+                }catch (e: Exception){
+                    log.error("Uncaught error occured while gathering in the event", e);
+                }
             }
         }while (true)
     }

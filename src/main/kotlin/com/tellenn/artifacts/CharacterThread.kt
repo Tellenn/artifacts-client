@@ -1,17 +1,13 @@
 package com.tellenn.artifacts
 
-import com.tellenn.artifacts.clients.AccountClient
 import com.tellenn.artifacts.config.CharacterConfig
 import com.tellenn.artifacts.exceptions.UnknownJobException
 import com.tellenn.artifacts.jobs.AlchemistJob
 import com.tellenn.artifacts.jobs.CrafterJob
 import com.tellenn.artifacts.jobs.FighterJob
-import com.tellenn.artifacts.jobs.GenericJob
 import com.tellenn.artifacts.jobs.MinerJob
 import com.tellenn.artifacts.jobs.WoodworkerJob
-import com.tellenn.artifacts.models.ArtifactsCharacter
 import org.apache.logging.log4j.LogManager
-import org.springframework.stereotype.Component
 
 class CharacterThread(
     private val config : CharacterConfig,

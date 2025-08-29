@@ -89,4 +89,10 @@ class ItemService(
         return itemRepository.findByCraftItemsCodeAndCraftSkillAndLevel(code, skill, level).map { ItemDocument.toItemDetails(it) }
     }
 
+    fun getAllCraftableItemsBySkillAndMaxLevel(skill: String, maxLevel: Int) : List<ItemDetails> {
+        var items = itemRepository.findByCraftSkillAndLevelLessThanEqualOrderByLevelDesc(skill, maxLevel)
+        items = items.filter { it.craft != null }
+        return items.map{ItemDocument.toItemDetails(it)}
+    }
+
 }

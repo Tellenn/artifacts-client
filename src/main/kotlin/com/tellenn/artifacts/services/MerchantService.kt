@@ -27,12 +27,10 @@ class MerchantService (
                         && npcClient.getItemsBoughtWith(it.code).total == 0}
         logger.info("!!!!!!!! Found ${items.size} npcItems for the event $npcName")
         if(items.isNotEmpty()){
-            newCharacter = bankService.emptyInventory(chararacter)
+            newCharacter = bankService.emptyInventory(newCharacter)
             for(item in items){
-                logger.info("!!!!!!!! Selling item ${item.code} to $npcName")
                 if(bankService.isInBank(item.code, 1)){
-
-                    logger.info("!!!!!!!! We found ${item.code} in bank")
+                    logger.info("%blue(!!!!!!!!) Selling item ${item.code} to $npcName")
                     newCharacter = bankService.moveToBank(newCharacter)
                     newCharacter = bankService.withdrawAllOfOne(newCharacter, item.code)
 
@@ -46,7 +44,7 @@ class MerchantService (
                 }
             }
         }else{
-            logger.info("!!!!!!!! No npcItems found for the event $npcName")
+            logger.info("!!!!!!!! No npc items found for the event $npcName")
         }
         return newCharacter
     }
