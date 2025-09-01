@@ -72,12 +72,17 @@ class CrafterJob(
                 var instantCraft = false
                 for (itemDetail in itemsToCraft) {
                     if(bankService.canCraftFromBank(itemDetail)){
-                        log.info("${character.name} is crafting a ${itemDetail.code} from items in bank for use in bank")
-                        character = gatheringService.craftOrGather(character, itemDetail.code, 1, allowFight = false)
-                        character = bankService.emptyInventory(character)
-                        saveOrUpdateCraftedItem(itemDetail)
-                        instantCraft = true
-                        break
+                        try {
+                            log.info("${character.name} is crafting a ${itemDetail.code} from items in bank for use in bank")
+                            character =
+                                gatheringService.craftOrGather(character, itemDetail.code, 1, allowFight = false)
+                            character = bankService.emptyInventory(character)
+                            saveOrUpdateCraftedItem(itemDetail)
+                            instantCraft = true
+                            break
+                        }catch (e: CharacterSkillTooLow){
+                            log.warn("A sub component of the crafting of ${itemDetail.code} failed because the character has too low ${e.skill} level. Required : ${e.level}")
+                        }
                     }
                 }
                 if(instantCraft){

@@ -118,4 +118,4 @@ class CharacterInCooldownException(message: String = "Character is in cooldown")
  * Exception thrown when a character is in cooldown.
  */
 class CharacterSkillTooLow(message: String = "Character skill is too low", var skill: String, var level: Int) :
-    ArtifactsApiException(1001, message)
+    ArtifactsApiException(1001, message + " - skill : $skill - required level : $level")

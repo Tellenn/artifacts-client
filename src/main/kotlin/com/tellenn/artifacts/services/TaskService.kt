@@ -91,10 +91,12 @@ class TaskService(
         }
         val item = itemService.getItem(itemCode);
         var quantityLeft = newCharacter.taskTotal - character.taskProgress
-
-        val sizeToCraft = itemService.getInvSizeToCraft(item)
-        while(quantityLeft > 0){
-            val quantityToCraft = Math.min(quantityLeft, (character.inventoryMaxItems - 10) / sizeToCraft )
+        var sizeToCraft = itemService.getInvSizeToCraft(item)
+        if(item.craft == null){
+            sizeToCraft = 1
+        }
+        while (quantityLeft > 0) {
+            val quantityToCraft = Math.min(quantityLeft, (character.inventoryMaxItems - 10) / sizeToCraft)
             newCharacter = gatheringService.craftOrGather(newCharacter, itemCode, quantityToCraft)
             newCharacter = movementService.moveCharacterToMaster("items", newCharacter)
             newCharacter = taskClient.giveItem(newCharacter.name, itemCode, quantityToCraft).data.character

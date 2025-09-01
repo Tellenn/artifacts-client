@@ -5,13 +5,14 @@ import com.tellenn.artifacts.clients.AccountClient
 import com.tellenn.artifacts.config.CharacterConfig.Companion.getPredefinedCharacters
 import com.tellenn.artifacts.models.ArtifactsCharacter
 import com.tellenn.artifacts.services.BankService
-import com.tellenn.artifacts.services.BattleService
 import com.tellenn.artifacts.services.CharacterService
+import com.tellenn.artifacts.services.GatheringService
+import com.tellenn.artifacts.services.ItemService
 import com.tellenn.artifacts.services.MapService
 import com.tellenn.artifacts.services.MovementService
 import com.tellenn.artifacts.services.TaskService
+import com.tellenn.artifacts.services.sync.BankItemSyncService
 import org.apache.logging.log4j.LogManager
-import org.springframework.context.ApplicationContext
 import org.springframework.stereotype.Component
 import kotlin.math.min
 
@@ -54,6 +55,30 @@ open class GenericJob(
             }
         }
         return newCharacter
+    }
+
+    fun craftBasicMaterialFromBank(skill: String, subType: String, itemService: ItemService, gatheringService: GatheringService, bankItemSyncService: BankItemSyncService) : ArtifactsCharacter{
+        var character = accountClient.getCharacter(getPredefinedCharacters().first { it.job == "crafter" }.name).data
+        character = bankService.emptyInventory(character)
+        itemService.getAllCraftableItemsBySkillAndSubtypeAndMaxLevel(skill, subType, character.getLevelOf(skill))
+            .sortedBy { -it.level }
+            .forEach {
+                if(bankService.canCraftFromBank(it)){
+                    var craftableAmount = character.inventoryMaxItems / itemService.getInvSizeToCraft(it)
+                    it.craft?.items?.forEach { item ->
+                        craftableAmount = min(craftableAmount, bankService.getOne(item.code).quantity / item.quantity)
+                    }
+                    // Protection, but should be un-needed
+                    if(craftableAmount > 0){
+                        character = gatheringService.craftOrGather(character, it.code, craftableAmount)
+                    }else{
+                        log.error("Tried to craft an item where I can't in fact, resyncing bank")
+                        bankItemSyncService.syncAllItems()
+                    }
+                }
+                character = bankService.emptyInventory(character)
+            }
+        return character
     }
 
 }

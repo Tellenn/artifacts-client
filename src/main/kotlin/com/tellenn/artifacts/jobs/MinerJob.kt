@@ -5,19 +5,18 @@ import com.tellenn.artifacts.clients.AccountClient
 import com.tellenn.artifacts.models.ArtifactsCharacter
 import com.tellenn.artifacts.models.SimpleItem
 import com.tellenn.artifacts.services.BankService
-import com.tellenn.artifacts.services.BattleService
 import com.tellenn.artifacts.services.CharacterService
 import com.tellenn.artifacts.services.GatheringService
 import com.tellenn.artifacts.services.ItemService
 import com.tellenn.artifacts.services.MapService
 import com.tellenn.artifacts.services.MovementService
-import com.tellenn.artifacts.services.ResourceService
 import com.tellenn.artifacts.services.TaskService
-import jdk.jshell.spi.ExecutionControl
-import org.springframework.context.ApplicationContext
+import com.tellenn.artifacts.services.sync.BankItemSyncService
 import org.springframework.stereotype.Component
 import java.lang.Thread.sleep
 import kotlin.collections.filter
+import kotlin.collections.sortedBy
+import kotlin.math.min
 
 /**
  * Job implementation for characters with the "miner" job.
@@ -31,7 +30,8 @@ class MinerJob(
     accountClient: AccountClient,
     taskService: TaskService,
     private val gatheringService: GatheringService,
-    private val itemService: ItemService
+    private val itemService: ItemService,
+    private val bankItemSyncService: BankItemSyncService
 ) : GenericJob(mapService, movementService, bankService, characterService, accountClient, taskService) {
 
     lateinit var character: ArtifactsCharacter
@@ -41,13 +41,13 @@ class MinerJob(
 
         sleep(3000)
         character = init(characterName)
+        character = craftBasicMaterialFromBank(skill, "bar", itemService, gatheringService, bankItemSyncService)
 
         do{
             character = catchBackCrafter(character)
             val itemsToCraft = ArrayList<SimpleItem>()
             val gatheringItems = itemService.getAllCraftBySkillUnderLevel(skill, character.miningLevel)
-                .filter { it.subtype != "precious_stone" }
-                .filter { it.code != "strangold_bar" }
+                .filter { it.subtype != "precious_stone" && it.code != "strangold_bar" && it.code != "obsidian_bar"}
                 .sortedBy { it.level }
             for(it in gatheringItems){
                 if(!bankService.isInBank(it.code, 200)){

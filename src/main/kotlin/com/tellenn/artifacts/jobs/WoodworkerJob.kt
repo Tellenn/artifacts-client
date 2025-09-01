@@ -13,6 +13,7 @@ import com.tellenn.artifacts.services.MapService
 import com.tellenn.artifacts.services.MovementService
 import com.tellenn.artifacts.services.ResourceService
 import com.tellenn.artifacts.services.TaskService
+import com.tellenn.artifacts.services.sync.BankItemSyncService
 import jdk.jshell.spi.ExecutionControl
 import org.springframework.context.ApplicationContext
 import org.springframework.stereotype.Component
@@ -32,7 +33,8 @@ class WoodworkerJob(
     accountClient: AccountClient,
     taskService: TaskService,
     val gatheringService: GatheringService,
-    private val itemService: ItemService
+    val itemService: ItemService,
+    val bankItemSyncService: BankItemSyncService
 ) : GenericJob(mapService, movementService, bankService, characterService, accountClient, taskService) {
 
     lateinit var character: ArtifactsCharacter
@@ -41,6 +43,8 @@ class WoodworkerJob(
     fun run(characterName: String) {
         sleep(4000)
         character = init(characterName)
+        character = craftBasicMaterialFromBank(skill, "plank", itemService, gatheringService, bankItemSyncService)
+
 
         do{
             character = catchBackCrafter(character)
