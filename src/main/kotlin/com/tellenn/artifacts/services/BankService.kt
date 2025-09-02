@@ -156,7 +156,7 @@ class BankService(
     fun getAllEquipmentsUnderLevel(level: Int) : List<BankItemDocument>{
         val dbItem = ArrayList<BankItemDocument>()
         dbItem.addAll(bankRepository.findByTypeInAndLevelIsLessThanEqual(
-            listOf("helmet", "ring", "weapon", "amulet", "artifact", "boots", "leg_armor", "body_armor", "rune", "bag", "shield"), level))
+            listOf("helmet", "ring", "weapon", "amulet", "artifact", "boots", "leg_armor", "body_armor", "rune", "bag", "shield", "artifact"), level))
         return dbItem
     }
 
@@ -226,7 +226,7 @@ class BankService(
         }else{
             for(i in item.craft.items){
                 canCraft = canCraft && (
-                            isInBank(item.code,quantity) ||
+                            isInBank(i.code,quantity * i.quantity) ||
                             canCraftFromBank(ItemDocument.toItemDetails(itemRepository.findByCode(i.code)), quantity * i.quantity)
                         )
 

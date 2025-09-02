@@ -7,6 +7,7 @@ import com.tellenn.artifacts.clients.TaskClient
 import com.tellenn.artifacts.models.ArtifactsCharacter
 import com.tellenn.artifacts.exceptions.BattleLostException
 import com.tellenn.artifacts.exceptions.TaskFailedException
+import com.tellenn.artifacts.exceptions.UnknownMapException
 import com.tellenn.artifacts.models.SimpleItem
 import org.apache.logging.log4j.LogManager
 import org.springframework.stereotype.Service
@@ -56,6 +57,8 @@ class TaskService(
             throw IllegalStateException("Character ${character.name} already has no task")
         }
 
+        var newCharacter = bankService.moveToBank(character)
+        newCharacter = bankService.withdrawOne("tasks_coin", 1, newCharacter)
         movementService.moveCharacterToMaster("items", character)
         return taskClient.abandonTask(character.name).data.character
     }
@@ -95,13 +98,20 @@ class TaskService(
         if(item.craft == null){
             sizeToCraft = 1
         }
-        while (quantityLeft > 0) {
-            val quantityToCraft = Math.min(quantityLeft, (character.inventoryMaxItems - 10) / sizeToCraft)
-            newCharacter = gatheringService.craftOrGather(newCharacter, itemCode, quantityToCraft)
-            newCharacter = movementService.moveCharacterToMaster("items", newCharacter)
-            newCharacter = taskClient.giveItem(newCharacter.name, itemCode, quantityToCraft).data.character
-            newCharacter = bankService.moveToBank(newCharacter)
-            quantityLeft -= quantityToCraft
+        try {
+            while (quantityLeft > 0) {
+                val quantityToCraft = Math.min(quantityLeft, (character.inventoryMaxItems - 10) / sizeToCraft)
+                newCharacter = gatheringService.craftOrGather(newCharacter, itemCode, quantityToCraft)
+                newCharacter = movementService.moveCharacterToMaster("items", newCharacter)
+                newCharacter = taskClient.giveItem(newCharacter.name, itemCode, quantityToCraft).data.character
+                newCharacter = bankService.moveToBank(newCharacter)
+                quantityLeft -= quantityToCraft
+            }
+        }catch (e: UnknownMapException){
+            newCharacter = accountClient.getCharacter(newCharacter.name).data
+            newCharacter = abandonItemTask(newCharacter)
+            newCharacter = getNewItemTask(newCharacter)
+            return completeItemTask(newCharacter)
         }
 
         newCharacter = movementService.moveCharacterToMaster("items", newCharacter)

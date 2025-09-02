@@ -43,7 +43,7 @@ class WoodworkerJob(
     fun run(characterName: String) {
         sleep(4000)
         character = init(characterName)
-        character = craftBasicMaterialFromBank(skill, "plank", itemService, gatheringService, bankItemSyncService)
+        character = craftBasicMaterialFromBank(skill, "plank", itemService, gatheringService, bankItemSyncService, character)
 
 
         do{

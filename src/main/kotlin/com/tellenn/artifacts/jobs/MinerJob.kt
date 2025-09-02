@@ -41,7 +41,7 @@ class MinerJob(
 
         sleep(3000)
         character = init(characterName)
-        character = craftBasicMaterialFromBank(skill, "bar", itemService, gatheringService, bankItemSyncService)
+        character = craftBasicMaterialFromBank(skill, "bar", itemService, gatheringService, bankItemSyncService, character)
 
         do{
             character = catchBackCrafter(character)

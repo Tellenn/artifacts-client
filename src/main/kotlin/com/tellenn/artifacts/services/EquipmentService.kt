@@ -1,5 +1,6 @@
 package com.tellenn.artifacts.services
 
+import com.tellenn.artifacts.AppConfig
 import com.tellenn.artifacts.clients.AccountClient
 import com.tellenn.artifacts.clients.MonsterClient
 import com.tellenn.artifacts.db.documents.BankItemDocument
@@ -180,25 +181,25 @@ class EquipmentService(
         val bestWeapon = getBestScoreForItems(availableEquipment.filter { it.type == "weapon" }, monster, null)
         for(slot in bis){
             val item : BankItemDocument?
-            if(slot.key == "artifacts1") {
+            if(slot.key == "artifact1") {
                 item = getBestScoreForItems(
                     availableEquipment
-                        .filter { it.type == "artifacts" },
+                        .filter { it.type == "artifact" },
                     monster,
                     bestWeapon)
-            }else if(slot.key == "artifacts2"){
+            }else if(slot.key == "artifact2"){
                 item = getBestScoreForItems(
                     availableEquipment
-                        .filter { it.type == "artifacts" }
-                        .filter { it.code != bis["artifacts1"]?.code },
+                        .filter { it.type == "artifact" }
+                        .filter { it.code != bis["artifact1"]?.code },
                     monster,
                     bestWeapon)
-            }else if(slot.key == "artifacts3"){
+            }else if(slot.key == "artifact3"){
                 item = getBestScoreForItems(
                     availableEquipment
-                        .filter { it.type == "artifacts" }
-                        .filter { it.code != bis["artifacts1"]?.code }
-                        .filter { it.code != bis["artifacts2"]?.code },
+                        .filter { it.type == "artifact" }
+                        .filter { it.code != bis["artifact1"]?.code }
+                        .filter { it.code != bis["artifact2"]?.code },
                     monster,
                     bestWeapon)
             }else if(slot.key == "ring1" || slot.key == "ring2"){
@@ -343,7 +344,7 @@ class EquipmentService(
                         "critical_strike" -> multiplier +=  effect.value / 100.0
                         "dmg" ->             multiplier +=  effect.value / 100.0
                         "hp" ->              score +=       effect.value / 10
-                        "propecting" ->      score +=       effect.value / 10
+                        "prospecting" ->     score +=       effect.value / 10
                         "haste" ->           score +=       effect.value / 10
                         "res_air" ->         score +=      (monster.attackAir   * effect.value /100.0).toInt()
                         "res_water" ->       score +=      (monster.attackWater * effect.value /100.0).toInt()
@@ -429,7 +430,7 @@ class EquipmentService(
     }
 
     fun equipBestToolForSkill(character: ArtifactsCharacter, skillType: String) : ArtifactsCharacter {
-        val storedEquipment = bankService.getAllEquipmentsUnderLevel(character.level)
+        val storedEquipment = bankService.getAllEquipmentsUnderLevel(AppConfig.maxLevel)
         var availableEquipment : MutableList<BankItemDocument> = storedEquipment.toMutableList()
         getEquippedItems(character = character).forEach { availableEquipment = addItemQuantityByOne(availableEquipment, it)}
         val filteredAvailableEquipment = availableEquipment
@@ -442,7 +443,7 @@ class EquipmentService(
         if(filteredAvailableEquipment.isNotEmpty()) {
             itemCode = filteredAvailableEquipment
                 .map { Pair(it.code, it.effects?.find { it.code.equals(skillType) }?.value) }
-                .maxBy { it.second ?: 0 }
+                .minBy { it.second ?: 0 }
 
         }
 

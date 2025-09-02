@@ -57,28 +57,28 @@ open class GenericJob(
         return newCharacter
     }
 
-    fun craftBasicMaterialFromBank(skill: String, subType: String, itemService: ItemService, gatheringService: GatheringService, bankItemSyncService: BankItemSyncService) : ArtifactsCharacter{
-        var character = accountClient.getCharacter(getPredefinedCharacters().first { it.job == "crafter" }.name).data
-        character = bankService.emptyInventory(character)
+    fun craftBasicMaterialFromBank(skill: String, subType: String, itemService: ItemService, gatheringService: GatheringService, bankItemSyncService: BankItemSyncService, character: ArtifactsCharacter) : ArtifactsCharacter{
+        var newCharacter = character
+        newCharacter = bankService.emptyInventory(newCharacter)
         itemService.getAllCraftableItemsBySkillAndSubtypeAndMaxLevel(skill, subType, character.getLevelOf(skill))
             .sortedBy { -it.level }
             .forEach {
                 if(bankService.canCraftFromBank(it)){
-                    var craftableAmount = character.inventoryMaxItems / itemService.getInvSizeToCraft(it)
+                    var craftableAmount = newCharacter.inventoryMaxItems / itemService.getInvSizeToCraft(it)
                     it.craft?.items?.forEach { item ->
                         craftableAmount = min(craftableAmount, bankService.getOne(item.code).quantity / item.quantity)
                     }
                     // Protection, but should be un-needed
                     if(craftableAmount > 0){
-                        character = gatheringService.craftOrGather(character, it.code, craftableAmount)
+                        newCharacter = gatheringService.craftOrGather(newCharacter, it.code, craftableAmount)
                     }else{
                         log.error("Tried to craft an item where I can't in fact, resyncing bank")
                         bankItemSyncService.syncAllItems()
                     }
                 }
-                character = bankService.emptyInventory(character)
+                newCharacter = bankService.emptyInventory(newCharacter)
             }
-        return character
+        return newCharacter
     }
 
 }
