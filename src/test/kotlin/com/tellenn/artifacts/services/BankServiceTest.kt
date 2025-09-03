@@ -1,5 +1,6 @@
 package com.tellenn.artifacts.services
 
+import com.tellenn.artifacts.clients.AccountClient
 import com.tellenn.artifacts.clients.BankClient
 import com.tellenn.artifacts.models.ArtifactsCharacter
 import com.tellenn.artifacts.models.InventorySlot
@@ -31,8 +32,9 @@ class BankServiceTest {
 
     @Autowired
     private lateinit var characterService: CharacterService
-    private lateinit var bankService: BankService
     private lateinit var bankClient: BankClient
+    private lateinit var accountClient: AccountClient
+    private lateinit var bankService: BankService
     private lateinit var mapService: MapService
     private lateinit var movementService: MovementService
     private lateinit var bankItemSyncService: BankItemSyncService
@@ -47,6 +49,7 @@ class BankServiceTest {
     fun setup() {
         // Create mocks
         bankClient = Mockito.mock(BankClient::class.java)
+        accountClient = Mockito.mock(AccountClient::class.java)
         mapService = Mockito.mock(MapService::class.java)
         movementService = Mockito.mock(MovementService::class.java)
         bankItemSyncService = Mockito.mock(BankItemSyncService::class.java)
