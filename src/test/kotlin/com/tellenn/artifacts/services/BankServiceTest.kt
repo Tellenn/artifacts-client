@@ -63,7 +63,8 @@ class BankServiceTest {
             mapService,
             movementService,
             characterService,
-            bankItemSyncService
+            bankItemSyncService,
+            accountClient
         )
     }
 

@@ -340,7 +340,7 @@ class WebSocketService(
 
                                     interruptCharacterThread(characterName)
                                     try {
-                                        var character = accountClient.getCharacter("Aerith").data
+                                        var character = accountClient.getCharacter(characterName).data
                                         do {
                                             character = bankService.emptyInventory(character)
                                             character = gatheringService.craftOrGather(

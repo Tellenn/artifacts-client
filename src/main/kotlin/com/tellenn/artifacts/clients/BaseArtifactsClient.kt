@@ -227,6 +227,9 @@ abstract class BaseArtifactsClient() {
                                 // Retry the request
                                 return sendGetRequest(path)
                             }
+                            else{
+                                log.warn("Failed to get the cooldown cooldown information: $message")
+                            }
                         }
                     } catch (e: Exception) {
                         log.warn("Failed to parse cooldown information: ${e.message}")

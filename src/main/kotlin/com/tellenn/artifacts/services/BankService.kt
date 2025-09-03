@@ -1,6 +1,7 @@
 package com.tellenn.artifacts.services
 
 import com.tellenn.artifacts.AppConfig
+import com.tellenn.artifacts.clients.AccountClient
 import com.tellenn.artifacts.clients.BankClient
 import com.tellenn.artifacts.models.ArtifactsCharacter
 import com.tellenn.artifacts.models.ItemDetails
@@ -10,6 +11,7 @@ import com.tellenn.artifacts.db.documents.ItemDocument
 import com.tellenn.artifacts.db.repositories.BankItemRepository
 import com.tellenn.artifacts.db.repositories.ItemRepository
 import com.tellenn.artifacts.exceptions.BankCorruptedException
+import com.tellenn.artifacts.exceptions.MapContentNotFoundException
 import com.tellenn.artifacts.models.BankDetails
 import com.tellenn.artifacts.services.sync.BankItemSyncService
 import org.apache.logging.log4j.LogManager
@@ -23,7 +25,8 @@ class BankService(
     private val mapService: MapService,
     private val movementService: MovementService,
     private val characterService: CharacterService,
-    private val bankItemSyncService: BankItemSyncService
+    private val bankItemSyncService: BankItemSyncService,
+    private val accountClient: AccountClient
 ) {
     private val log = LogManager.getLogger(BankService::class.java)
 
@@ -110,7 +113,12 @@ class BankService(
 
             // Make the API call to deposit items
             if (itemsToDeposit.isNotEmpty()) {
-                newCharacter = bankClient.depositItems(character.name, itemsToDeposit).data.character
+                try {
+                    newCharacter = bankClient.depositItems(character.name, itemsToDeposit).data.character
+                }catch (e: MapContentNotFoundException){
+                    newCharacter = accountClient.getCharacter(newCharacter.name).data
+                    return deposit(newCharacter, items)
+                }
             }
 
         } catch (e: Exception) {
