@@ -2,10 +2,7 @@ package com.tellenn.artifacts.db.clients
 
 import com.tellenn.artifacts.models.MapData
 import com.tellenn.artifacts.clients.responses.ArtifactsArrayResponseBody
-import com.tellenn.artifacts.clients.responses.ArtifactsResponseBody
-import com.tellenn.artifacts.db.documents.MapDocument
 import com.tellenn.artifacts.db.repositories.MapRepository
-import com.tellenn.artifacts.models.MapContent
 import org.springframework.data.domain.PageRequest
 import org.springframework.data.domain.Sort
 import org.springframework.data.mongodb.core.MongoTemplate
@@ -49,20 +46,18 @@ class MapMongoClient(
             y?.let { query.addCriteria(Criteria.where("y").`is`(it)) }
 
             // Add content criteria if at least one content filter is specified
-            if (content_type != null || content_code != null) {
-                content_type?.let { query.addCriteria(Criteria.where("content.type").`is`(it)) }
-                content_code?.let { query.addCriteria(Criteria.where("content.code").`is`(it)) }
-            }
+            content_type?.let { query.addCriteria(Criteria.where("interactions.content.type").`is`(it)) }
+            content_code?.let { query.addCriteria(Criteria.where("interactions.content.code").`is`(it)) }
 
             // Apply pagination
             query.with(pageable)
 
             // Execute query
-            val maps = mongoTemplate.find(query, MapDocument::class.java)
-            val count = mongoTemplate.count(query.skip(-1).limit(-1), MapDocument::class.java)
+            val maps = mongoTemplate.find(query, MapData::class.java)
+            val count = mongoTemplate.count(query.skip(-1).limit(-1), MapData::class.java)
 
             return ArtifactsArrayResponseBody(
-                maps.map { convertToMapData(it) },
+                maps,
                 count.toInt(),
                 page,
                 size,
@@ -79,7 +74,7 @@ class MapMongoClient(
             }
 
             return ArtifactsArrayResponseBody(
-                result.map { convertToMapData(it) }.toList(),
+                result.toList(),
                 result.totalElements.toInt(),
                 page,
                 result.size,
@@ -88,31 +83,5 @@ class MapMongoClient(
         }
     }
 
-    /**
-     * Get map details by coordinates.
-     */
-    fun getMap(x: Int, y: Int): ArtifactsResponseBody<MapData> {
-        val id = "${x}_${y}"
-        val mapDocument = mapRepository.findById(id)
-            .orElseThrow { NoSuchElementException("Map at coordinates ($x, $y) not found") }
 
-        return ArtifactsResponseBody(convertToMapData(mapDocument))
-    }
-
-    /**
-     * Convert MapDocument to MapData.
-     */
-    private fun convertToMapData(mapDocument: MapDocument): MapData {
-        return MapData(
-            skin = mapDocument.skin,
-            x = mapDocument.x,
-            y = mapDocument.y,
-            content = mapDocument.content?.let {
-                MapContent(
-                    type = it.type,
-                    code = it.code
-                )
-            }
-        )
-    }
 }

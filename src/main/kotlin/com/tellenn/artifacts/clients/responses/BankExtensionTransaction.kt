@@ -3,14 +3,15 @@ package com.tellenn.artifacts.clients.responses
 import com.fasterxml.jackson.annotation.JsonProperty
 import com.tellenn.artifacts.models.ArtifactsCharacter
 import com.tellenn.artifacts.models.Cooldown
-import com.tellenn.artifacts.models.SimpleItem
 
+@Suppress("unused")
 class BankExtensionTransaction(
-    @JsonProperty("cooldown") val cooldown: Cooldown,
-    @JsonProperty("character") val character: ArtifactsCharacter,
-    @JsonProperty("transaction") val transaction: BankTransaction
+    @param:JsonProperty("cooldown") val cooldown: Cooldown,
+    @param:JsonProperty("character") val character: ArtifactsCharacter,
+    @param:JsonProperty("transaction") val transaction: BankTransaction
 )
 
+@Suppress("unused")
 class BankTransaction(
-    @JsonProperty("price") val price: Int
+    @param:JsonProperty("price") val price: Int
 )

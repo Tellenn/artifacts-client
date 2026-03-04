@@ -3,15 +3,12 @@ package com.tellenn.artifacts.services
 import com.tellenn.artifacts.clients.MapClient
 import com.tellenn.artifacts.models.MapData
 import com.tellenn.artifacts.models.MonsterData
-import com.tellenn.artifacts.db.documents.MonsterDocument
-import com.tellenn.artifacts.db.repositories.MapRepository
 import com.tellenn.artifacts.db.repositories.MonsterRepository
 import org.springframework.stereotype.Service
 
 @Service
 class MonsterService(
     private val monsterRepository: MonsterRepository,
-    private val mapRepository: MapRepository,
     private val mapClient: MapClient
 ) {
 
@@ -21,20 +18,14 @@ class MonsterService(
     }
 
     fun findMonsterThatDrop(itemCode: String) : MonsterData?{
-        return MonsterDocument.toMonsterData(
-            monsterRepository.findFirstByDropsCodeOrderByLevelAsc(itemCode)
-        )
+        return  monsterRepository.findFirstByDropsCodeOrderByLevelAsc(itemCode)
     }
 
     fun findStrongestMonsterUnderLevel(level: Int) : MonsterData{
-        return MonsterDocument.toMonsterData(
-            monsterRepository.findFirstByLevelLessThanEqualOrderByLevelDesc(level.coerceAtLeast(1))
-        )
+        return monsterRepository.findFirstByLevelLessThanEqualOrderByLevelDesc(level.coerceAtLeast(1))
     }
 
     fun findMonster(monsterCode: String) : MonsterData{
-        return MonsterDocument.toMonsterData(
-            monsterRepository.findByCode(monsterCode)
-        )
+        return monsterRepository.findByCode(monsterCode)
     }
 }

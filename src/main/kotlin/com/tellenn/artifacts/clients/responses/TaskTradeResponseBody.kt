@@ -4,13 +4,15 @@ import com.fasterxml.jackson.annotation.JsonProperty
 import com.tellenn.artifacts.models.ArtifactsCharacter
 import com.tellenn.artifacts.models.Cooldown
 
+@Suppress("unused")
 class TaskTradeResponseBody(
-    @JsonProperty("cooldown") val cooldown: Cooldown,
-    @JsonProperty("character") val character: ArtifactsCharacter,
-    @JsonProperty("trade") val trade: Trade
+    @param:JsonProperty("cooldown") val cooldown: Cooldown,
+    @param:JsonProperty("character") val character: ArtifactsCharacter,
+    @param:JsonProperty("trade") val trade: Trade
 )
 
+@Suppress("unused")
 class Trade(
-    @JsonProperty("code") val items: String,
-    @JsonProperty("quantity") val gold: Int
+    @param:JsonProperty("code") val items: String,
+    @param:JsonProperty("quantity") val gold: Int
 )

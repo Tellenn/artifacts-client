@@ -4,16 +4,18 @@ import com.fasterxml.jackson.annotation.JsonProperty
 import com.tellenn.artifacts.models.ArtifactsCharacter
 import com.tellenn.artifacts.models.Cooldown
 
+@Suppress("unused")
 class NpcMerchantTransaction(
-    @JsonProperty("cooldown") val cooldown: Cooldown,
-    @JsonProperty("character") val character: ArtifactsCharacter,
-    @JsonProperty("transaction") val transaction: Transaction
+    @param:JsonProperty("cooldown") val cooldown: Cooldown,
+    @param:JsonProperty("character") val character: ArtifactsCharacter,
+    @param:JsonProperty("transaction") val transaction: Transaction
 )
 
+@Suppress("unused")
 class Transaction(
-    @JsonProperty("code") val code: String,
-    @JsonProperty("quantity") val quantity: Int,
-    @JsonProperty("currency") val currency: String,
-    @JsonProperty("price") val price: Int,
-    @JsonProperty("total_price") val totalPrice: String,
+    @param:JsonProperty("code") val code: String,
+    @param:JsonProperty("quantity") val quantity: Int,
+    @param:JsonProperty("currency") val currency: String,
+    @param:JsonProperty("price") val price: Int,
+    @param:JsonProperty("total_price") val totalPrice: String,
 )

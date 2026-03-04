@@ -1,20 +1,17 @@
 package com.tellenn.artifacts.db.repositories
 
-import com.tellenn.artifacts.db.documents.MonsterDocument
-import org.springframework.data.domain.Page
-import org.springframework.data.domain.Pageable
+import com.tellenn.artifacts.models.MonsterData
 import org.springframework.data.mongodb.repository.MongoRepository
-import org.springframework.data.mongodb.repository.Query
 import org.springframework.stereotype.Repository
 
 @Repository
-interface MonsterRepository : MongoRepository<MonsterDocument, String> {
+interface MonsterRepository : MongoRepository<MonsterData, String> {
     // Find by code
-    fun findByCode(code: String): MonsterDocument
+    fun findByCode(code: String): MonsterData
 
     // Find the weakest monster that drop a specific item
-    fun findFirstByDropsCodeOrderByLevelAsc(itemId: String): MonsterDocument
+    fun findFirstByDropsCodeOrderByLevelAsc(itemId: String): MonsterData
 
-    fun findFirstByLevelLessThanEqualOrderByLevelDesc(level: Int): MonsterDocument
+    fun findFirstByLevelLessThanEqualOrderByLevelDesc(level: Int): MonsterData
 
 }

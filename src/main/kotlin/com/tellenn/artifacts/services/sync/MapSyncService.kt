@@ -1,8 +1,6 @@
 package com.tellenn.artifacts.services.sync
 
 import com.tellenn.artifacts.clients.MapClient
-import com.tellenn.artifacts.models.MapData
-import com.tellenn.artifacts.db.documents.MapDocument
 import com.tellenn.artifacts.db.repositories.MapRepository
 import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Service
@@ -51,9 +49,7 @@ class MapSyncService(
                 val dataPage = response.data
                 totalPages = response.pages
 
-                // Convert MapData to MapDocument and save to MongoDB in batch
-                val mapDocuments = dataPage.map { MapDocument.fromMapData(it) }
-                mapRepository.saveAll(mapDocuments)
+                mapRepository.saveAll(dataPage)
 
                 totalChunksProcessed += dataPage.size
                 logger.debug("Processed ${dataPage.size} map chunks from page $currentPage")
@@ -104,22 +100,8 @@ class MapSyncService(
             // Get the first (and only) map chunk
             val mapData = dataPage.first()
 
-            // Override the name if it's different from the default
-            val mapDataWithCorrectName = if (mapData.name != name) {
-                MapData(
-                    name = name,
-                    skin = mapData.skin,
-                    x = mapData.x,
-                    y = mapData.y,
-                    content = mapData.content
-                )
-            } else {
-                mapData
-            }
-
             // Convert MapData to MapDocument and save to MongoDB
-            val mapDocument = MapDocument.fromMapData(mapDataWithCorrectName)
-            mapRepository.save(mapDocument)
+            mapRepository.save(mapData)
 
             // Save the server version after successful sync
             serverVersionService.updateServerVersion()

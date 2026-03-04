@@ -5,10 +5,10 @@ import java.time.Instant
 
 @Suppress("unused")
 class Cooldown(
-    @JsonProperty("total_seconds") totalSeconds : Int,
-    @JsonProperty("remaining_seconds") remainingSeconds : Int,
-    @JsonProperty("started_at") startedAt : Instant,
-    @JsonProperty("expiration") expiration : Instant,
-    @JsonProperty("reason") reason : String,
+    @param:JsonProperty("total_seconds") val totalSeconds : Int,
+    @param:JsonProperty("remaining_seconds") val remainingSeconds : Int,
+    @param:JsonProperty("started_at") val startedAt : Instant,
+    @param:JsonProperty("expiration") val expiration : Instant,
+    @param:JsonProperty("reason") val reason : String,
 ) {
 }

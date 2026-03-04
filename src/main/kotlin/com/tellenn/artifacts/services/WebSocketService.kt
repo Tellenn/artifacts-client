@@ -1,19 +1,13 @@
 package com.tellenn.artifacts.services
 
 import com.fasterxml.jackson.databind.JsonNode
-import com.fasterxml.jackson.databind.ObjectMapper
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule
 import com.fasterxml.jackson.module.kotlin.jacksonObjectMapper
 import com.fasterxml.jackson.module.kotlin.readValue
 import com.tellenn.artifacts.CharacterThread
-import com.tellenn.artifacts.MainRuntime
 import com.tellenn.artifacts.clients.AccountClient
-import com.tellenn.artifacts.config.CharacterConfig
-import com.tellenn.artifacts.config.CharacterConfig.Companion.getCharacterByName
-import com.tellenn.artifacts.config.CharacterConfig.Companion.getPredefinedCharacters
 import com.tellenn.artifacts.exceptions.MapContentNotFoundException
 import com.tellenn.artifacts.models.Event
-import com.tellenn.artifacts.services.sync.CharacterSyncService
 import okhttp3.*
 import okhttp3.WebSocket
 import org.slf4j.LoggerFactory
@@ -319,17 +313,17 @@ class WebSocketService(
                         when (messageType) {
                             "event_spawn" -> {
                                 val event = objectMapper.readValue<Event>(jsonNode.get("data").toString())
-                                if (event.map.content?.type == "npc"){
+                                if (event.map.interactions?.content?.type == "npc"){
 
-                                    logger.info("!!!!!!!! Merchant spawned: ${event.map.content.code}")
+                                    logger.info("!!!!!!!! Merchant spawned: ${event.map.interactions.content.code}")
                                     interruptCharacterThread("Aerith")
                                     logger.info("!!!!!!!! Interrupted the thread of Aerith")
 
                                     var character = accountClient.getCharacter("Aerith").data
-                                    merchantService.sellBankItemTo(character, event.map.content.code)
+                                    merchantService.sellBankItemTo(character, event.map.interactions.content.code)
                                     restartCharacterThread("Aerith")
-                                }else if (event.map.content?.type == "resource") {
-                                    logger.info("Resource spawned: ${event.map.content.code}")
+                                }else if (event.map.interactions?.content?.type == "resource") {
+                                    logger.info("Resource spawned: ${event.map.interactions.content.code}")
                                     logger.info("Resource is about ${event.code}")
                                     val characterName = when (event.code) {
                                         "strange_apparition" -> "Gustave"
@@ -345,7 +339,7 @@ class WebSocketService(
                                             character = bankService.emptyInventory(character)
                                             character = gatheringService.craftOrGather(
                                                 character,
-                                                event.map.content.code,
+                                                event.map.interactions.content.code,
                                                 character.inventoryMaxItems - 30
                                             )
                                         } while (true)
@@ -356,8 +350,8 @@ class WebSocketService(
                                     }finally {
                                         restartCharacterThread(characterName)
                                     }
-                                }else if (event.map.content?.type == "monster"){
-                                    logger.info("Monster spawned: ${event.map.content.code}")
+                                }else if (event.map.interactions?.content?.type == "monster"){
+                                    logger.info("Monster spawned: ${event.map.interactions.content.code}")
                                     // TODO : Fight if it's interesting or that you can
                                 }
                             }
@@ -419,7 +413,9 @@ class WebSocketService(
                     "event_spawn",
                     "event_removed",
                     "grandexchange_sell",
-                    "grandexchange_neworder",
+                    "grandexchange_sell_order",
+                    "grandexchange_buy",
+                    "grandexchange_buy_order",
                     "achievement_unlocked"
                 )
             )

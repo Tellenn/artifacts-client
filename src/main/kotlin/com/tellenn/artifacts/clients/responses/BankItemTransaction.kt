@@ -6,8 +6,8 @@ import com.tellenn.artifacts.models.Cooldown
 import com.tellenn.artifacts.models.SimpleItem
 
 class BankItemTransaction(
-    @JsonProperty("cooldown") val cooldown: Cooldown,
-    @JsonProperty("character") val character: ArtifactsCharacter,
-    @JsonProperty("items") val items: List<SimpleItem>,
-    @JsonProperty("bank") val bank: List<SimpleItem>
+    @param:JsonProperty("cooldown") val cooldown: Cooldown,
+    @param:JsonProperty("character") val character: ArtifactsCharacter,
+    @param:JsonProperty("items") val items: List<SimpleItem>,
+    @param:JsonProperty("bank") val bank: List<SimpleItem>
 )

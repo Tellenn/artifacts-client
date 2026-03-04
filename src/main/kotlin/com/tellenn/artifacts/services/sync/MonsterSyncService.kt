@@ -1,9 +1,7 @@
 package com.tellenn.artifacts.services.sync
 
 import com.tellenn.artifacts.clients.MonsterClient
-import com.tellenn.artifacts.db.documents.MonsterDocument
 import com.tellenn.artifacts.db.repositories.MonsterRepository
-import com.tellenn.artifacts.services.sync.ServerVersionService
 import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
@@ -49,9 +47,7 @@ class MonsterSyncService(
                 val dataPage = response.data
                 totalPages = response.pages
 
-                // Convert MonsterData to MonsterDocument and save to MongoDB
-                val monsterDocuments = dataPage.map { MonsterDocument.fromMonsterData(it) }
-                monsterRepository.saveAll(monsterDocuments)
+                monsterRepository.saveAll(dataPage)
 
                 totalMonstersProcessed += dataPage.size
                 logger.debug("Processed ${dataPage.size} monsters from page $currentPage")
@@ -82,9 +78,7 @@ class MonsterSyncService(
             val response = monsterClient.getMonster(monsterId)
             val monsterData = response.data
 
-            // Convert MonsterData to MonsterDocument and save to MongoDB
-            val monsterDocument = MonsterDocument.fromMonsterData(monsterData)
-            monsterRepository.save(monsterDocument)
+            monsterRepository.save(monsterData)
 
             logger.info("Successfully synced monster with ID: $monsterId")
             return true

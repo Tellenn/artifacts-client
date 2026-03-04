@@ -6,7 +6,7 @@ import com.tellenn.artifacts.models.Cooldown
 import com.tellenn.artifacts.models.ItemDetails
 
 class UseItemResponseBody(
-    @JsonProperty("cooldown") val cooldown: Cooldown?,
-    @JsonProperty("character") val character: ArtifactsCharacter,
-    @JsonProperty("item") val item: ItemDetails?
+    @param:JsonProperty("cooldown") val cooldown: Cooldown?,
+    @param:JsonProperty("character") val character: ArtifactsCharacter,
+    @param:JsonProperty("item") val item: ItemDetails?
 )

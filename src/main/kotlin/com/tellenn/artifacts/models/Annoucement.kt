@@ -5,8 +5,8 @@ import java.util.Date
 
 @Suppress("unused")
 class Annoucement(
-    @JsonProperty("message") val message: String,
-    @JsonProperty("created_at") val createdAt: Date
+    @param:JsonProperty("message") val message: String,
+    @param:JsonProperty("created_at") val createdAt: Date
     ) {
 
 }

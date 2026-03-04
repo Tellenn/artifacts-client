@@ -62,7 +62,7 @@ class BattleService(
             while (!characterService.has(newCharacter, quantity, itemCode)){
                 try {
                     newCharacter = battle(newCharacter, monster.code)
-                }catch (e : CharacterInventoryFullException){
+                }catch (_ : CharacterInventoryFullException){
                     newCharacter = bankService.moveToBank(newCharacter)
                     newCharacter = bankService.emptyInventory(newCharacter)
                     newCharacter = movementService.moveCharacterToCell(map.x, map.y, newCharacter)
@@ -92,7 +92,7 @@ class BattleService(
             while (character.level == newCharacter.level){
                 newCharacter = battle(newCharacter, monster.code)
             }
-        }catch (e : BattleLostException){
+        }catch (_ : BattleLostException){
             newCharacter = accountClient.getCharacter(newCharacter.name).data
             newCharacter = train(newCharacter, penalty-1)
         }catch (e : MapNotFoundException){
@@ -108,7 +108,7 @@ class BattleService(
         val response = battleClient.fight(currentCharacter.name)
 
         // Update character with the latest data
-        currentCharacter = response.data.character
+        currentCharacter = response.data.characters.first() // TODO : support for multi character
         log.debug("Character ${currentCharacter.name} gathered resource, inventory: ${characterService.countInventoryItems(currentCharacter)}/${currentCharacter.inventoryMaxItems}")
 
         if(currentCharacter.hp * 2 < (currentCharacter.maxHp * 1.1)){

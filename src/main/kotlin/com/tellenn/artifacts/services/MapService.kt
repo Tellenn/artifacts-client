@@ -38,8 +38,8 @@ class MapService(
         val mapsResponse = mapMongoClient.getMaps(
             page = 1,
             size = 100, // Fetch a reasonable number of maps to compare
-            content_type = contentType.takeIf { it != null },
-            content_code = contentCode.takeIf { it != null }
+            content_type = contentType.takeIf { !it.isNullOrBlank() && it != "null" },
+            content_code = contentCode.takeIf { !it.isNullOrBlank() && it != "null" }
         )
 
         if (mapsResponse.data.isEmpty()) {

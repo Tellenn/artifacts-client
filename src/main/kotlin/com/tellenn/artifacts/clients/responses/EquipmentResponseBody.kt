@@ -7,8 +7,8 @@ import com.tellenn.artifacts.models.ItemDetails
 
 class EquipmentResponseBody(
 
-    @JsonProperty("cooldown") val cooldown: Cooldown,
-    @JsonProperty("character") val character: ArtifactsCharacter,
-    @JsonProperty("slot") val slot: String,
-    @JsonProperty("item") val item: ItemDetails,
+    @param:JsonProperty("cooldown") val cooldown: Cooldown,
+    @param:JsonProperty("character") val character: ArtifactsCharacter,
+    @param:JsonProperty("slot") val slot: String,
+    @param:JsonProperty("item") val item: ItemDetails,
 )

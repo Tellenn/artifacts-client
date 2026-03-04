@@ -33,51 +33,33 @@ class CharacterSyncService(
         // Get predefined characters from config
         val predefinedCharacters = CharacterConfig.getPredefinedCharacters()
         logger.debug("Found ${predefinedCharacters.size} predefined characters in config")
-
+        val existingCharacters = accountClient.getCharacters()
         // Process each predefined character
         for (characterConfig in predefinedCharacters) {
-            try {
-                // Try to get the character
+            if (existingCharacters.data.any { it.name == characterConfig.name }) {
                 val response = accountClient.getCharacter(characterConfig.name)
 
-                if (response.data != null) {
-                    // Character exists, add to map
-                    logger.debug("Character ${characterConfig.name} already exists")
-                    characterMap[characterConfig] = response.data
-                } else {
-                    // Character doesn't exist, create it
-                    logger.warn("Character ${characterConfig.name} doesn't exist, creating...")
-                    val createResponse = accountClient.createCharacter(
-                        name = characterConfig.name,
-                        skin = characterConfig.skin
-                    )
+                // Character exists, add to map
+                logger.debug("Character ${characterConfig.name} already exists")
+                characterMap[characterConfig] = response.data
 
-                    if (createResponse.data != null) {
-                        // Character created successfully, add to map
-                        logger.debug("Character ${characterConfig.name} created successfully")
-                        characterMap[characterConfig] = createResponse.data
-                    } else {
-                        // Failed to create character
-                        logger.debug("Failed to create character ${characterConfig.name}")
-                    }
-                }
-            } catch (e: Exception) {
-                logger.error("Error processing character ${characterConfig.name}", e)
+            } else {
+                // Character doesn't exist, create it
+                logger.warn("Character ${characterConfig.name} doesn't exist, creating...")
+                val createResponse = accountClient.createCharacter(
+                    name = characterConfig.name,
+                    skin = characterConfig.skin
+                )
+
+                // Character created successfully, add to map
+                logger.debug("Character ${characterConfig.name} created successfully")
+                characterMap[characterConfig] = createResponse.data
             }
         }
 
         // Save the server version after successful sync
         serverVersionService.updateServerVersion()
         logger.info("Character sync completed and server version updated. Total characters synced: ${characterMap.size}")
-        return characterMap
-    }
-
-    /**
-     * Gets the current map of character configurations to character objects.
-     *
-     * @return Map of CharacterConfig to ArtifactsCharacter
-     */
-    fun getCharacterMap(): Map<CharacterConfig, ArtifactsCharacter> {
         return characterMap
     }
 }

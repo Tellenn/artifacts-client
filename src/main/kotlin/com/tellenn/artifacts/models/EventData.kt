@@ -1,24 +1,28 @@
 package com.tellenn.artifacts.models
 
 import com.fasterxml.jackson.annotation.JsonProperty
-import java.time.Instant
 
+@Suppress("unused")
 class EventData (
-    @JsonProperty("name") val name: String,
-    @JsonProperty("code") val code: String,
-    @JsonProperty("duration") val duration: String,
-    @JsonProperty("rate") val rate: Int,
-    @JsonProperty("content") val content: Content,
-    @JsonProperty("maps") val maps: List<EventMap>
+    @param:JsonProperty("name") val name: String,
+    @param:JsonProperty("code") val code: String,
+    @param:JsonProperty("duration") val duration: String,
+    @param:JsonProperty("rate") val rate: Int,
+    @param:JsonProperty("content") val content: Content,
+    @param:JsonProperty("maps") val maps: List<EventMap>
 )
 
+@Suppress("unused")
 class Content(
-    @JsonProperty("type") val type: String,
-    @JsonProperty("code") val code: String
+    @param:JsonProperty("type") val type: String,
+    @param:JsonProperty("code") val code: String
 )
 
+@Suppress("unused")
 class EventMap(
-    @JsonProperty("x") val x: String,
-    @JsonProperty("y") val y: String,
-    @JsonProperty("skin") val skin: String,
+    @param:JsonProperty("x") val x: Int,
+    @param:JsonProperty("y") val y: Int,
+    @param:JsonProperty("map_id") val mapId: Int,
+    @param:JsonProperty("skin") val skin: String,
+    @param:JsonProperty("layer") val layer: String,
 )

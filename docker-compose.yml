@@ -1,5 +1,3 @@
-version: '3.8'
-
 services:
   app:
     image: tellenn/tellenn-artifacts-client:latest
@@ -15,7 +13,7 @@ services:
       - tellenn-network
 
   mongo:
-    image: mongo:8.0
+    image: mongo
     ports:
       - "27017:27017"
     volumes:

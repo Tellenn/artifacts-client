@@ -5,13 +5,15 @@ import com.tellenn.artifacts.models.ArtifactsCharacter
 import com.tellenn.artifacts.models.Cooldown
 import com.tellenn.artifacts.models.SimpleItem
 
+@Suppress("unused")
 class GatheringResponseBody(
-    @JsonProperty("cooldown") val cooldown: Cooldown,
-    @JsonProperty("character") val character: ArtifactsCharacter,
-    @JsonProperty("details") val details: SkillInfo
+    @param:JsonProperty("cooldown") val cooldown: Cooldown,
+    @param:JsonProperty("character") val character: ArtifactsCharacter,
+    @param:JsonProperty("details") val details: SkillInfo
 )
 
+@Suppress("unused")
 class SkillInfo(
-    @JsonProperty("xp") val xp: Int,
-    @JsonProperty("items") val items: List<SimpleItem>
+    @param:JsonProperty("xp") val xp: Int,
+    @param:JsonProperty("items") val items: List<SimpleItem>
 )

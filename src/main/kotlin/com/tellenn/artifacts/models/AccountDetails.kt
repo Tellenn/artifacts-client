@@ -5,9 +5,9 @@ import java.time.Instant
 
 @Suppress("unused")
 class AccountDetails(
-    @JsonProperty("username") val username: String,
-    @JsonProperty("email") val email: String,
-    @JsonProperty("created_at") val createdAt: Instant,
-    @JsonProperty("characters") val characters: List<String>,
-    @JsonProperty("max_characters") val maxCharacters: Int
+    @param:JsonProperty("username") val username: String,
+    @param:JsonProperty("email") val email: String,
+    @param:JsonProperty("created_at") val createdAt: Instant,
+    @param:JsonProperty("characters") val characters: List<String>,
+    @param:JsonProperty("max_characters") val maxCharacters: Int
 )

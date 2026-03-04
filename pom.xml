@@ -15,7 +15,7 @@
 	<description>Kotlin client for the artifacts mmo game</description>
 	<properties>
 		<java.version>17</java.version>
-		<kotlin.version>1.9.25</kotlin.version>
+		<kotlin.version>2.3.10</kotlin.version>
 	</properties>
 	<dependencies>
 		<dependency>

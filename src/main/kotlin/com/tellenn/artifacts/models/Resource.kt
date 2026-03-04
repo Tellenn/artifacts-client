@@ -21,6 +21,6 @@ class Resource(
 class ResourceDrop(
     val code: String,
     val rate: Int,
-    @JsonProperty("min_quantity") val minQuantity: Int,
-    @JsonProperty("max_quantity") val maxQuantity: Int
+    @param:JsonProperty("min_quantity") val minQuantity: Int,
+    @param:JsonProperty("max_quantity") val maxQuantity: Int
 )
