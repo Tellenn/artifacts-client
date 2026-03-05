@@ -1,27 +1,22 @@
 package com.tellenn.artifacts.db.clients
 
-import com.tellenn.artifacts.config.MongoTestConfiguration
 import com.tellenn.artifacts.db.documents.ItemDocument
 import com.tellenn.artifacts.db.repositories.ItemRepository
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.Assertions.*
-import org.springframework.beans.factory.annotation.Autowired
-import org.springframework.boot.test.context.SpringBootTest
-import org.springframework.context.annotation.Import
-import org.springframework.data.mongodb.core.MongoTemplate
+import org.mockito.Mockito
+import org.mockito.Mockito.*
+import org.springframework.data.domain.PageImpl
+import org.springframework.data.domain.PageRequest
+import org.springframework.data.domain.Pageable
+import java.util.Optional
 
-@SpringBootTest
-@Import(MongoTestConfiguration::class)
 class DatabaseClientTest {
 
-    @Autowired
     private lateinit var databaseClient: DatabaseClient
-
-    @Autowired
     private lateinit var itemRepository: ItemRepository
-
 
     private val testItems = listOf(
         ItemDocument(
@@ -59,20 +54,20 @@ class DatabaseClientTest {
         )
     )
 
-
+    private fun <T> any(type: Class<T>): T = Mockito.any(type)
+    private fun <T> eq(value: T): T = Mockito.eq(value)
 
     @BeforeEach
     fun setup() {
+        itemRepository = mock(ItemRepository::class.java)
+        databaseClient = DatabaseClient(itemRepository)
 
-        // Clear the repository and insert test data`
-        itemRepository.deleteAll()
-        itemRepository.saveAll(testItems)
+        // Default mock behaviors
+        `when`(itemRepository.findAll(any(Pageable::class.java))).thenReturn(PageImpl(testItems))
     }
 
     @AfterEach
     fun cleanup() {
-        // Clean up after each test
-        itemRepository.deleteAll()
     }
 
     @Test
@@ -90,6 +85,10 @@ class DatabaseClientTest {
 
     @Test
     fun `should get items with pagination`() {
+        // Given
+        val subList = testItems.subList(0, 2)
+        `when`(itemRepository.findAll(any(Pageable::class.java))).thenReturn(PageImpl(subList, PageRequest.of(0, 2), 3))
+
         // When
         val response = databaseClient.getItems(page = 1, size = 2)
 
@@ -102,6 +101,10 @@ class DatabaseClientTest {
 
     @Test
     fun `should get items by name`() {
+        // Given
+        val filtered = testItems.filter { it.name.contains("sword", ignoreCase = true) }
+        `when`(itemRepository.findByNameContainingIgnoreCase(eq("sword"), any(Pageable::class.java))).thenReturn(PageImpl(filtered))
+
         // When
         val response = databaseClient.getItems(name = "sword")
 
@@ -113,6 +116,10 @@ class DatabaseClientTest {
 
     @Test
     fun `should get items by type`() {
+        // Given
+        val filtered = testItems.filter { it.type == "weapon" }
+        `when`(itemRepository.findByType(eq("weapon"), any(Pageable::class.java))).thenReturn(PageImpl(filtered))
+
         // When
         val response = databaseClient.getItems(type = "weapon")
 
@@ -123,6 +130,10 @@ class DatabaseClientTest {
 
     @Test
     fun `should get items by subtype`() {
+        // Given
+        val filtered = testItems.filter { it.subtype == "body" }
+        `when`(itemRepository.findBySubtype(eq("body"), any(Pageable::class.java))).thenReturn(PageImpl(filtered))
+
         // When
         val response = databaseClient.getItems(subtype = "body")
 
@@ -133,6 +144,10 @@ class DatabaseClientTest {
 
     @Test
     fun `should get items by level`() {
+        // Given
+        val filtered = testItems.filter { it.level == 5 }
+        `when`(itemRepository.findByLevel(eq(5), any(Pageable::class.java))).thenReturn(PageImpl(filtered))
+
         // When
         val response = databaseClient.getItems(level = 5)
 
@@ -143,6 +158,10 @@ class DatabaseClientTest {
 
     @Test
     fun `should get items by tradable`() {
+        // Given
+        val filtered = testItems.filter { it.tradeable == true }
+        `when`(itemRepository.findByTradeable(eq(true), any(Pageable::class.java))).thenReturn(PageImpl(filtered))
+
         // When
         val response = databaseClient.getItems(tradeable = true)
 
@@ -154,6 +173,9 @@ class DatabaseClientTest {
 
     @Test
     fun `should get item details by code`() {
+        // Given
+        `when`(itemRepository.findById("TEST_SWORD_1")).thenReturn(Optional.of(testItems[0]))
+
         // When
         val response = databaseClient.getItemDetails("TEST_SWORD_1")
 
@@ -171,6 +193,9 @@ class DatabaseClientTest {
 
     @Test
     fun `should throw exception when item not found`() {
+        // Given
+        `when`(itemRepository.findById("NONEXISTENT_ITEM")).thenReturn(Optional.empty())
+
         // Then
         assertThrows(NoSuchElementException::class.java) {
             // When

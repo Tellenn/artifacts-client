@@ -95,8 +95,8 @@ class MonsterSyncServiceTest {
             monsterDocument.minGold == 10 &&
             monsterDocument.maxGold == 10 &&
             monsterDocument.drops?.size == 1 &&
-            monsterDocument.drops?.get(0)?.code == "item1" &&
-            monsterDocument.drops?.get(0)?.rate == 5
+            monsterDocument.drops[0].code == "item1" &&
+            monsterDocument.drops[0].rate == 5
         })
     }
 
@@ -173,7 +173,9 @@ class MonsterSyncServiceTest {
                     minQuantity = 1,
                     maxQuantity = 1
                 )
-            )
+            ),
+            initiative = 10,
+            type = "monster"
         )
     }
 }

@@ -3,6 +3,7 @@ package com.tellenn.artifacts.services
 import com.tellenn.artifacts.clients.MapClient
 import com.tellenn.artifacts.models.MapData
 import com.tellenn.artifacts.models.MapContent
+import com.tellenn.artifacts.models.Interactions
 import com.tellenn.artifacts.clients.responses.ArtifactsArrayResponseBody
 import com.tellenn.artifacts.db.repositories.MapRepository
 import com.tellenn.artifacts.services.sync.MapSyncService
@@ -54,15 +55,15 @@ class MapSyncServiceTest {
         // Then
         assertTrue(result)
 
-        // Verify that the repository's save method was called with a MapDocument
-        verify(mapRepository).save(Mockito.argThat { mapDocument ->
-            mapDocument.id == "0_0" &&
-            mapDocument.name == "map_0_0" &&
-            mapDocument.skin == "default" &&
-            mapDocument.x == 0 &&
-            mapDocument.y == 0 &&
-            mapDocument.content?.type == "monster" &&
-            mapDocument.content?.code == "dragon"
+        // Verify that the repository's save method was called with a MapData
+        verify(mapRepository).save(Mockito.argThat { mapData ->
+            mapData.mapId == 1 &&
+            mapData.name == "map_0_0" &&
+            mapData.skin == "default" &&
+            mapData.x == 0 &&
+            mapData.y == 0 &&
+            mapData.interactions?.content?.type == "monster" &&
+            mapData.interactions.content.code == "dragon"
         })
 
         // Verify that the server version was updated after successful sync
@@ -77,7 +78,7 @@ class MapSyncServiceTest {
         val testMapData1 = createTestMapData(0, 0, "map_0_0", "default")
         val testMapData2 = createTestMapData(10, 0, "map_10_0", "default")
         val testMapData3 = createTestMapData(0, 10, "map_0_10", "default")
-        val testMapData4 = createTestMapData(10, 10, "map_10_10", "default")
+        val testMapData4 = createTestMapData(10, 10, "map_10_10", "notdefault")
 
         val response = ArtifactsArrayResponseBody(listOf(testMapData1, testMapData2, testMapData3, testMapData4),1,1,1,1)
 
@@ -233,9 +234,15 @@ class MapSyncServiceTest {
             skin = skin,
             x = x,
             y = y,
-            content = MapContent(
-                type = "monster",
-                code = "dragon"
+            mapId = 1,
+            layer = "main",
+            access = null,
+            interactions = Interactions(
+                content = MapContent(
+                    type = "monster",
+                    code = "dragon"
+                ),
+                access = null
             )
         )
     }

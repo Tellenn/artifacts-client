@@ -2,9 +2,9 @@ package com.tellenn.artifacts.services
 
 import com.tellenn.artifacts.models.ArtifactsCharacter
 import com.tellenn.artifacts.models.Effect
+import com.tellenn.artifacts.models.MonsterData
 import com.tellenn.artifacts.db.documents.ItemDocument
 import com.tellenn.artifacts.db.documents.ItemEffectDocument
-import com.tellenn.artifacts.db.documents.MonsterDocument
 import com.tellenn.artifacts.db.repositories.ItemRepository
 import com.tellenn.artifacts.db.repositories.MonsterRepository
 import com.tellenn.artifacts.services.battlesim.BattleSimulatorService
@@ -30,7 +30,7 @@ class BattleSimulatorServiceTest {
     @Test
     fun `test character wins against weaker monster`() {
         // Create a mock monster
-        val monster = MonsterDocument(
+        val monster = MonsterData(
             code = "weak_monster",
             name = "Weak Monster",
             level = 1,
@@ -47,7 +47,9 @@ class BattleSimulatorServiceTest {
             effects = emptyList(),
             minGold = 10,
             maxGold = 20,
-            drops = null
+            drops = null,
+            initiative = 1,
+            type = "monster"
         )
 
         // Create a mock character
@@ -84,7 +86,7 @@ class BattleSimulatorServiceTest {
     @Test
     fun `test character loses against stronger monster`() {
         // Create a mock monster
-        val monster = MonsterDocument(
+        val monster = MonsterData(
             code = "strong_monster",
             name = "Strong Monster",
             level = 10,
@@ -101,7 +103,9 @@ class BattleSimulatorServiceTest {
             effects = emptyList(),
             minGold = 50,
             maxGold = 100,
-            drops = null
+            drops = null,
+            initiative = 10,
+            type = "monster"
         )
 
         // Create a mock character
@@ -140,7 +144,7 @@ class BattleSimulatorServiceTest {
     @Test
     fun `test battle with monster effects`() {
         // Create a mock monster with poison effect
-        val monster = MonsterDocument(
+        val monster = MonsterData(
             code = "poison_monster",
             name = "Poison Monster",
             level = 5,
@@ -157,7 +161,9 @@ class BattleSimulatorServiceTest {
             effects = listOf(Effect("poison", 10, "")),
             minGold = 30,
             maxGold = 60,
-            drops = null
+            drops = null,
+            initiative = 5,
+            type = "monster"
         )
 
         // Create a mock character
@@ -193,7 +199,7 @@ class BattleSimulatorServiceTest {
     @Test
     fun `test critical strike increases damage`() {
         // Create a mock monster
-        val monster = MonsterDocument(
+        val monster = MonsterData(
             code = "test_monster",
             name = "Test Monster",
             level = 5,
@@ -210,7 +216,9 @@ class BattleSimulatorServiceTest {
             effects = emptyList(),
             minGold = 30,
             maxGold = 60,
-            drops = null
+            drops = null,
+            initiative = 5,
+            type = "monster"
         )
 
         // Create a character with 0% critical strike chance
@@ -271,7 +279,7 @@ class BattleSimulatorServiceTest {
     @Test
     fun `test lifesteal restores HP after critical strikes`() {
         // Create a mock monster with high HP and low attack
-        val monster = MonsterDocument(
+        val monster = MonsterData(
             code = "lifesteal_test_monster",
             name = "Lifesteal Test Monster",
             level = 5,
@@ -288,7 +296,9 @@ class BattleSimulatorServiceTest {
             effects = emptyList(),
             minGold = 30,
             maxGold = 60,
-            drops = null
+            drops = null,
+            initiative = 5,
+            type = "monster"
         )
 
         // Create a character with critical strike but no lifesteal
@@ -398,7 +408,7 @@ class BattleSimulatorServiceTest {
         )
 
         // Create a monster with high HP and no burn effect
-        val monsterWithoutBurn = MonsterDocument(
+        val monsterWithoutBurn = MonsterData(
             code = "monster_without_burn",
             name = "Monster Without Burn",
             level = 5,
@@ -412,14 +422,16 @@ class BattleSimulatorServiceTest {
             defenseEarth = 20,
             defenseAir = 20,
             criticalStrike = 0,
-            effects = emptyList(),
+            effects = emptyList(), // No burn effect
             minGold = 30,
             maxGold = 60,
-            drops = null
+            drops = null,
+            initiative = 5,
+            type = "monster"
         )
-
+        
         // Create an identical monster but with burn effect on the character
-        val monsterWithBurn = MonsterDocument(
+        val monsterWithBurn = MonsterData(
             code = "monster_with_burn",
             name = "Monster With Burn",
             level = 5,
@@ -436,7 +448,9 @@ class BattleSimulatorServiceTest {
             effects = listOf(Effect("burn", 20, "")), // 20% burn effect
             minGold = 30,
             maxGold = 60,
-            drops = null
+            drops = null,
+            initiative = 5,
+            type = "monster"
         )
 
         // Set up the mock repository
@@ -468,7 +482,7 @@ class BattleSimulatorServiceTest {
     @Test
     fun `test battle between Aerith and Blue Slime`() {
         // Create Blue Slime monster with specified stats
-        val blueSlime = MonsterDocument(
+        val blueSlime = MonsterData(
             code = "blue_slime",
             name = "Blue Slime",
             level = 6,
@@ -485,7 +499,9 @@ class BattleSimulatorServiceTest {
             effects = emptyList(),
             minGold = 0,
             maxGold = 5,
-            drops = null
+            drops = null,
+            initiative = 5,
+            type = "monster"
         )
 
         // Create Aerith character with specified stats
@@ -521,7 +537,7 @@ class BattleSimulatorServiceTest {
     @Test
     fun `test battle between Cloud and Chicken`() {
         // Create Chicken monster with specified stats
-        val chicken = MonsterDocument(
+        val chicken = MonsterData(
             code = "chicken",
             name = "Chicken",
             level = 1,
@@ -538,7 +554,9 @@ class BattleSimulatorServiceTest {
             effects = emptyList(),
             minGold = 0,
             maxGold = 3,
-            drops = null
+            drops = null,
+            initiative = 1,
+            type = "monster"
         )
 
         // Create Cloud character with specified stats
@@ -687,7 +705,11 @@ class BattleSimulatorServiceTest {
             utility2Slot = utility2Slot,
             utility2SlotQuantity = utility2SlotQuantity,
             bagSlot = null,
-            cooldownExpiration = Instant.now()
+            cooldownExpiration = Instant.now(),
+            mapId = 1,
+            layer = "main",
+            initiative = 10,
+            threat = 0
         )
     }
 }

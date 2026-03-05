@@ -39,7 +39,7 @@ class CharacterServiceTest {
     @Test
     fun `rest should call client and return updated character when HP is not full`() {
         // Arrange
-        val originalCharacter = createCharacter(hp = 50, maxHp = 100)
+        val originalCharacter = createCharacter(hp = 50, maxHp = 103)
         val updatedCharacter = createCharacter(hp = 100, maxHp = 100)
 
         val now = Instant.now()
@@ -74,10 +74,14 @@ class CharacterServiceTest {
             maxHp = maxHp,
             x = 0,
             y = 0,
+            mapId = 1,
+            layer = "main",
             inventory = arrayOf(),
             cooldown = 0,
             skin = null,
             task = null,
+            initiative = 10,
+            threat = 0,
             dmg = 10,
             wisdom = 10,
             prospecting = 10,

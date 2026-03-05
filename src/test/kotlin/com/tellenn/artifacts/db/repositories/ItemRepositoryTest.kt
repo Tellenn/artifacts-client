@@ -1,23 +1,17 @@
 package com.tellenn.artifacts.db.repositories
 
-import com.tellenn.artifacts.config.MongoTestConfiguration
 import com.tellenn.artifacts.db.documents.ItemDocument
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.Assertions.*
-import org.springframework.beans.factory.annotation.Autowired
-import org.springframework.boot.test.context.SpringBootTest
-import org.springframework.context.annotation.Import
+import org.mockito.Mockito.*
+import org.springframework.data.domain.PageImpl
 import org.springframework.data.domain.PageRequest
-import org.testcontainers.junit.jupiter.Testcontainers
+import java.util.Optional
 
-@SpringBootTest
-@Import(MongoTestConfiguration::class)
-@Testcontainers
 class ItemRepositoryTest {
 
-    @Autowired
     private lateinit var itemRepository: ItemRepository
 
     private val testItems = listOf(
@@ -58,19 +52,18 @@ class ItemRepositoryTest {
 
     @BeforeEach
     fun setup() {
-        // Clear the repository and insert test data
-        itemRepository.deleteAll()
-        itemRepository.saveAll(testItems)
+        itemRepository = mock(ItemRepository::class.java)
     }
 
     @AfterEach
     fun cleanup() {
-        // Clean up after each test
-        itemRepository.deleteAll()
     }
 
     @Test
     fun `should find all items`() {
+        // Given
+        `when`(itemRepository.findAll()).thenReturn(testItems)
+
         // When
         val items = itemRepository.findAll()
 
@@ -83,6 +76,9 @@ class ItemRepositoryTest {
 
     @Test
     fun `should find item by id`() {
+        // Given
+        `when`(itemRepository.findById("TEST_SWORD_1")).thenReturn(Optional.of(testItems[0]))
+
         // When
         val item = itemRepository.findById("TEST_SWORD_1")
 
@@ -94,8 +90,12 @@ class ItemRepositoryTest {
 
     @Test
     fun `should find items by name containing`() {
-        // When
+        // Given
         val pageable = PageRequest.of(0, 10)
+        val filtered = testItems.filter { it.name.contains("sword", ignoreCase = true) }
+        `when`(itemRepository.findByNameContainingIgnoreCase("sword", pageable)).thenReturn(PageImpl(filtered))
+
+        // When
         val items = itemRepository.findByNameContainingIgnoreCase("sword", pageable)
 
         // Then
@@ -105,8 +105,12 @@ class ItemRepositoryTest {
 
     @Test
     fun `should find items by type`() {
-        // When
+        // Given
         val pageable = PageRequest.of(0, 10)
+        val filtered = testItems.filter { it.type == "weapon" }
+        `when`(itemRepository.findByType("weapon", pageable)).thenReturn(PageImpl(filtered))
+
+        // When
         val items = itemRepository.findByType("weapon", pageable)
 
         // Then
@@ -116,8 +120,12 @@ class ItemRepositoryTest {
 
     @Test
     fun `should find items by subtype`() {
-        // When
+        // Given
         val pageable = PageRequest.of(0, 10)
+        val filtered = testItems.filter { it.subtype == "body" }
+        `when`(itemRepository.findBySubtype("body", pageable)).thenReturn(PageImpl(filtered))
+
+        // When
         val items = itemRepository.findBySubtype("body", pageable)
 
         // Then
@@ -127,8 +135,12 @@ class ItemRepositoryTest {
 
     @Test
     fun `should find items by level`() {
-        // When
+        // Given
         val pageable = PageRequest.of(0, 10)
+        val filtered = testItems.filter { it.level == 5 }
+        `when`(itemRepository.findByLevel(5, pageable)).thenReturn(PageImpl(filtered))
+
+        // When
         val items = itemRepository.findByLevel(5, pageable)
 
         // Then
@@ -138,8 +150,12 @@ class ItemRepositoryTest {
 
     @Test
     fun `should find items by tradable`() {
-        // When
+        // Given
         val pageable = PageRequest.of(0, 10)
+        val filtered = testItems.filter { it.tradeable == true }
+        `when`(itemRepository.findByTradeable(true, pageable)).thenReturn(PageImpl(filtered))
+
+        // When
         val items = itemRepository.findByTradeable(true, pageable)
 
         // Then

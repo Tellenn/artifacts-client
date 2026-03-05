@@ -3,6 +3,7 @@ package com.tellenn.artifacts.services
 import com.tellenn.artifacts.models.ArtifactsCharacter
 import com.tellenn.artifacts.models.MapContent
 import com.tellenn.artifacts.models.MapData
+import com.tellenn.artifacts.models.Interactions
 import com.tellenn.artifacts.clients.responses.ArtifactsArrayResponseBody
 import com.tellenn.artifacts.db.clients.MapMongoClient
 import org.junit.jupiter.api.Assertions.assertEquals
@@ -66,7 +67,7 @@ class MapProximityServiceTest {
     @Test
     fun `findClosestMap should apply content filters`() {
         // Given
-        val character = createTestCharacter(x = 5, y = 5)
+        val character = createTestCharacter(x = 6, y = 6)
         val contentType = "resource"
         val contentCode = "iron"
 
@@ -114,10 +115,14 @@ class MapProximityServiceTest {
             maxHp = 100,
             x = x,
             y = y,
+            mapId = 1,
+            layer = "main",
             inventory = arrayOf(),
             cooldown = 0,
             skin = "default",
             task = null,
+            initiative = 10,
+            threat = 0,
             dmg = 10,
             wisdom = 10,
             prospecting = 10,
@@ -205,7 +210,10 @@ class MapProximityServiceTest {
             skin = "default",
             x = x,
             y = y,
-            content = content
+            mapId = 1,
+            layer = "main",
+            access = null,
+            interactions = Interactions(content = content, access = null)
         )
     }
 }

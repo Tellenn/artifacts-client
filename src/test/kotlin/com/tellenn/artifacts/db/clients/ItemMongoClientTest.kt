@@ -1,21 +1,25 @@
 package com.tellenn.artifacts.db.clients
 
-import com.tellenn.artifacts.config.MongoTestBase
 import com.tellenn.artifacts.db.documents.ItemDocument
 import com.tellenn.artifacts.db.repositories.ItemRepository
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.Assertions.*
-import org.springframework.beans.factory.annotation.Autowired
+import org.mockito.Mockito
+import org.mockito.Mockito.*
+import org.springframework.data.domain.PageImpl
+import org.springframework.data.mongodb.core.MongoTemplate
+import org.springframework.data.mongodb.core.query.Query
+import org.springframework.data.domain.PageRequest
+import org.springframework.data.domain.Pageable
+import java.util.Optional
 
-class ItemMongoClientTest : MongoTestBase() {
+class ItemMongoClientTest {
 
-    @Autowired
     private lateinit var itemMongoClient: ItemMongoClient
-
-    @Autowired
     private lateinit var itemRepository: ItemRepository
+    private lateinit var mongoTemplate: MongoTemplate
 
     private val testItems = listOf(
         ItemDocument(
@@ -75,17 +79,21 @@ class ItemMongoClientTest : MongoTestBase() {
         )
     )
 
+    private fun <T> any(type: Class<T>): T = Mockito.any(type)
+    private fun <T> eq(value: T): T = Mockito.eq(value)
+
     @BeforeEach
     fun setup() {
-        // Clear the repository and insert test data
-        itemRepository.deleteAll()
-        itemRepository.saveAll(testItems)
+        itemRepository = mock(ItemRepository::class.java)
+        mongoTemplate = mock(MongoTemplate::class.java)
+        itemMongoClient = ItemMongoClient(itemRepository, mongoTemplate)
+
+        // Default mock behaviors
+        `when`(itemRepository.findAll(any(Pageable::class.java))).thenReturn(PageImpl(testItems))
     }
 
     @AfterEach
     fun cleanup() {
-        // Clean up after each test
-        itemRepository.deleteAll()
     }
 
     @Test
@@ -105,6 +113,10 @@ class ItemMongoClientTest : MongoTestBase() {
 
     @Test
     fun `should get items with pagination`() {
+        // Given
+        val subList = testItems.subList(0, 2)
+        `when`(itemRepository.findAll(any(Pageable::class.java))).thenReturn(PageImpl(subList, PageRequest.of(0, 2), 5))
+
         // When
         val response = itemMongoClient.getItems(page = 1, size = 2)
 
@@ -117,6 +129,10 @@ class ItemMongoClientTest : MongoTestBase() {
 
     @Test
     fun `should get items by name`() {
+        // Given
+        val filtered = testItems.filter { it.name.contains("sword", ignoreCase = true) }
+        `when`(itemRepository.findByNameContainingIgnoreCase(eq("sword"), any(Pageable::class.java))).thenReturn(PageImpl(filtered))
+
         // When
         val response = itemMongoClient.getItems(name = "sword")
 
@@ -128,6 +144,10 @@ class ItemMongoClientTest : MongoTestBase() {
 
     @Test
     fun `should get items by type`() {
+        // Given
+        val filtered = testItems.filter { it.type == "armor" }
+        `when`(itemRepository.findByType(eq("armor"), any(Pageable::class.java))).thenReturn(PageImpl(filtered))
+
         // When
         val response = itemMongoClient.getItems(type = "armor")
 
@@ -140,6 +160,10 @@ class ItemMongoClientTest : MongoTestBase() {
 
     @Test
     fun `should get items by subtype`() {
+        // Given
+        val filtered = testItems.filter { it.subtype == "shield" }
+        `when`(itemRepository.findBySubtype(eq("shield"), any(Pageable::class.java))).thenReturn(PageImpl(filtered))
+
         // When
         val response = itemMongoClient.getItems(subtype = "shield")
 
@@ -150,6 +174,10 @@ class ItemMongoClientTest : MongoTestBase() {
 
     @Test
     fun `should get items by level`() {
+        // Given
+        val filtered = testItems.filter { it.level == 5 }
+        `when`(itemRepository.findByLevel(eq(5), any(Pageable::class.java))).thenReturn(PageImpl(filtered))
+
         // When
         val response = itemMongoClient.getItems(level = 5)
 
@@ -160,6 +188,11 @@ class ItemMongoClientTest : MongoTestBase() {
 
     @Test
     fun `should get items by level range`() {
+        // Given
+        val filtered = testItems.filter { it.level in 10..15 }
+        `when`(mongoTemplate.find(any(Query::class.java), eq(ItemDocument::class.java))).thenReturn(filtered)
+        `when`(mongoTemplate.count(any(Query::class.java), eq(ItemDocument::class.java))).thenReturn(filtered.size.toLong())
+
         // When
         val response = itemMongoClient.getItems(minLevel = 10, maxLevel = 15)
 
@@ -171,6 +204,11 @@ class ItemMongoClientTest : MongoTestBase() {
 
     @Test
     fun `should get items by minimum level`() {
+        // Given
+        val filtered = testItems.filter { it.level >= 15 }
+        `when`(mongoTemplate.find(any(Query::class.java), eq(ItemDocument::class.java))).thenReturn(filtered)
+        `when`(mongoTemplate.count(any(Query::class.java), eq(ItemDocument::class.java))).thenReturn(filtered.size.toLong())
+
         // When
         val response = itemMongoClient.getItems(minLevel = 15)
 
@@ -182,6 +220,11 @@ class ItemMongoClientTest : MongoTestBase() {
 
     @Test
     fun `should get items by maximum level`() {
+        // Given
+        val filtered = testItems.filter { it.level <= 5 }
+        `when`(mongoTemplate.find(any(Query::class.java), eq(ItemDocument::class.java))).thenReturn(filtered)
+        `when`(mongoTemplate.count(any(Query::class.java), eq(ItemDocument::class.java))).thenReturn(filtered.size.toLong())
+
         // When
         val response = itemMongoClient.getItems(maxLevel = 5)
 
@@ -193,6 +236,10 @@ class ItemMongoClientTest : MongoTestBase() {
 
     @Test
     fun `should get items by tradeable`() {
+        // Given
+        val filtered = testItems.filter { it.tradeable == true }
+        `when`(itemRepository.findByTradeable(eq(true), any(Pageable::class.java))).thenReturn(PageImpl(filtered))
+
         // When
         val response = itemMongoClient.getItems(tradeable = true)
 
@@ -205,6 +252,11 @@ class ItemMongoClientTest : MongoTestBase() {
 
     @Test
     fun `should get items by multiple criteria`() {
+        // Given
+        val filtered = testItems.filter { it.type == "armor" && it.level >= 15 && it.tradeable }
+        `when`(mongoTemplate.find(any(Query::class.java), eq(ItemDocument::class.java))).thenReturn(filtered)
+        `when`(mongoTemplate.count(any(Query::class.java), eq(ItemDocument::class.java))).thenReturn(filtered.size.toLong())
+
         // When
         val response = itemMongoClient.getItems(type = "armor", minLevel = 15, tradeable = true)
 
@@ -215,6 +267,9 @@ class ItemMongoClientTest : MongoTestBase() {
 
     @Test
     fun `should get item details by code`() {
+        // Given
+        `when`(itemRepository.findById("TEST_SWORD_1")).thenReturn(Optional.of(testItems[0]))
+
         // When
         val response = itemMongoClient.getItemDetails("TEST_SWORD_1")
 
@@ -232,6 +287,9 @@ class ItemMongoClientTest : MongoTestBase() {
 
     @Test
     fun `should throw exception when item not found`() {
+        // Given
+        `when`(itemRepository.findById("NONEXISTENT_ITEM")).thenReturn(Optional.empty())
+
         // Then
         assertThrows(NoSuchElementException::class.java) {
             // When

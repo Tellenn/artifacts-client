@@ -6,9 +6,7 @@ import com.tellenn.artifacts.models.ArtifactsCharacter
 import com.tellenn.artifacts.models.InventorySlot
 import com.tellenn.artifacts.models.MapContent
 import com.tellenn.artifacts.models.MapData
-import com.tellenn.artifacts.config.MongoTestConfiguration
-import com.tellenn.artifacts.db.documents.BankItemDocument
-import com.tellenn.artifacts.db.documents.ItemDocument
+import com.tellenn.artifacts.models.Interactions
 import com.tellenn.artifacts.db.repositories.BankItemRepository
 import com.tellenn.artifacts.db.repositories.ItemRepository
 import com.tellenn.artifacts.services.sync.BankItemSyncService
@@ -20,17 +18,9 @@ import org.mockito.Mockito
 import org.mockito.Mockito.`when`
 import org.mockito.Mockito.verify
 import org.mockito.Mockito.never
-import org.springframework.beans.factory.annotation.Autowired
-import org.springframework.boot.test.context.SpringBootTest
-import org.springframework.context.annotation.Import
-import org.testcontainers.junit.jupiter.Testcontainers
 
-@SpringBootTest
-@Import(MongoTestConfiguration::class)
-@Testcontainers
 class BankServiceTest {
 
-    @Autowired
     private lateinit var characterService: CharacterService
     private lateinit var bankClient: BankClient
     private lateinit var accountClient: AccountClient
@@ -38,11 +28,7 @@ class BankServiceTest {
     private lateinit var mapService: MapService
     private lateinit var movementService: MovementService
     private lateinit var bankItemSyncService: BankItemSyncService
-
-    @Autowired
     private lateinit var bankRepository: BankItemRepository
-
-    @Autowired
     private lateinit var itemRepository: ItemRepository
 
     @BeforeEach
@@ -53,12 +39,11 @@ class BankServiceTest {
         mapService = Mockito.mock(MapService::class.java)
         movementService = Mockito.mock(MovementService::class.java)
         bankItemSyncService = Mockito.mock(BankItemSyncService::class.java)
+        characterService = Mockito.mock(CharacterService::class.java)
+        bankRepository = Mockito.mock(BankItemRepository::class.java)
+        itemRepository = Mockito.mock(ItemRepository::class.java)
 
-        // Clear repositories
-        bankRepository.deleteAll()
-        itemRepository.deleteAll()
-
-        // Create the service with real repositories and mocked clients
+        // Create the service with mocked repositories and clients
         bankService = BankService(
             bankClient,
             bankRepository,
@@ -73,9 +58,7 @@ class BankServiceTest {
 
     @AfterEach
     fun cleanup() {
-        // Clean up after each test
-        bankRepository.deleteAll()
-        itemRepository.deleteAll()
+        // No cleanup needed for mocks
     }
 
     @Test
@@ -86,7 +69,16 @@ class BankServiceTest {
         val characterAtBank = createTestCharacter(arrayOf(), bankX, bankY)
 
         val bankMapContent = MapContent(type = "building", code = "bank")
-        val bankMapData = MapData(name = "Bank", skin = "bank", x = bankX, y = bankY, content = bankMapContent)
+        val bankMapData = MapData(
+            name = "Bank",
+            skin = "bank",
+            x = bankX,
+            y = bankY,
+            mapId = 1,
+            layer = "main",
+            access = null,
+            interactions = Interactions(content = bankMapContent, access = null)
+        )
 
         `when`(mapService.findClosestMap(characterAtBank, contentCode = "bank")).thenReturn(bankMapData)
 
@@ -110,7 +102,16 @@ class BankServiceTest {
         val characterAfterMove = createTestCharacter(arrayOf(), bankX, bankY)
 
         val bankMapContent = MapContent(type = "building", code = "bank")
-        val bankMapData = MapData(name = "Bank", skin = "bank", x = bankX, y = bankY, content = bankMapContent)
+        val bankMapData = MapData(
+            name = "Bank",
+            skin = "bank",
+            x = bankX,
+            y = bankY,
+            mapId = 1,
+            layer = "main",
+            access = null,
+            interactions = Interactions(content = bankMapContent, access = null)
+        )
 
         `when`(mapService.findClosestMap(characterNotAtBank, contentCode = "bank")).thenReturn(bankMapData)
         `when`(movementService.moveCharacterToCell(bankX, bankY, characterNotAtBank)).thenReturn(characterAfterMove)
@@ -134,10 +135,14 @@ class BankServiceTest {
             maxHp = 100,
             x = x,
             y = y,
+            mapId = 1,
+            layer = "main",
             inventory = inventory,
             cooldown = 0,
             skin = "default",
             task = null,
+            initiative = 10,
+            threat = 0,
             dmg = 10,
             wisdom = 10,
             prospecting = 10,
@@ -205,37 +210,6 @@ class BankServiceTest {
             utility2SlotQuantity = 0,
             bagSlot = null,
             cooldownExpiration = null
-        )
-    }
-
-    private fun createTestItemDocument(code: String, name: String): ItemDocument {
-        return ItemDocument(
-            code = code,
-            name = name,
-            description = "Test description",
-            type = "Test type",
-            subtype = "Test subtype",
-            level = 1,
-            tradeable = true,
-            effects = null,
-            craft = null,
-            conditions = null
-        )
-    }
-
-    private fun createTestBankItemDocument(code: String, name: String, quantity: Int): BankItemDocument {
-        return BankItemDocument(
-            code = code,
-            name = name,
-            description = "Test description",
-            type = "Test type",
-            subtype = "Test subtype",
-            level = 1,
-            tradeable = true,
-            effects = null,
-            craft = null,
-            conditions = null,
-            quantity = quantity
         )
     }
 }

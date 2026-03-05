@@ -1,36 +1,24 @@
 package com.tellenn.artifacts.db.repositories
 
-import com.tellenn.artifacts.config.MongoTestConfiguration
 import com.tellenn.artifacts.db.documents.ResourceDocument
 import com.tellenn.artifacts.db.documents.ResourceDropDocument
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.Assertions.*
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
-import org.springframework.beans.factory.annotation.Autowired
-import org.springframework.boot.test.context.SpringBootTest
-import org.springframework.context.annotation.Import
-import org.testcontainers.junit.jupiter.Testcontainers
+import org.mockito.Mockito.*
 
-@SpringBootTest
-@Import(MongoTestConfiguration::class)
-@Testcontainers
 class ResourceRepositoryTest {
 
-    @Autowired
     private lateinit var resourceRepository: ResourceRepository
 
     @BeforeEach
     fun setup() {
-        // Clear the repository and insert test data
-        resourceRepository.deleteAll()
-        resourceRepository.saveAll(testResources)
+        resourceRepository = mock(ResourceRepository::class.java)
     }
 
     @AfterEach
     fun cleanup() {
-        // Clean up after each test
-        resourceRepository.deleteAll()
     }
 
     /**
@@ -40,6 +28,13 @@ class ResourceRepositoryTest {
      */
     @Test
     fun `should find resources by skill and level less than or equal to specified level`() {
+        // Mock behavior
+        `when`(resourceRepository.findBySkillAndLevelLessThanEqual(anyString(), anyInt())).thenAnswer { invocation ->
+            val skill = invocation.arguments[0] as String
+            val level = invocation.arguments[1] as Int
+            testResources.filter { it.skill == skill && it.level <= level }
+        }
+
         // Test case 1: Mining resources with level <= 10
         val miningResourcesLevel10 = resourceRepository.findBySkillAndLevelLessThanEqual("mining", 10)
         

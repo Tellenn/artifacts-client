@@ -3,7 +3,7 @@ package com.tellenn.artifacts.services
 import com.tellenn.artifacts.models.ArtifactsCharacter
 import com.tellenn.artifacts.models.MapContent
 import com.tellenn.artifacts.models.MapData
-import com.tellenn.artifacts.config.MongoTestConfiguration
+import com.tellenn.artifacts.models.Interactions
 import com.tellenn.artifacts.db.clients.MapMongoClient
 import com.tellenn.artifacts.db.documents.ResourceDocument
 import com.tellenn.artifacts.db.documents.ResourceDropDocument
@@ -15,32 +15,21 @@ import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.assertThrows
 import org.mockito.Mockito.*
-import org.springframework.beans.factory.annotation.Autowired
-import org.springframework.boot.test.context.SpringBootTest
-import org.springframework.context.annotation.Import
-import org.testcontainers.junit.jupiter.Testcontainers
 
-@SpringBootTest
-@Import(MongoTestConfiguration::class)
-@Testcontainers
 class ResourceServiceTest {
 
     private lateinit var resourceService: ResourceService
     private lateinit var mapService: MapService
     private lateinit var mapMongoClient: MapMongoClient
     private lateinit var character: ArtifactsCharacter
-
-    @Autowired
     private lateinit var resourceRepository: ResourceRepository
 
     @BeforeEach
     fun setUp() {
-        // Clear repository
-        resourceRepository.deleteAll()
-
         // Create mocks for services not being tested
         mapService = mock(MapService::class.java)
         mapMongoClient = mock(MapMongoClient::class.java)
+        resourceRepository = mock(ResourceRepository::class.java)
 
         // Create the service with real repository and mocked services
         resourceService = ResourceService(mapService, mapMongoClient, resourceRepository)
@@ -58,8 +47,7 @@ class ResourceServiceTest {
 
     @AfterEach
     fun cleanup() {
-        // Clean up after each test
-        resourceRepository.deleteAll()
+        // No cleanup needed for mocks
     }
 
     private fun initializeTestData() {
@@ -98,8 +86,18 @@ class ResourceServiceTest {
             createResourceDocument("glowstem", "Glowstem", "alchemy", 40)
         )
 
-        // Save all resources to the repository
-        resourceRepository.saveAll(miningResources + woodcuttingResources + fishingResources + alchemyResources)
+        val allResources = miningResources + woodcuttingResources + fishingResources + alchemyResources
+
+        // Mock repository methods
+        `when`(resourceRepository.findBySkill(anyString())).thenAnswer { invocation ->
+            val skill = invocation.arguments[0] as String
+            allResources.filter { it.skill == skill }
+        }
+        `when`(resourceRepository.findBySkillAndLevelLessThanEqual(anyString(), anyInt())).thenAnswer { invocation ->
+            val skill = invocation.arguments[0] as String
+            val level = invocation.arguments[1] as Int
+            allResources.filter { it.skill == skill && it.level <= level }
+        }
     }
 
     private fun createResourceDocument(code: String, name: String, skill: String, level: Int): ResourceDocument {
@@ -129,7 +127,10 @@ class ResourceServiceTest {
             skin = "mine",
             x = 150,
             y = 150,
-            content = MapContent(type = "ore", code = "silver")
+            mapId = 1,
+            layer = "main",
+            access = null,
+            interactions = Interactions(content = MapContent(type = "ore", code = "silver"), access = null)
         )
 
         // Mock the mapProximityService to return the silver map
@@ -152,7 +153,10 @@ class ResourceServiceTest {
             skin = "mine",
             x = 150,
             y = 150,
-            content = MapContent(type = "ore", code = "iron")
+            mapId = 1,
+            layer = "main",
+            access = null,
+            interactions = Interactions(content = MapContent(type = "ore", code = "iron"), access = null)
         )
 
         // Mock the mapProximityService to throw exception for silver but return iron map
@@ -212,7 +216,10 @@ class ResourceServiceTest {
             skin = "mine",
             x = 150,
             y = 150,
-            content = MapContent(type = "mining", code = "tin")
+            mapId = 1,
+            layer = "main",
+            access = null,
+            interactions = Interactions(content = MapContent(type = "mining", code = "tin"), access = null)
         )
 
         // Mock the mapProximityService to return the tin map
