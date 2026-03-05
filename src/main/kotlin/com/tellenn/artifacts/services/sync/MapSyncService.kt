@@ -2,6 +2,7 @@ package com.tellenn.artifacts.services.sync
 
 import com.tellenn.artifacts.clients.MapClient
 import com.tellenn.artifacts.db.repositories.MapRepository
+import com.tellenn.artifacts.models.MapData
 import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
@@ -46,8 +47,10 @@ class MapSyncService(
                     page = currentPage,
                     size = pageSize
                 )
-                val dataPage = response.data
+                var dataPage = response.data
                 totalPages = response.pages
+
+                dataPage = enrichMaps(dataPage)
 
                 mapRepository.saveAll(dataPage)
 
@@ -111,5 +114,37 @@ class MapSyncService(
             logger.error("Failed to sync map chunk at ($x,$y)", e)
             return false
         }
+    }
+
+    private fun enrichMaps(maps : List<MapData>) : List<MapData>{
+        maps.forEach {
+            if (it.skin.startsWith("mine_")) {
+                it.region = 2
+            }else if (it.skin.startsWith("mine3_8")) {
+                it.region = 4
+            }else if (it.skin.startsWith("mine3_")) {
+                it.region = 3
+            }else if (it.skin.startsWith("lichmine_")) {
+                it.region = 4
+            }else if (it.skin.startsWith("desertmine_6")) {
+                it.region = 7
+            }else if (it.skin.startsWith("desertmine_")) {
+                it.region = 6
+            }else if (it.skin.startsWith("desertisland_house")) {
+                it.region = 10
+            }else if (it.skin.startsWith("rosenblood_")) {
+                it.region = 8
+            }else if (it.skin.startsWith("abandonedhouse_")) {
+                it.region = 9
+            }else if (it.skin.startsWith("desertisland_")) {
+                it.region = 5
+            }else {
+                it.region = 1
+            }
+            if(it.access?.type == "blocked"){
+                it.region = 0
+            }
+        }
+        return maps
     }
 }

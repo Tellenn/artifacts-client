@@ -12,6 +12,7 @@ class MapData(
     @param:JsonProperty("layer") val layer: String,
     @param:JsonProperty("access") val access: Access?,
     @param:JsonProperty("interactions") val interactions: Interactions?,
+    var region: Int? // Added by analyzing which map you can directly enter from another. Begining one is 1
 )
 
 @Suppress("unused")
@@ -30,7 +31,7 @@ class Conditions(
 @Suppress("unused")
 class Interactions(
     @param:JsonProperty("content") val content: MapContent?,
-    @param:JsonProperty("transition") val access: Transition?
+    @param:JsonProperty("transition") val transition: Transition?
 )
 
 @Suppress("unused")
