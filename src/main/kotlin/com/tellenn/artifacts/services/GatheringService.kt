@@ -158,6 +158,7 @@ class GatheringService(
                     }
                     newCharacter = gather.character
                 }catch (e: CharacterInventoryFullException){
+                    log.warn("${newCharacter.name} is emptying their inventory", e)
                     newCharacter = accountClient.getCharacter(newCharacter.name).data
                     newCharacter = bankService.emptyInventory(newCharacter)
                     newCharacter = movementService.moveCharacterToCell(mapData.x, mapData.y, newCharacter)
