@@ -1,7 +1,6 @@
 package com.tellenn.artifacts.services
 
 import com.tellenn.artifacts.AppConfig
-import com.tellenn.artifacts.clients.AccountClient
 import com.tellenn.artifacts.clients.MonsterClient
 import com.tellenn.artifacts.db.documents.BankItemDocument
 import com.tellenn.artifacts.models.ArtifactsCharacter
@@ -12,7 +11,7 @@ import com.tellenn.artifacts.db.documents.ItemDocument
 import com.tellenn.artifacts.db.repositories.ItemRepository
 import com.tellenn.artifacts.exceptions.NotFoundException
 import com.tellenn.artifacts.services.battlesim.BattleSimulatorService
-import org.apache.logging.log4j.LogManager
+import com.tellenn.artifacts.services.sync.BankItemSyncService
 import org.springframework.stereotype.Service
 import kotlin.math.min
 
@@ -27,10 +26,9 @@ class EquipmentService(
     private val itemRepository: ItemRepository,
     private val characterService: CharacterService,
     private val itemService: ItemService,
-    private val battleSimulatorService: BattleSimulatorService
+    private val battleSimulatorService: BattleSimulatorService,
+    private val bankItemSyncService: BankItemSyncService
 ) {
-    private val log = LogManager.getLogger(EquipmentService::class.java)
-
     fun equipBestAvailableEquipmentForMonsterInBank(character: ArtifactsCharacter, monsterCode: String) : ArtifactsCharacter{
         val bis = findBestEquipmentForMonsterInBank(character, monsterCode)
         var newCharacter = bankService.moveToBank(character)
@@ -101,7 +99,7 @@ class EquipmentService(
         if(initialResult.win){
             return character
         }
-        var fakeCharacter = character
+        val fakeCharacter = character
         val monster = monsterClient.getMonster(monsterCode).data
 
         val monsterEffects = monster.effects.map { it.code }
@@ -260,6 +258,7 @@ class EquipmentService(
                     }
                 }
             } catch (_: NotFoundException) {
+                bankItemSyncService.syncAllItems()
                 return equipBestAvailableEquipmentForCraftingOrGatheringInBank(newCharacter)
             }
             // We do not empty the inventory in this case because the character may be crafting or gathering with requirements. There should be enough spaces tho

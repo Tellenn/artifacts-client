@@ -7,6 +7,7 @@ services:
       - ARTIFACTS_API_KEY=${ARTIFACTS_API_KEY}
       - ARTIFACTS_API_URL=https://api.artifactsmmo.com
       - SPRING_DATA_MONGODB_URI=mongodb://mongo:27017/tellenn-artifacts
+      - SPRING_DATA_MONGODB_DATABASE=artifacts
     depends_on:
       - mongo
     networks:
