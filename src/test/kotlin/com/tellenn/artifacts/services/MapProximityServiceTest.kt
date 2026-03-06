@@ -213,7 +213,8 @@ class MapProximityServiceTest {
             mapId = 1,
             layer = "main",
             access = null,
-            interactions = Interactions(content = content, access = null)
+            interactions = Interactions(content = content, transition = null),
+            region = 1
         )
     }
 }

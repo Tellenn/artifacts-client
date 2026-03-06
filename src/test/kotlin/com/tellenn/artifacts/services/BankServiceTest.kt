@@ -77,7 +77,8 @@ class BankServiceTest {
             mapId = 1,
             layer = "main",
             access = null,
-            interactions = Interactions(content = bankMapContent, access = null)
+            interactions = Interactions(content = bankMapContent, transition = null),
+            region = 1
         )
 
         `when`(mapService.findClosestMap(characterAtBank, contentCode = "bank")).thenReturn(bankMapData)
@@ -110,7 +111,8 @@ class BankServiceTest {
             mapId = 1,
             layer = "main",
             access = null,
-            interactions = Interactions(content = bankMapContent, access = null)
+            interactions = Interactions(content = bankMapContent, transition = null),
+            region = 1
         )
 
         `when`(mapService.findClosestMap(characterNotAtBank, contentCode = "bank")).thenReturn(bankMapData)

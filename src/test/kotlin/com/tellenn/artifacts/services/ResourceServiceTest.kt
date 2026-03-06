@@ -130,7 +130,10 @@ class ResourceServiceTest {
             mapId = 1,
             layer = "main",
             access = null,
-            interactions = Interactions(content = MapContent(type = "ore", code = "silver"), access = null)
+            interactions = Interactions(
+                content = MapContent(type = "ore", code = "silver"), transition = null
+            ),
+            region = 1
         )
 
         // Mock the mapProximityService to return the silver map
@@ -156,7 +159,10 @@ class ResourceServiceTest {
             mapId = 1,
             layer = "main",
             access = null,
-            interactions = Interactions(content = MapContent(type = "ore", code = "iron"), access = null)
+            interactions = Interactions(
+                content = MapContent(type = "ore", code = "iron"), transition = null
+            ),
+            region = 1
         )
 
         // Mock the mapProximityService to throw exception for silver but return iron map
@@ -219,7 +225,10 @@ class ResourceServiceTest {
             mapId = 1,
             layer = "main",
             access = null,
-            interactions = Interactions(content = MapContent(type = "mining", code = "tin"), access = null)
+            interactions = Interactions(
+                content = MapContent(type = "ore", code = "tin"), transition = null
+            ),
+            region = 1
         )
 
         // Mock the mapProximityService to return the tin map
