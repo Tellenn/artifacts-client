@@ -1,6 +1,7 @@
 package com.tellenn.artifacts.services
 
 import com.tellenn.artifacts.AppConfig
+import com.tellenn.artifacts.clients.AccountClient
 import com.tellenn.artifacts.clients.MonsterClient
 import com.tellenn.artifacts.db.documents.BankItemDocument
 import com.tellenn.artifacts.models.ArtifactsCharacter
@@ -27,7 +28,8 @@ class EquipmentService(
     private val characterService: CharacterService,
     private val itemService: ItemService,
     private val battleSimulatorService: BattleSimulatorService,
-    private val bankItemSyncService: BankItemSyncService
+    private val bankItemSyncService: BankItemSyncService,
+    private val accountClient: AccountClient
 ) {
     fun equipBestAvailableEquipmentForMonsterInBank(character: ArtifactsCharacter, monsterCode: String) : ArtifactsCharacter{
         val bis = findBestEquipmentForMonsterInBank(character, monsterCode)
@@ -240,10 +242,10 @@ class EquipmentService(
         if(bis.any { it.value != null }) {
             newCharacter = bankService.moveToBank(character)
 
-            bis.forEach { slot, item ->
+            bis.forEach { (slot, item) ->
                 if (item?.code != null && character[slot + "_slot"] != item.code) {
                     // Ring specific case
-                    if (bankWithdraw.contains(SimpleItem(item.code, 1))) {
+                    if ((slot == "ring1_slot" || slot == "ring2_slot") && bankWithdraw.contains(SimpleItem(item.code, 1))) {
                         bankWithdraw.remove(SimpleItem(item.code, 1))
                         bankWithdraw.add(SimpleItem(item.code, 2))
                     }
@@ -259,6 +261,7 @@ class EquipmentService(
                 }
             } catch (_: NotFoundException) {
                 bankItemSyncService.syncAllItems()
+                newCharacter = accountClient.getCharacter(newCharacter.name).data
                 return equipBestAvailableEquipmentForCraftingOrGatheringInBank(newCharacter)
             }
             // We do not empty the inventory in this case because the character may be crafting or gathering with requirements. There should be enough spaces tho
