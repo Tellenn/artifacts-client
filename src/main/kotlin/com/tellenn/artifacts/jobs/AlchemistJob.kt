@@ -7,17 +7,12 @@ import com.tellenn.artifacts.models.ArtifactsCharacter
 import com.tellenn.artifacts.models.ItemDetails
 import com.tellenn.artifacts.models.SimpleItem
 import com.tellenn.artifacts.services.BankService
-import com.tellenn.artifacts.services.BattleService
 import com.tellenn.artifacts.services.CharacterService
 import com.tellenn.artifacts.services.GatheringService
 import com.tellenn.artifacts.services.ItemService
 import com.tellenn.artifacts.services.MapService
-import com.tellenn.artifacts.services.MerchantService
 import com.tellenn.artifacts.services.MovementService
-import com.tellenn.artifacts.services.ResourceService
 import com.tellenn.artifacts.services.TaskService
-import jdk.jshell.spi.ExecutionControl
-import org.springframework.context.ApplicationContext
 import org.springframework.stereotype.Component
 import java.lang.Thread.sleep
 import kotlin.math.max
@@ -36,7 +31,6 @@ class AlchemistJob(
     private val gatheringService: GatheringService,
     private val itemService: ItemService,
     private val itemRepository: ItemRepository,
-    private val merchantService: MerchantService,
 ) : GenericJob(mapService, movementService, bankService, characterService, accountClient, taskService) {
 
     lateinit var character: ArtifactsCharacter
@@ -83,6 +77,15 @@ class AlchemistJob(
                     continue
                     // Otherwise levelup
                 }else if(character.alchemyLevel < maxLevel){
+                    if(character.alchemyLevel < 5){
+                        character = gatheringService.craftOrGather(
+                            character = character,
+                            itemCode = "sunflower",
+                            quantity = (character.inventoryMaxItems -10 ),
+                            allowFight = false
+                            )
+                        continue
+                    }
                     val item =
                         itemService.getBestCraftableItemsBySkillAndSubtypeAndMaxLevel(skill, "potion", character.alchemyLevel)
                     if (item == null) {

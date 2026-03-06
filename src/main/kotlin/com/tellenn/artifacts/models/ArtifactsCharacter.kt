@@ -118,6 +118,7 @@ class ArtifactsCharacter(
             "artifact1_slot" -> artifact1Slot
             "artifact2_slot" -> artifact2Slot
             "artifact3_slot" -> artifact3Slot
+            "bag_slot" -> bagSlot
             else -> null
         }
     }
