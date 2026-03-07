@@ -48,7 +48,6 @@ class MapMongoClient(
             // Add content criteria if at least one content filter is specified
             content_type?.let { query.addCriteria(Criteria.where("interactions.content.type").`is`(it)) }
             content_code?.let { query.addCriteria(Criteria.where("interactions.content.code").`is`(it)) }
-
             // Apply pagination
             query.with(pageable)
 

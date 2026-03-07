@@ -125,19 +125,19 @@ class MapSyncService(
             }else if (it.skin.startsWith("mine3_")) {
                 it.region = 3
             }else if (it.skin.startsWith("lichmine_")) {
-                it.region = 4
+                it.region = 5
             }else if (it.skin.startsWith("desertmine_6")) {
-                it.region = 7
+                it.region = 11
             }else if (it.skin.startsWith("desertmine_")) {
                 it.region = 6
             }else if (it.skin.startsWith("desertisland_house")) {
                 it.region = 10
             }else if (it.skin.startsWith("rosenblood_")) {
-                it.region = 8
+                it.region = 7
             }else if (it.skin.startsWith("abandonedhouse_")) {
-                it.region = 9
+                it.region = 8
             }else if (it.skin.startsWith("desertisland_")) {
-                it.region = 5
+                it.region = 9
             }else {
                 it.region = 1
             }
