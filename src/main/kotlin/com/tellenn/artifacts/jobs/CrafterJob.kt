@@ -1,20 +1,16 @@
 package com.tellenn.artifacts.jobs
 
-import com.tellenn.artifacts.AppConfig
 import com.tellenn.artifacts.clients.AccountClient
 import com.tellenn.artifacts.db.documents.BankItemDocument
 import com.tellenn.artifacts.db.documents.CraftedItemDocument
-import com.tellenn.artifacts.db.documents.ItemDocument
 import com.tellenn.artifacts.db.repositories.CraftedItemRepository
 import com.tellenn.artifacts.exceptions.BattleLostException
 import com.tellenn.artifacts.exceptions.CharacterSkillTooLow
 import com.tellenn.artifacts.exceptions.MissingItemException
 import com.tellenn.artifacts.exceptions.UnknownMapException
 import com.tellenn.artifacts.models.ArtifactsCharacter
-import com.tellenn.artifacts.models.BankItem
 import com.tellenn.artifacts.models.ItemDetails
 import com.tellenn.artifacts.services.BankService
-import com.tellenn.artifacts.services.BattleService
 import com.tellenn.artifacts.services.CharacterService
 import com.tellenn.artifacts.services.EventService
 import com.tellenn.artifacts.services.GatheringService
@@ -108,7 +104,8 @@ class CrafterJob(
                         character = accountClient.getCharacter(character.name).data
                         character = bankService.emptyInventory(character)
                     }catch (e: CharacterSkillTooLow){
-                        log.warn("A sub component of the crafting of ${itemDetail.code} failed because the character has too low skill level", e)
+                        log.warn("A sub component of the crafting of ${itemDetail.code} failed because the character has too low skill level")
+                        log.debug(e)
                         character = accountClient.getCharacter(character.name).data
                         character = bankService.emptyInventory(character)
                     } // TODO Another failure case can be because of an event base requirement. Need to do something about it
@@ -138,7 +135,7 @@ class CrafterJob(
                         )
                     }while (e.level == character.getLevelOf(e.skill))
                 }catch (e: Exception){
-                    log.error("Uncaught error occured while gathering in the event", e);
+                    log.error("Uncaught error occured while gathering in the event", e)
                 }
             }
         }while (true)
@@ -154,7 +151,7 @@ class CrafterJob(
     }
 
     private fun getListOfItemToCraftUnderLevel(character : ArtifactsCharacter, skills : List<String>) : List<ItemDetails>{
-        var items = ArrayList<ItemDetails>()
+        val items = ArrayList<ItemDetails>()
 
 
         for (skill in skills) {
@@ -162,7 +159,7 @@ class CrafterJob(
             items.addAll(itemService.getCrafterItemsBetweenLevel(minLevel-1, character.getLevelOf(skill) +1, listOf(skill)))
         }
         // Based on crafted history
-        val alreadyCraftedItem = craftedItemRepository.findAllByQuantityLessThan(3).map { it.code }
+        //val alreadyCraftedItem = craftedItemRepository.findAllByQuantityLessThan(3).map { it.code }
 
         // Or based on available bank items ?
         val availableCraftedItem = bankService.getAllEquipmentsUnderLevel(50).map { it.code }
@@ -225,7 +222,7 @@ class CrafterJob(
     private fun cleanUpBank(): ArtifactsCharacter {
         character = bankService.emptyInventory(character)
         var nbItems = 10
-        var itemsToRecycle = arrayListOf<ItemDetails>().toMutableList()
+        val itemsToRecycle = arrayListOf<ItemDetails>().toMutableList()
         val minCrafterLevel = min(character.weaponcraftingLevel, min( character.gearcraftingLevel, character.jewelrycraftingLevel)) -10
         bankService.getAllEquipmentsUnderLevel(minCrafterLevel)
             .map { BankItemDocument.toItemDetails(it) }

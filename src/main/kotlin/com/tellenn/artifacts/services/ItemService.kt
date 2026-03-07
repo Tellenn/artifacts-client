@@ -86,7 +86,7 @@ class ItemService(
     }
 
     fun getItemsCraftedBySkillAndItemUnderLevel(code: String, skill: String, level: Int) : List<ItemDetails> {
-        return itemRepository.findByCraftItemsCodeAndCraftSkillAndLevel(code, skill, level).map { ItemDocument.toItemDetails(it) }
+        return itemRepository.findByCraftItemsCodeAndCraftSkillAndLevelIsLessThanEqual(code, skill, level).map { ItemDocument.toItemDetails(it) }
     }
 
     fun getAllCraftableItemsBySkillAndMaxLevel(skill: String, maxLevel: Int) : List<ItemDetails> {

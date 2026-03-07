@@ -16,7 +16,7 @@ import com.tellenn.artifacts.services.MovementService
 import com.tellenn.artifacts.services.TaskService
 import org.springframework.stereotype.Component
 import java.lang.Thread.sleep
-import kotlin.math.max
+import kotlin.math.min
 
 /**
  * Job implementation for characters with the "alchemist" job.
@@ -139,7 +139,7 @@ class AlchemistJob(
                 1 -> {
                     val craftableItem = craftableItems.first()
                     if(craftableItem.craft?.items?.size == 1) {
-                        character = gatheringService.craftOrGather(character, craftableItem.code, max(character.inventoryMaxItems - 20, it.quantity) / craftableItem.craft.items[0].quantity)
+                        character = gatheringService.craftOrGather(character, craftableItem.code, min(character.inventoryMaxItems - 20, it.quantity) / craftableItem.craft.items[0].quantity)
                     }else{
                         log.debug("We have 1 craft, but it requires other items, unsure what to do so we abort")
                     }

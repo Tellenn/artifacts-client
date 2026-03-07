@@ -31,8 +31,6 @@ interface ItemRepository : MongoRepository<ItemDocument, String> {
 
     fun getByCode(code: String) : ItemDocument
 
-    fun findByCraftItemsCode(code: String) : List<ItemDocument>
-
     fun findByCraftSkillAndSubtypeAndLevelLessThanEqualOrderByLevelDesc(skillType: String, subtype: String, maxLevel: Int) : List<ItemDocument>
 
     fun findByCraftSkillAndLevelLessThanEqualOrderByLevelDesc(skillType: String, maxLevel: Int) : List<ItemDocument>
@@ -43,5 +41,5 @@ interface ItemRepository : MongoRepository<ItemDocument, String> {
 
     fun findByEffectsCode(code: String) : List<ItemDocument>
 
-    fun findByCraftItemsCodeAndCraftSkillAndLevel(code: String, skill: String, level: Int) : List<ItemDocument>
+    fun findByCraftItemsCodeAndCraftSkillAndLevelIsLessThanEqual(code: String, skill: String, level: Int) : List<ItemDocument>
 }
