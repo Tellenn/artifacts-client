@@ -2,22 +2,18 @@ package com.tellenn.artifacts.jobs
 
 import com.tellenn.artifacts.AppConfig.maxLevel
 import com.tellenn.artifacts.clients.AccountClient
+import com.tellenn.artifacts.exceptions.MapContentNotFoundException
 import com.tellenn.artifacts.models.ArtifactsCharacter
 import com.tellenn.artifacts.models.SimpleItem
 import com.tellenn.artifacts.services.BankService
-import com.tellenn.artifacts.services.BattleService
 import com.tellenn.artifacts.services.CharacterService
 import com.tellenn.artifacts.services.GatheringService
 import com.tellenn.artifacts.services.ItemService
 import com.tellenn.artifacts.services.MapService
 import com.tellenn.artifacts.services.MovementService
-import com.tellenn.artifacts.services.ResourceService
 import com.tellenn.artifacts.services.TaskService
 import com.tellenn.artifacts.services.sync.BankItemSyncService
-import jdk.jshell.spi.ExecutionControl
-import org.springframework.context.ApplicationContext
 import org.springframework.stereotype.Component
-import org.springframework.util.StringUtils
 import java.lang.Thread.sleep
 import kotlin.text.isNullOrEmpty
 
@@ -61,12 +57,17 @@ class WoodworkerJob(
 
             // Do some stock for the crafter
             if(itemsToCraft.isNotEmpty()){
-                for(it in itemsToCraft){
-                    log.info("${character.name} is stocking up on some ${it.code}")
-                    character = gatheringService.craftOrGather(character, it.code, it.quantity)
-                    character = bankService.emptyInventory(character)
+                try {
+                    for (it in itemsToCraft) {
+                        log.info("${character.name} is stocking up on some ${it.code}")
+                        character = gatheringService.craftOrGather(character, it.code, it.quantity)
+                        character = bankService.emptyInventory(character)
+                    }
+                }catch (e: MapContentNotFoundException){
+                    log.error("Tried to gather something that wasn't there. Investigate why?", e)
+                }finally {
+                    continue
                 }
-                continue
                 // Otherwise levelup
             }else if(character.woodcuttingLevel < maxLevel){
                 log.info("${character.name} is leveling his woodcutting skill")

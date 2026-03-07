@@ -3,6 +3,7 @@ package com.tellenn.artifacts.jobs
 import com.tellenn.artifacts.AppConfig.maxLevel
 import com.tellenn.artifacts.clients.AccountClient
 import com.tellenn.artifacts.db.repositories.ItemRepository
+import com.tellenn.artifacts.exceptions.MapContentNotFoundException
 import com.tellenn.artifacts.models.ArtifactsCharacter
 import com.tellenn.artifacts.models.ItemDetails
 import com.tellenn.artifacts.models.SimpleItem
@@ -104,9 +105,14 @@ class AlchemistJob(
                     // Or do some tasks to get task coins
                 }
             }else{
-                val itemsToCraft = getBestFishBasedFood()
-                log.info("${character.name} is crafting ${itemsToCraft.code} to level up their fishing / cooking")
-                character = gatheringService.craftOrGather(character, itemsToCraft.code, character.inventoryMaxItems - 20)
+                try {
+                    val itemsToCraft = getBestFishBasedFood()
+                    log.info("${character.name} is crafting ${itemsToCraft.code} to level up their fishing / cooking")
+                    character =
+                        gatheringService.craftOrGather(character, itemsToCraft.code, character.inventoryMaxItems - 20)
+                }catch (e: MapContentNotFoundException){
+                    log.error("Tried to gather something that wasn't there. Investigate why?", e)
+                }
             }
         }while(true)
     }

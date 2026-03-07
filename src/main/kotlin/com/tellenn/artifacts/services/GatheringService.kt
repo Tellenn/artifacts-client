@@ -1,14 +1,11 @@
 package com.tellenn.artifacts.services
 
 import com.tellenn.artifacts.clients.AccountClient
-import com.tellenn.artifacts.clients.CharacterClient
 import com.tellenn.artifacts.clients.CraftingClient
 import com.tellenn.artifacts.clients.GatheringClient
-import com.tellenn.artifacts.clients.ItemClient
 import com.tellenn.artifacts.clients.NpcClient
 import com.tellenn.artifacts.models.ArtifactsCharacter
 import com.tellenn.artifacts.models.ItemDetails
-import com.tellenn.artifacts.db.repositories.ItemRepository
 import com.tellenn.artifacts.exceptions.CharacterInventoryFullException
 import com.tellenn.artifacts.exceptions.CharacterSkillTooLow
 import com.tellenn.artifacts.exceptions.MissingItemException
@@ -22,55 +19,25 @@ import org.springframework.stereotype.Service
 @Service
 class GatheringService(
     private val gatheringClient: GatheringClient,
-    private val itemClient: ItemClient,
     private val mapService: MapService,
     private val movementService: MovementService,
     private val bankService: BankService,
     private val characterService: CharacterService,
-    private val itemRepository: ItemRepository,
-    private val characterClient: CharacterClient,
     private val craftingClient: CraftingClient,
     private val resourceService: ResourceService,
     private val itemService: ItemService,
     private val battleService: BattleService,
     private val equipmentService: EquipmentService,
     private val accountClient: AccountClient,
-    private val npcClient: NpcClient
+    private val npcClient: NpcClient,
+    private val clientErrorService: ClientErrorService
 ) {
     private val log = LogManager.getLogger(GatheringService::class.java)
-
-    /**
-     * Gathers a resource repeatedly until the character's inventory is full.
-     *
-     * @param character The character that will gather
-     * @param resourceCode The code of the resource to gather
-     * @return The updated character with a full inventory
-     */
-    fun gatherUntilInventoryFull(character: ArtifactsCharacter): ArtifactsCharacter {
-        var currentCharacter = character
-
-        log.debug("Character ${character.name} starting to gather resource until inventory full")
-
-        // Continue gathering until inventory is full
-        while (!characterService.isInventoryFull(currentCharacter)) {
-            try {
-                currentCharacter = gatheringClient.gather(currentCharacter.name).data.character
-                log.debug("Character ${currentCharacter.name} gathered resource, inventory: ${characterService.countInventoryItems(currentCharacter)}/${currentCharacter.inventoryMaxItems}")
-
-            } catch (e: Exception) {
-                log.error("Error while gathering: ${e.message}")
-                break
-            }
-        }
-
-        log.info("Character ${currentCharacter.name} finished gathering, inventory is now full or gathering failed")
-        return currentCharacter
-    }
 
     fun craftOrGather(character: ArtifactsCharacter, itemCode: String, quantity: Int, functionLevel: Int = 0, allowFight: Boolean = false, shouldTrain: Boolean = true) : ArtifactsCharacter{
         val itemDetails = itemService.getItem(itemCode)
         val sizeForOne = itemService.getInvSizeToCraft(itemDetails)
-        val inventorySizeNeeded = quantity * sizeForOne;
+        val inventorySizeNeeded = quantity * sizeForOne
 
         if(inventorySizeNeeded >= character.inventoryMaxItems){
             throw IllegalArgumentException("Cannot craft or gather item with code ${itemCode} because the inventory is full")
@@ -88,7 +55,7 @@ class GatheringService(
                 .first { itemDetails.code == it.code }
             if(npcItem.buyPrice != null && bankService.isInBank("tasks_coin", npcItem.buyPrice.times(quantity).plus(10))){
                 var newCharacter = bankService.moveToBank(character)
-                newCharacter = bankService.withdrawOne("tasks_coin", npcItem.buyPrice!!.times(quantity), newCharacter)
+                newCharacter = bankService.withdrawOne("tasks_coin", npcItem.buyPrice.times(quantity), newCharacter)
                 newCharacter = movementService.moveToNpc(newCharacter, npcItem.npc)
                 return npcClient.buyItem(newCharacter.name, npcItem.code, quantity).data.character
 
@@ -158,6 +125,19 @@ class GatheringService(
                     }
                     newCharacter = gather.character
                 }catch (e: CharacterInventoryFullException){
+                    log.error("&&&&&&&&&& Has emptied their inventory &&&&&&&&&&&")
+                    clientErrorService.logError(
+                        clientType = "SERVICE",
+                        endpoint = "gatheringService.gather",
+                        requestMethod = "NA",
+                        requestParams = "${item.code} ${quantityToCraft}",
+                        requestBody = "NA",
+                        responseBody = "NA",
+                        errorCode = 0,
+                        errorMessage = "NA",
+                        character = character,
+                        stackTrace = e.stackTraceToString()
+                    )
                     log.warn("${newCharacter.name} is emptying their inventory", e)
                     newCharacter = accountClient.getCharacter(newCharacter.name).data
                     newCharacter = bankService.emptyInventory(newCharacter)
@@ -184,7 +164,7 @@ class GatheringService(
 
     fun recycle(character: ArtifactsCharacter, item: ItemDetails, i: Int): ArtifactsCharacter {
         val mapData = mapService.findClosestMap(character = character, contentCode = item.craft?.skill)
-        var newCharacter = movementService.moveCharacterToCell(mapData.x, mapData.y, character)
+        val newCharacter = movementService.moveCharacterToCell(mapData.x, mapData.y, character)
         return craftingClient.recycle(newCharacter.name, item.code, i).data.character
 
     }
