@@ -19,4 +19,18 @@ class MovementClient : BaseArtifactsClient() {
 
         return movementResponse
     }
+    fun move(characterName: String, mapId: Int): ArtifactsResponseBody<MovementResponseBody> {
+        var response = sendPostRequest("/my/$characterName/action/move", "{\"mapId\": ${mapId}")
+        var movementResponse : ArtifactsResponseBody<MovementResponseBody> =
+            objectMapper.readValue<ArtifactsResponseBody<MovementResponseBody>>(response.body!!.string())
+
+        return movementResponse
+    }
+    fun transition(characterName: String): ArtifactsResponseBody<MovementResponseBody> {
+        var response = sendPostRequest("/my/$characterName/action/transition", "{}")
+        var movementResponse : ArtifactsResponseBody<MovementResponseBody> =
+            objectMapper.readValue<ArtifactsResponseBody<MovementResponseBody>>(response.body!!.string())
+
+        return movementResponse
+    }
 }

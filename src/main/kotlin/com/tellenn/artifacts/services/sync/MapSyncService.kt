@@ -34,7 +34,7 @@ class MapSyncService(
 
         var currentPage = 1
         var totalPages = 1
-        var totalChunksProcessed = 0
+        val allMaps = mutableListOf<MapData>()
 
         // Fetch all pages of map chunks
         do {
@@ -47,15 +47,9 @@ class MapSyncService(
                     page = currentPage,
                     size = pageSize
                 )
-                var dataPage = response.data
+                allMaps.addAll(response.data)
                 totalPages = response.pages
-
-                dataPage = enrichMaps(dataPage)
-
-                mapRepository.saveAll(dataPage)
-
-                totalChunksProcessed += dataPage.size
-                logger.debug("Processed ${dataPage.size} map chunks from page $currentPage")
+                logger.debug("Fetched ${response.data.size} map chunks from page $currentPage")
                 sleep(500)
                 currentPage++
             } catch (e: Exception) {
@@ -64,10 +58,18 @@ class MapSyncService(
             }
         } while (currentPage <= totalPages)
 
+        // Enrich maps automatically using connected components
+        logger.info("Enriching ${allMaps.size} maps automatically")
+        val enrichedMaps = autoEnrichMaps(allMaps)
+
+        // Save all maps
+        logger.info("Saving ${enrichedMaps.size} enriched maps to the repository")
+        mapRepository.saveAll(enrichedMaps)
+
         // Save the server version after successful sync
         serverVersionService.updateServerVersion()
-        logger.debug("Map sync completed and server version updated. Total chunks synced: $totalChunksProcessed")
-        return totalChunksProcessed
+        logger.debug("Map sync completed and server version updated. Total chunks synced: ${enrichedMaps.size}")
+        return enrichedMaps.size
     }
 
     /**
@@ -102,6 +104,13 @@ class MapSyncService(
 
             // Get the first (and only) map chunk
             val mapData = dataPage.first()
+
+            // When syncing a single map, we might want to update its region based on neighbors already in DB
+            // But for simplicity, we just save it. autoEnrichMaps is primarily for full sync.
+            // However, we can at least apply basic enrichment if it's blocked
+            if (mapData.access?.type == "blocked") {
+                mapData.region = -1
+            }
 
             // Convert MapData to MapDocument and save to MongoDB
             mapRepository.save(mapData)
@@ -146,5 +155,82 @@ class MapSyncService(
             }
         }
         return maps
+    }
+
+    /***
+     * A way to create regions automatically
+     * A map is in the same region of another if :
+     * It's on the same layer
+     * It's next to it (x +/- 1 or y +/- 1)
+     *
+     * Special rules : the map on the overworld x0 & y0 is the spawn, it's always region 1
+     * a region that has an access.type == "blocked" is always region -1 as it's not accessible.
+     *
+     */
+    private fun autoEnrichMaps(maps : List<MapData>) : List<MapData>{
+        val mapByCoords = maps.associateBy { Triple(it.x, it.y, it.layer) }
+        val visited = mutableSetOf<Triple<Int, Int, String>>()
+        var nextRegionId = 2
+
+        // Set blocked maps to region -1
+        maps.forEach {
+            if (it.access?.type == "blocked") {
+                it.region = -1
+                visited.add(Triple(it.x, it.y, it.layer))
+            }
+        }
+
+        // Handle spawn: (0, 0) on "overworld" is region 1
+        val spawnCoords = Triple(0, 0, "overworld")
+        mapByCoords[spawnCoords]?.let { spawn ->
+            if (!visited.contains(spawnCoords)) {
+                assignRegion(spawn, 1, mapByCoords, visited)
+            }
+        }
+
+        // Iterate through all other unvisited maps
+        maps.forEach { mapData ->
+            val coords = Triple(mapData.x, mapData.y, mapData.layer)
+            if (!visited.contains(coords)) {
+                // Skip region 1 as it's reserved for spawn
+                if (nextRegionId == 1) nextRegionId++
+                assignRegion(mapData, nextRegionId++, mapByCoords, visited)
+            }
+        }
+
+        return maps
+    }
+
+    private fun assignRegion(
+        startMap: MapData,
+        regionId: Int,
+        mapByCoords: Map<Triple<Int, Int, String>, MapData>,
+        visited: MutableSet<Triple<Int, Int, String>>
+    ) {
+        val queue = ArrayDeque<MapData>()
+        queue.add(startMap)
+        visited.add(Triple(startMap.x, startMap.y, startMap.layer))
+        startMap.region = regionId
+
+        val directions = listOf(
+            Pair(0, 1), Pair(0, -1), Pair(1, 0), Pair(-1, 0)
+        )
+
+        while (queue.isNotEmpty()) {
+            val current = queue.removeFirst()
+            for (dir in directions) {
+                val neighborCoords = Triple(current.x + dir.first, current.y + dir.second, current.layer)
+                val neighbor = mapByCoords[neighborCoords]
+                if (neighbor != null && !visited.contains(neighborCoords)) {
+                    // Check if neighbor is blocked (already handled and visited if it was)
+                    // But double check to be safe
+                    if (neighbor.access?.type != "blocked") {
+                        neighbor.region = regionId
+                        visited.add(neighborCoords)
+                        queue.add(neighbor)
+                    }
+                }
+            }
+        }
     }
 }

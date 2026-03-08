@@ -8,7 +8,6 @@ import com.tellenn.artifacts.models.ArtifactsCharacter
 import com.tellenn.artifacts.models.ItemDetails
 import com.tellenn.artifacts.models.MonsterData
 import com.tellenn.artifacts.models.SimpleItem
-import com.tellenn.artifacts.db.documents.ItemDocument
 import com.tellenn.artifacts.db.repositories.ItemRepository
 import com.tellenn.artifacts.exceptions.NotFoundException
 import com.tellenn.artifacts.services.battlesim.BattleSimulatorService
@@ -33,7 +32,7 @@ class EquipmentService(
 ) {
     fun equipBestAvailableEquipmentForMonsterInBank(character: ArtifactsCharacter, monsterCode: String) : ArtifactsCharacter{
         val bis = findBestEquipmentForMonsterInBank(character, monsterCode)
-        var newCharacter = bankService.moveToBank(character)
+        var newCharacter = bankService.emptyInventory(character)
         val bankWithdraw = ArrayList<SimpleItem>()
         val ring1 = bis["ring1"]
         val ring2 = bis["ring2"]
@@ -347,6 +346,7 @@ class EquipmentService(
                         "dmg" ->             multiplier +=  effect.value / 100.0
                         "hp" ->              score +=       effect.value / 10
                         "prospecting" ->     score +=       effect.value / 10
+                        "wisdom" ->          score +=       effect.value / 10
                         "haste" ->           score +=       effect.value / 10
                         "res_air" ->         score +=      (monster.attackAir   * effect.value /100.0).toInt()
                         "res_water" ->       score +=      (monster.attackWater * effect.value /100.0).toInt()
@@ -403,7 +403,7 @@ class EquipmentService(
         character.artifact3Slot ?.let { equippedItems.add(it) }
         character.bagSlot       ?.let { equippedItems.add(it) }
 
-        return itemRepository.findByCodeIn(equippedItems).map { ItemDocument.toItemDetails(it) }
+        return itemRepository.findByCodeIn(equippedItems)
     }
 
     private fun reduceItemQuantityByOne(items: MutableList<BankItemDocument>, code: String): MutableList<BankItemDocument> {

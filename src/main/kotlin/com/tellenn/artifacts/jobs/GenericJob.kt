@@ -3,6 +3,7 @@ package com.tellenn.artifacts.jobs
 import com.tellenn.artifacts.MainRuntime
 import com.tellenn.artifacts.clients.AccountClient
 import com.tellenn.artifacts.config.CharacterConfig.Companion.getPredefinedCharacters
+import com.tellenn.artifacts.exceptions.TaskFailedException
 import com.tellenn.artifacts.models.ArtifactsCharacter
 import com.tellenn.artifacts.services.BankService
 import com.tellenn.artifacts.services.CharacterService
@@ -49,9 +50,14 @@ open class GenericJob(
         var newCharacter = character
         if(newCharacter.level < lowestCraftLevel){
             log.info("Character ${newCharacter.name} need to catch back crafter : craft level is $lowestCraftLevel, character level is ${character.level}")
-            while(newCharacter.level < lowestCraftLevel){
-                newCharacter = taskService.getNewMonsterTask(newCharacter)
-                newCharacter = taskService.doCharacterTask(newCharacter)
+            while (newCharacter.level < lowestCraftLevel) {
+                try {
+                    newCharacter = taskService.getNewMonsterTask(newCharacter)
+                    newCharacter = taskService.doCharacterTask(newCharacter)
+                }catch (e: TaskFailedException){
+                    newCharacter = accountClient.getCharacter(character.name).data
+                    newCharacter= taskService.abandonMonsterTask(newCharacter)
+                }
             }
         }
         return newCharacter

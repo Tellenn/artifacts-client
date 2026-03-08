@@ -11,7 +11,6 @@ import com.tellenn.artifacts.services.MapService
 import com.tellenn.artifacts.services.MonsterService
 import com.tellenn.artifacts.services.MovementService
 import com.tellenn.artifacts.services.TaskService
-import org.springframework.context.ApplicationContext
 import org.springframework.stereotype.Component
 
 /**

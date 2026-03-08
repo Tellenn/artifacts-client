@@ -7,7 +7,6 @@ import com.tellenn.artifacts.models.ArtifactsCharacter
 import com.tellenn.artifacts.models.ItemDetails
 import com.tellenn.artifacts.models.SimpleItem
 import com.tellenn.artifacts.db.documents.BankItemDocument
-import com.tellenn.artifacts.db.documents.ItemDocument
 import com.tellenn.artifacts.db.repositories.BankItemRepository
 import com.tellenn.artifacts.db.repositories.ItemRepository
 import com.tellenn.artifacts.exceptions.BankCorruptedException
@@ -96,7 +95,7 @@ class BankService(
 
                     val existingBankItem = bankRepository.findByCode(item.code)
                     if(existingBankItem == null){
-                        val newBankItem = BankItemDocument.fromItemDetails(ItemDocument.toItemDetails(itemsFound), item.quantity)
+                        val newBankItem = BankItemDocument.fromItemDetails(itemsFound, item.quantity)
                         bankRepository.insert(newBankItem)
                         newBankItems.add(newBankItem)
                     }else{
@@ -227,7 +226,8 @@ class BankService(
         return bankClient.buyBankExpansion(character.name).data.character
     }
 
-    fun canCraftFromBank(item: ItemDetails, quantity: Int = 1): Boolean {
+    fun canCraftFromBank(item: ItemDetails?, quantity: Int = 1): Boolean {
+        if(item == null){return false}
         var canCraft = true
         if(item.craft == null){
             return isInBank(item.code,quantity)
@@ -235,7 +235,7 @@ class BankService(
             for(i in item.craft.items){
                 canCraft = canCraft && (
                             isInBank(i.code,quantity * i.quantity) ||
-                            canCraftFromBank(ItemDocument.toItemDetails(itemRepository.findByCode(i.code)), quantity * i.quantity)
+                            canCraftFromBank(itemRepository.findByCode(i.code), quantity * i.quantity)
                         )
 
             }
@@ -244,7 +244,7 @@ class BankService(
     }
 
     fun storeItemsToDoThenGetThemBack(character: ArtifactsCharacter, callable : () -> ArtifactsCharacter) : ArtifactsCharacter {
-        val oldInventory = character.inventory?.filter { it.code != "" }?.map { SimpleItem(it.code, it.quantity)} ?: ArrayList()
+        val oldInventory = character.inventory.filter { it.code != "" }.map { SimpleItem(it.code, it.quantity)}
         val oldx = character.x
         val oldy = character.y
         var newCharacter = emptyInventory(character)
@@ -277,6 +277,6 @@ class BankService(
     }
 
     fun getHealingPotions() : List<ItemDetails> {
-        return bankRepository.findByCodeContainingIgnoreCase("health").map { ItemDocument.toItemDetails(itemRepository.findByCode(it.code)) }
+        return bankRepository.findByCodeContainingIgnoreCase("health").map { itemRepository.findByCode(it.code) }
     }
 }

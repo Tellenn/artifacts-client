@@ -1,7 +1,6 @@
 package com.tellenn.artifacts.services.sync
 
 import com.tellenn.artifacts.clients.ItemClient
-import com.tellenn.artifacts.db.documents.ItemDocument
 import com.tellenn.artifacts.db.repositories.ItemRepository
 import com.tellenn.artifacts.services.sync.ServerVersionService
 import org.slf4j.LoggerFactory
@@ -45,7 +44,7 @@ class ItemSyncService(
                 totalPages = response.pages
 
                 // Convert ItemDetails to ItemDocument and save to MongoDB
-                val itemDocuments = response.data.map { ItemDocument.fromItemDetails(it) }
+                val itemDocuments = response.data
                 itemRepository.saveAll(itemDocuments)
 
                 totalItemsProcessed += response.data.size

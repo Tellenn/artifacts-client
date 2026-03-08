@@ -44,8 +44,7 @@ class DatabaseClientExample(private val databaseClient: DatabaseClient) : Comman
         try {
             // Note: You need to replace "ITEM_CODE" with an actual item code that exists in your database
             val itemCode = if (allItems.data.isNotEmpty()) allItems.data[0].code else "ITEM_CODE"
-            val itemDetails = databaseClient.getItemDetails(itemCode)
-            val item = itemDetails.data
+            val item = databaseClient.getItemDetails(itemCode)
             logger.info("Item details for $itemCode:")
             logger.info("Name: ${item.name}")
             logger.info("Description: ${item.description ?: "N/A"}")

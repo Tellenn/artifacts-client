@@ -1,6 +1,5 @@
 package com.tellenn.artifacts.services
 
-import com.tellenn.artifacts.db.documents.ItemDocument
 import com.tellenn.artifacts.db.repositories.ItemRepository
 import com.tellenn.artifacts.models.ItemDetails
 import com.tellenn.artifacts.models.SimpleItem
@@ -23,13 +22,13 @@ class ItemService(
         logger.debug("Getting resources for skill: $skillType with max level: $maxLevel")
         var items = itemRepository.findByCraftSkillAndSubtypeAndLevelLessThanEqualOrderByLevelDesc(skillType, subType, maxLevel)
         items = items.filter { it.craft != null } .toList()
-        return ItemDocument.toItemDetails(items.first())
+        return items.first()
     }
     fun getAllCraftableItemsBySkillAndSubtypeAndMaxLevel(skillType: String, subType:String, maxLevel: Int): List<ItemDetails>{
         logger.debug("Getting resources for skill: $skillType with max level: $maxLevel")
         var items = itemRepository.findByCraftSkillAndSubtypeAndLevelLessThanEqualOrderByLevelDesc(skillType, subType, maxLevel)
         items = items.filter { it.craft != null }
-        return items.map{ItemDocument.toItemDetails(it)}
+        return items
     }
 
     fun getInvSizeToCraft(item: ItemDetails) : Int{
@@ -38,7 +37,7 @@ class ItemService(
             for(item in craft.items){
                 count += item.quantity
                 if(itemRepository.getByCode(item.code).craft != null){
-                    count += getInvSizeToCraft(ItemDocument.toItemDetails(itemRepository.getByCode(item.code)))
+                    count += getInvSizeToCraft(itemRepository.getByCode(item.code))
                 }
             }
         }
@@ -52,7 +51,7 @@ class ItemService(
 
                 val subItem = itemRepository.getByCode(item.code)
                 if(subItem.craft != null){
-                    count += item.quantity * getInvSizeToCraft(ItemDocument.toItemDetails(subItem))
+                    count += item.quantity * getInvSizeToCraft(subItem)
                 }else if(subItem.subtype == "mob"){
                     count += item.quantity * (monsterService.findMonsterThatDrop(item.code)?.drops?.first { it.code == item.code }?.rate ?: 10)
                 }else{
@@ -65,11 +64,11 @@ class ItemService(
     }
 
     fun getAllCraftBySkillUnderLevel(skill : String, level: Int ) : List<ItemDetails> {
-        return itemRepository.findByCraftSkillAndLevelLessThanEqualOrderByLevelAsc(skill, level).map { ItemDocument.toItemDetails(it) }
+        return itemRepository.findByCraftSkillAndLevelLessThanEqualOrderByLevelAsc(skill, level)
     }
 
     fun getItem(itemCode: String) : ItemDetails {
-        return ItemDocument.toItemDetails(itemRepository.getByCode(itemCode))
+        return itemRepository.getByCode(itemCode)
     }
 
     fun getCrafterItemsBetweenLevel(level: Int, minLevel: Int, skills : List<String>) : List<ItemDetails> {
@@ -77,7 +76,6 @@ class ItemService(
         return itemRepository
             .findByLevelBetween(level, max(1,minLevel))
             .filter { it.craft != null && skills.contains(it.craft.skill) }
-            .map { ItemDocument.toItemDetails(it) }
     }
 
     fun getHealingItems(inventory: List<SimpleItem>): List<SimpleItem> {
@@ -86,13 +84,13 @@ class ItemService(
     }
 
     fun getItemsCraftedBySkillAndItemUnderLevel(code: String, skill: String, level: Int) : List<ItemDetails> {
-        return itemRepository.findByCraftItemsCodeAndCraftSkillAndLevelIsLessThanEqual(code, skill, level).map { ItemDocument.toItemDetails(it) }
+        return itemRepository.findByCraftItemsCodeAndCraftSkillAndLevelIsLessThanEqual(code, skill, level)
     }
 
     fun getAllCraftableItemsBySkillAndMaxLevel(skill: String, maxLevel: Int) : List<ItemDetails> {
         var items = itemRepository.findByCraftSkillAndLevelLessThanEqualOrderByLevelDesc(skill, maxLevel)
         items = items.filter { it.craft != null }
-        return items.map{ItemDocument.toItemDetails(it)}
+        return items
     }
 
 }

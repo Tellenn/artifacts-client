@@ -4,6 +4,8 @@ import com.tellenn.artifacts.models.ArtifactsCharacter
 import com.tellenn.artifacts.models.MapData
 import com.tellenn.artifacts.db.clients.MapMongoClient
 import com.tellenn.artifacts.exceptions.UnknownMapException
+import com.tellenn.artifacts.db.repositories.TransitionMapperRepository
+import com.tellenn.artifacts.models.TransitionMapper
 import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Service
 import kotlin.math.pow
@@ -15,7 +17,8 @@ import kotlin.math.sqrt
  */
 @Service
 class MapService(
-    private val mapMongoClient: MapMongoClient
+    private val mapMongoClient: MapMongoClient,
+    private val transitionMapperRepository: TransitionMapperRepository
 ) {
     private val logger = LoggerFactory.getLogger(MapService::class.java)
 
@@ -53,6 +56,37 @@ class MapService(
 
         logger.debug("Closest map to character ${character.name} is at position (${closestMap.x}, ${closestMap.y})")
         return closestMap
+    }
+
+    fun findByMapId(mapId: Int): MapData? {
+        return mapMongoClient.getMapById(mapId)
+    }
+
+    /**
+     * Finds the shortest path of transitions between two regions.
+     * Uses BFS to find the path.
+     *
+     * @param originRegion The starting region ID
+     * @param destinationRegion The target region ID
+     * @return A list of TransitionMapper objects representing the path, or empty if no path found
+     */
+    fun findTransitionPath(originRegion: Int, destinationRegion: Int): List<TransitionMapper> {
+        val directTransition = transitionMapperRepository.findBySourceMapDataRegionAndDestinationMapDataRegion(originRegion, destinationRegion)
+        if (directTransition != null) {
+            return listOf(directTransition)
+        }
+        val listOfTransition = mutableListOf<TransitionMapper>()
+        var regionObjective: Int? = destinationRegion
+        do {
+            val nextTransition = transitionMapperRepository.findByDestinationMapDataRegion(regionObjective).firstOrNull()
+            if(nextTransition == null) {
+                throw UnknownMapException(null, null) // TODO better exception
+            }
+            listOfTransition.add(nextTransition)
+            regionObjective = nextTransition.sourceMapData.region
+        }while (originRegion != regionObjective)
+
+        return listOfTransition
     }
 
     /**

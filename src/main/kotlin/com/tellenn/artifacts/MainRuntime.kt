@@ -20,6 +20,7 @@ import com.tellenn.artifacts.services.sync.MonsterSyncService
 import com.tellenn.artifacts.services.sync.ResourceSyncService
 import com.tellenn.artifacts.services.sync.ServerVersionService
 import com.tellenn.artifacts.services.WebSocketService
+import com.tellenn.artifacts.services.sync.TransitionMapperSyncService
 import com.tellenn.artifacts.utils.TimeSync
 import lombok.extern.slf4j.Slf4j
 import org.apache.logging.log4j.LogManager
@@ -47,10 +48,9 @@ class MainRuntime(
     private val characterSyncService: CharacterSyncService,
     private val webSocketService: WebSocketService,
     private val bankItemSyncService: BankItemSyncService,
-    private val characterClient: CharacterClient,
-    private val accountClient: AccountClient,
     private val resourceSyncService: ResourceSyncService,
-    private val serverVersionService: ServerVersionService
+    private val serverVersionService: ServerVersionService,
+    private val transitionMapperSyncService: TransitionMapperSyncService
 ) : ApplicationRunner {
 
     private val log = LogManager.getLogger(MainRuntime::class.java)
@@ -87,6 +87,11 @@ class MainRuntime(
             // Synchronize maps from the server
             val syncedMapChunksCount = mapSyncService.syncWholeMap()
             log.info("Maps synchronized with server. Total map chunks: $syncedMapChunksCount")
+            sleep(1000)
+
+            // Synchronize mapTransitions from the server
+            val syncedTransitionsChunksCount = transitionMapperSyncService.syncTransitionMappers()
+            log.info("Transitions synchronized with server. Total map chunks: $syncedTransitionsChunksCount")
             sleep(1000)
             
             // Synchronize monsters from the server

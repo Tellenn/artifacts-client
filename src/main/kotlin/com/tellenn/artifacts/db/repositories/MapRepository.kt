@@ -30,5 +30,7 @@ interface MapRepository : MongoRepository<MapData, String> {
     @Query("{}")
     fun findByDynamicQuery(pageable: Pageable): Page<MapData>
 
+    fun findByMapId(mapId: Int): MapData?
+
     fun findByInteractionsContentCode(monsterCode: String): MapData
 }

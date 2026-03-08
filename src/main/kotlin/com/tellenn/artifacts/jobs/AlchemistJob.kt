@@ -126,7 +126,7 @@ class AlchemistJob(
         val food = itemService.getAllCraftableItemsBySkillAndSubtypeAndMaxLevel("cooking", "food", character.cookingLevel)
         return food
             .filter { it.effects?.none { effect -> effect.code != "heal" } ?: false }
-            .filter { it.craft?.items?.size == 1 && itemRepository.findByCode(it.craft.items[0].code).subtype == "fishing" }
+            .filter { it.craft?.items?.size == 1 && itemRepository.findByCode(it.craft.items[0].code)?.subtype == "fishing" }
             .filter { it.level <= character.fishingLevel }
             .maxBy { it.level }
     }

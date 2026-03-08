@@ -64,13 +64,7 @@ class MapMongoClient(
             )
         } else {
             // For simple filtering, use repository methods
-            val result = when {
-                name != null -> mapRepository.findAll(pageable) // Replace with appropriate method if available
-                x != null && y != null -> mapRepository.findByXAndY(x, y, pageable)
-                x != null -> mapRepository.findByX(x, pageable)
-                y != null -> mapRepository.findByY(y, pageable)
-                else -> mapRepository.findAll(pageable)
-            }
+            val result =  mapRepository.findAll(pageable)
 
             return ArtifactsArrayResponseBody(
                 result.toList(),
@@ -82,5 +76,14 @@ class MapMongoClient(
         }
     }
 
+    /**
+     * Get a map by its mapId from the database.
+     *
+     * @param mapId The ID of the map to find
+     * @return The MapData if found, null otherwise
+     */
+    fun getMapById(mapId: Int): MapData? {
+        return mapRepository.findByMapId(mapId)
+    }
 
 }

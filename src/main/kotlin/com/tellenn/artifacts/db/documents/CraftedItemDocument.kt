@@ -1,7 +1,9 @@
 package com.tellenn.artifacts.db.documents
 
+import com.tellenn.artifacts.models.Effect
+import com.tellenn.artifacts.models.ItemCondition
+import com.tellenn.artifacts.models.ItemCraft
 import com.tellenn.artifacts.models.ItemDetails
-import com.tellenn.artifacts.db.documents.ItemEffectDocument.Companion.fromItemEffect
 import org.springframework.data.annotation.Id
 import org.springframework.data.mongodb.core.mapping.Document
 
@@ -15,9 +17,9 @@ data class CraftedItemDocument(
     val subtype: String,
     val level: Int,
     val tradeable: Boolean,
-    val effects: List<ItemEffectDocument>?,
-    val craft: ItemCraftDocument?,
-    val conditions: List<ItemConditionDocument>? = null,
+    val effects: List<Effect>?,
+    val craft: ItemCraft?,
+    val conditions: List<ItemCondition>? = null,
     val quantity: Int
 ) {
     companion object {
@@ -30,24 +32,9 @@ data class CraftedItemDocument(
                 subtype = itemDetails.subtype,
                 level = itemDetails.level,
                 tradeable = itemDetails.tradeable,
-                effects = itemDetails.effects?.map { i -> fromItemEffect(i) }?.toList(),
-                craft = itemDetails.craft?.let { ItemCraftDocument.fromItemCraft(it) },
+                effects = itemDetails.effects,
+                craft = itemDetails.craft,
                 quantity = quantity
-            )
-        }
-
-        fun toItemDetails(itemDocument: CraftedItemDocument): ItemDetails {
-            return ItemDetails(
-                code = itemDocument.code,
-                name = itemDocument.name,
-                description = itemDocument.description,
-                type = itemDocument.type,
-                subtype = itemDocument.subtype,
-                level = itemDocument.level,
-                tradeable = itemDocument.tradeable,
-                effects = itemDocument.effects?.map { ItemEffectDocument.toEffect(it) }?.toList(),
-                craft = itemDocument.craft?.let { ItemCraftDocument.toItemCraft(it) },
-                conditions = itemDocument.conditions?.map { ItemConditionDocument.toItemCondition(it) }?.toList()
             )
         }
     }

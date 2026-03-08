@@ -2,10 +2,8 @@ package com.tellenn.artifacts.services.sync
 
 import com.tellenn.artifacts.clients.BankClient
 import com.tellenn.artifacts.db.documents.BankItemDocument
-import com.tellenn.artifacts.db.documents.ItemDocument
 import com.tellenn.artifacts.db.repositories.BankItemRepository
 import com.tellenn.artifacts.db.repositories.ItemRepository
-import com.tellenn.artifacts.services.sync.ServerVersionService
 import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
@@ -39,7 +37,7 @@ class BankItemSyncService(
             val items = itemRepository.findAll()
 
             response.data.forEach { item ->
-                val matchingItem = ItemDocument.toItemDetails(items.filter { i -> i.code.equals(item.code) }.get(0))
+                val matchingItem = items.filter { i -> i.code == item.code }[0]
                 bankRepository.insert<BankItemDocument>(BankItemDocument.fromItemDetails(matchingItem, item.quantity))
                 count++
             }
@@ -47,7 +45,7 @@ class BankItemSyncService(
             while(response.pages > response.page) {
                 response = bankClient.getBankedItems(page = response.page + 1)
                 response.data.forEach { item ->
-                    val matchingItem = ItemDocument.toItemDetails(items.filter { i -> i.code.equals(item.code) }.get(0))
+                    val matchingItem = items.filter { i -> i.code == item.code }[0]
                     bankRepository.insert<BankItemDocument>(BankItemDocument.fromItemDetails(matchingItem, item.quantity))
                     count++
                 }

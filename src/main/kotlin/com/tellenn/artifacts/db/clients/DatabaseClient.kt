@@ -3,7 +3,6 @@ package com.tellenn.artifacts.db.clients
 import com.tellenn.artifacts.models.ItemDetails
 import com.tellenn.artifacts.clients.responses.ArtifactsArrayResponseBody
 import com.tellenn.artifacts.clients.responses.ArtifactsResponseBody
-import com.tellenn.artifacts.db.documents.ItemDocument
 import com.tellenn.artifacts.db.repositories.ItemRepository
 import org.springframework.data.domain.PageRequest
 import org.springframework.data.domain.Sort
@@ -44,7 +43,7 @@ class DatabaseClient(private val itemRepository: ItemRepository) {
             else -> itemRepository.findAll(pageable)
         }
 
-        return ArtifactsArrayResponseBody(result.map({ it -> convertToItemDetails(it) }).toList(),
+        return ArtifactsArrayResponseBody(result.toList(),
             result.totalElements.toInt(), page, result.size, result.totalPages)
     }
 
@@ -52,17 +51,10 @@ class DatabaseClient(private val itemRepository: ItemRepository) {
      * Get item details by item code.
      * This method mimics the behavior of ItemClient.getItemDetails but fetches from the database.
      */
-    fun getItemDetails(itemCode: String): ArtifactsResponseBody<ItemDetails> {
-        val itemDocument = itemRepository.findById(itemCode)
+    fun getItemDetails(itemCode: String): ItemDetails {
+        return itemRepository.findById(itemCode)
             .orElseThrow { NoSuchElementException("Item with code $itemCode not found") }
 
-        return ArtifactsResponseBody(convertToItemDetails(itemDocument))
     }
 
-    /**
-     * Convert ItemDocument to ItemDetails using the mapper in ItemDocument.
-     */
-    private fun convertToItemDetails(itemDocument: ItemDocument): ItemDetails {
-        return ItemDocument.toItemDetails(itemDocument)
-    }
 }

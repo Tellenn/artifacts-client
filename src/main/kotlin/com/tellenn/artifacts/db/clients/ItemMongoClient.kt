@@ -3,7 +3,6 @@ package com.tellenn.artifacts.db.clients
 import com.tellenn.artifacts.models.ItemDetails
 import com.tellenn.artifacts.clients.responses.ArtifactsArrayResponseBody
 import com.tellenn.artifacts.clients.responses.ArtifactsResponseBody
-import com.tellenn.artifacts.db.documents.ItemDocument
 import com.tellenn.artifacts.db.repositories.ItemRepository
 import org.springframework.data.domain.PageRequest
 import org.springframework.data.domain.Sort
@@ -63,11 +62,11 @@ class ItemMongoClient(
             query.with(pageable)
 
             // Execute query
-            val items = mongoTemplate.find(query, ItemDocument::class.java)
-            val count = mongoTemplate.count(query.skip(-1).limit(-1), ItemDocument::class.java)
+            val items = mongoTemplate.find(query, ItemDetails::class.java)
+            val count = mongoTemplate.count(query.skip(-1).limit(-1), ItemDetails::class.java)
 
             return ArtifactsArrayResponseBody(
-                items.map { convertToItemDetails(it) },
+                items,
                 count.toInt(),
                 page,
                 size,
@@ -85,7 +84,7 @@ class ItemMongoClient(
             }
 
             return ArtifactsArrayResponseBody(
-                result.map { convertToItemDetails(it) }.toList(),
+                result.toList(),
                 result.totalElements.toInt(),
                 page,
                 result.size,
@@ -94,20 +93,4 @@ class ItemMongoClient(
         }
     }
 
-    /**
-     * Get item details by item code.
-     */
-    fun getItemDetails(itemCode: String): ArtifactsResponseBody<ItemDetails> {
-        val itemDocument = itemRepository.findById(itemCode)
-            .orElseThrow { NoSuchElementException("Item with code $itemCode not found") }
-
-        return ArtifactsResponseBody(convertToItemDetails(itemDocument))
-    }
-
-    /**
-     * Convert ItemDocument to ItemDetails using the mapper in ItemDocument.
-     */
-    private fun convertToItemDetails(itemDocument: ItemDocument): ItemDetails {
-        return ItemDocument.toItemDetails(itemDocument)
-    }
 }
