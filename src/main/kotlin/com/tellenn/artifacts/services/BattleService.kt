@@ -57,7 +57,7 @@ class BattleService(
         }
         val map = mapService.findClosestMap(character, contentCode = monster.code)
         var newCharacter = equipmentService.equipBestAvailableEquipmentForMonsterInBank(character, monster.code)
-        newCharacter = movementService.moveCharacterToCell(map.x, map.y, newCharacter)
+        newCharacter = movementService.moveCharacterToCell(map.mapId, newCharacter)
         try {
             while (!characterService.has(newCharacter, quantity, itemCode)){
                 try {
@@ -65,7 +65,7 @@ class BattleService(
                 }catch (_ : CharacterInventoryFullException){
                     newCharacter = movementService.moveToBank(newCharacter)
                     newCharacter = bankService.emptyInventory(newCharacter)
-                    newCharacter = movementService.moveCharacterToCell(map.x, map.y, newCharacter)
+                    newCharacter = movementService.moveCharacterToCell(map.mapId, newCharacter)
                 }
             }
         }catch (e : BattleLostException){
@@ -96,7 +96,7 @@ class BattleService(
             val mapData = mapService.findClosestMap(character, contentCode = monster.code)
             newCharacter = equipmentService.equipBestAvailableEquipmentForMonsterInBank(character, monster.code)
 
-            newCharacter = movementService.moveCharacterToCell(mapData.x, mapData.y, newCharacter)
+            newCharacter = movementService.moveCharacterToCell(mapData.mapId, newCharacter)
 
             while (character.level == newCharacter.level){
                 newCharacter = battle(newCharacter, monster.code)

@@ -131,7 +131,7 @@ class TaskService(
         // TODO : Check that you can actually beat the enemy
         if(quantityLeft > 0){
             newCharacter = equipmentService.equipBestAvailableEquipmentForMonsterInBank(newCharacter, monsterCode)
-            newCharacter = movementService.moveCharacterToCell(monsterMap.x, monsterMap.y, newCharacter)
+            newCharacter = movementService.moveCharacterToCell(monsterMap.mapId, newCharacter)
         }
 
         while(quantityLeft > 0 && count < 5) {
@@ -142,7 +142,7 @@ class TaskService(
                     newCharacter = movementService.moveToBank(newCharacter)
                     newCharacter = bankService.emptyInventory(newCharacter)
                     newCharacter = equipmentService.equipBestAvailableEquipmentForMonsterInBank(newCharacter, monsterCode)
-                    newCharacter = movementService.moveCharacterToCell(monsterMap.x, monsterMap.y, newCharacter)
+                    newCharacter = movementService.moveCharacterToCell(monsterMap.mapId, newCharacter)
                 }
             }catch (_: BattleLostException){
                 newCharacter = accountClient.getCharacter(newCharacter.name).data
@@ -152,7 +152,7 @@ class TaskService(
                 if(count == 5){
                     throw TaskFailedException()
                 }else{
-                    newCharacter = movementService.moveCharacterToCell(monsterMap.x, monsterMap.y, newCharacter)
+                    newCharacter = movementService.moveCharacterToCell(monsterMap.mapId, newCharacter)
                 }
             }
         }

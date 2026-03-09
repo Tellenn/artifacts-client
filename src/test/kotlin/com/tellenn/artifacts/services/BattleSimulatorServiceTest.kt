@@ -444,7 +444,7 @@ class BattleSimulatorServiceTest {
             defenseEarth = 20,
             defenseAir = 20,
             criticalStrike = 0,
-            effects = listOf(Effect("burn", 20, "")), // 20% burn effect
+            effects = listOf(Effect("burn", 40, "")), // 20% burn effect
             minGold = 30,
             maxGold = 60,
             drops = null,

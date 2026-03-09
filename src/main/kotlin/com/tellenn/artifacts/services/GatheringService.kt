@@ -118,7 +118,7 @@ class GatheringService(
             newCharacter = equipmentService.equipBestAvailableEquipmentForCraftingOrGatheringInBank(newCharacter)
             newCharacter = movementService.moveToBank(newCharacter)
             newCharacter = bankService.emptyInventory(newCharacter)
-            newCharacter = movementService.moveCharacterToCell(mapData.x, mapData.y, newCharacter)
+            newCharacter = movementService.moveCharacterToCell(mapData.mapId, newCharacter)
             while (quantityToCraft >= quantityGathered) {
                 try{
                     val gather = gatheringClient.gather(characterName = character.name).data
@@ -144,7 +144,7 @@ class GatheringService(
                     newCharacter = accountClient.getCharacter(newCharacter.name).data
                     newCharacter = movementService.moveToBank(newCharacter)
                     newCharacter = bankService.emptyInventory(newCharacter)
-                    newCharacter = movementService.moveCharacterToCell(mapData.x, mapData.y, newCharacter)
+                    newCharacter = movementService.moveCharacterToCell(mapData.mapId, newCharacter)
                     // TODO : in this case, we lost the items previously collected for the GatherAndCollect. What to do ? 😮‍💨😮‍💨😮‍💨
                 }
             }
@@ -159,7 +159,7 @@ class GatheringService(
         }
         var newCharacter = equipmentService.equipBestAvailableEquipmentForCraftingOrGatheringInBank(character)
         val mapData = mapService.findClosestMap(character = newCharacter, contentCode = skill)
-        newCharacter = movementService.moveCharacterToCell(mapData.x, mapData.y, newCharacter)
+        newCharacter = movementService.moveCharacterToCell(mapData.mapId, newCharacter)
         newCharacter = craftingClient.craft(newCharacter.name, item.code, quantity).data.character
 
         return newCharacter
@@ -167,7 +167,7 @@ class GatheringService(
 
     fun recycle(character: ArtifactsCharacter, item: ItemDetails, i: Int): ArtifactsCharacter {
         val mapData = mapService.findClosestMap(character = character, contentCode = item.craft?.skill)
-        val newCharacter = movementService.moveCharacterToCell(mapData.x, mapData.y, character)
+        val newCharacter = movementService.moveCharacterToCell(mapData.mapId, character)
         return craftingClient.recycle(newCharacter.name, item.code, i).data.character
 
     }

@@ -2,6 +2,7 @@ package com.tellenn.artifacts.services
 
 import com.tellenn.artifacts.clients.AccountClient
 import com.tellenn.artifacts.clients.MovementClient
+import com.tellenn.artifacts.exceptions.CharacterAlreadyMapException
 import com.tellenn.artifacts.exceptions.UnreachableMapException
 import com.tellenn.artifacts.models.ArtifactsCharacter
 import com.tellenn.artifacts.models.MapData
@@ -25,31 +26,26 @@ class MovementService(
      * Moves a character to a specific cell.
      * If the character is already at the destination, no movement is performed.
      *
-     * @param x The x-coordinate of the destination
-     * @param y The y-coordinate of the destination
+     * @param mapId The mapId of the destination
      * @param character The character object. It's used to check if the character is already at the destination
      * @return The updated character object
      */
-    fun moveCharacterToCell(x: Int, y: Int, character: ArtifactsCharacter): ArtifactsCharacter {
-        // If character is provided and already at the destination, skip the API call
-        if (character.x == x && character.y == y) {
-            log.debug("Character ${character.name} is already at position ($x, $y), skipping movement call")
+    fun moveCharacterToCell(mapId: Int, character: ArtifactsCharacter): ArtifactsCharacter {
+        if (character.mapId == mapId) {
+            log.debug("Character ${character.name} is already at position $mapId, skipping movement call")
             return character
         }
-
-        return movementClient.move(character.name, x, y).data.character
-    }
-
-    fun moveCharacterToCell(mapId: Int, character: ArtifactsCharacter): ArtifactsCharacter {
         val destinationMap = mapService.findByMapId(mapId)
         val originMap = mapService.findByMapId(character.mapId)
         if(destinationMap?.region != originMap?.region){
             return transitionsFromRegions(character, originMap!!, destinationMap!!)
         }
-
-        return movementClient.move(character.name, destinationMap!!.mapId).data.character
-
-
+        try {
+            return movementClient.move(character.name, destinationMap!!.mapId).data.character
+        }catch (e: CharacterAlreadyMapException){
+                log.debug("Tried to move while the character was already here",e)
+                return accountClient.getCharacter(character.name).data
+        }
     }
 
     fun moveCharacterToMaster(masterType: String, character: ArtifactsCharacter): ArtifactsCharacter {
@@ -58,8 +54,7 @@ class MovementService(
             contentType = "tasks_master",
             contentCode = masterType
         )
-
-        return moveCharacterToCell(map.x, map.y, character)
+        return moveCharacterToCell(map.mapId, character)
     }
 
     fun moveToNpc(character: ArtifactsCharacter, npcName: String): ArtifactsCharacter {
@@ -69,7 +64,7 @@ class MovementService(
             contentCode = npcName
         )
 
-        return moveCharacterToCell(map.x, map.y, character)
+        return moveCharacterToCell(map.mapId, character)
     }
 
     /**
@@ -121,17 +116,13 @@ class MovementService(
         var currentCharacter = character
         path.forEach { transitionMapper ->
             // Move to the map where the transition is located
-            currentCharacter = moveCharacterToCell(
-                transitionMapper.sourceMapData.x,
-                transitionMapper.sourceMapData.y,
-                currentCharacter
-            )
+            currentCharacter = moveCharacterToCell( transitionMapper.sourceMapData.mapId,currentCharacter)
             // Perform the transition
             currentCharacter = movementClient.transition(currentCharacter.name).data.character
         }
 
         // After all transitions, move to the final destination map if needed
-        return moveCharacterToCell(destinationMap.x, destinationMap.y, currentCharacter)
+        return moveCharacterToCell(destinationMap.mapId, currentCharacter)
     }
 
     /**
@@ -145,6 +136,6 @@ class MovementService(
         if (character.x == closestBank.x && character.y == closestBank.y) {
             return character
         }
-        return moveCharacterToCell(closestBank.x, closestBank.y, character)
+        return moveCharacterToCell(closestBank.mapId, character)
     }
 }

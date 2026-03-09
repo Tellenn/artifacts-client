@@ -52,7 +52,7 @@ class FighterJob(
                 }else{
                     character = equipmentService.equipBestAvailableEquipmentForMonsterInBank(character, "red_slime")
                     val monsterMap = monsterService.findMonsterMap("red_slime")
-                    character = movementService.moveCharacterToCell(monsterMap.x, monsterMap.y, character)
+                    character = movementService.moveCharacterToCell(monsterMap.mapId, character)
                     character = battleService.battleUntilInvIsFull(character, "red_slime")
                     character = movementService.moveToBank(character)
                     character = bankService.emptyInventory(character)
