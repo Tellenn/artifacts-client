@@ -2,6 +2,7 @@ package com.tellenn.artifacts.services
 
 import com.tellenn.artifacts.clients.CharacterClient
 import com.tellenn.artifacts.models.ArtifactsCharacter
+import com.tellenn.artifacts.models.PendingItem
 import org.springframework.stereotype.Service
 
 /**
@@ -82,6 +83,10 @@ class CharacterService(
              return characterClient.destroy(character.name, code, inventory.quantity).data.character
         }
         return character
+    }
+
+    fun claimPendingItem(character: ArtifactsCharacter, item: PendingItem): ArtifactsCharacter {
+        return characterClient.claimPendingItem(character.name, item.id).data.character
     }
 
 }

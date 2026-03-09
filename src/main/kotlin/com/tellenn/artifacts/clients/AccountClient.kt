@@ -9,6 +9,7 @@ import com.tellenn.artifacts.clients.requests.CreateCharacterRequest
 import com.tellenn.artifacts.clients.responses.ArtifactsArrayResponseBody
 import com.tellenn.artifacts.clients.responses.ArtifactsResponseBody
 import com.tellenn.artifacts.models.Achievement
+import com.tellenn.artifacts.models.PendingItem
 import lombok.extern.slf4j.Slf4j
 import org.springframework.stereotype.Service
 
@@ -84,6 +85,13 @@ class AccountClient() : BaseArtifactsClient() {
         return sendGetRequest("/accounts/${name}/achievements?completed=$completed").use { response ->
             val responseBody = response.body!!.string()
             objectMapper.readValue<ArtifactsArrayResponseBody<Achievement>>(responseBody)
+        }
+    }
+
+    fun getPendingItems(): ArtifactsArrayResponseBody<PendingItem> {
+        return sendGetRequest("/my/pending-items").use { response ->
+            val responseBody = response.body!!.string()
+            objectMapper.readValue<ArtifactsArrayResponseBody<PendingItem>>(responseBody)
         }
     }
 }

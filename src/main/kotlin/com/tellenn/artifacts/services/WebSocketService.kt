@@ -48,6 +48,9 @@ class WebSocketService(
     @Value("\${artifacts.api.key}")
     private lateinit var apiKey: String
 
+    @Value("\${artifacts.websocket.url}")
+    private lateinit var websocketUrl: String
+
     private val client = OkHttpClient.Builder()
         .readTimeout(0, TimeUnit.MILLISECONDS) // No timeout for WebSocket connections
         .build()
@@ -91,13 +94,13 @@ class WebSocketService(
             reconnectAttempts = 0
 
             val request = Request.Builder()
-                .url("wss://realtime.artifactsmmo.com")
+                .url(websocketUrl)
                 .build()
 
             val listener = createWebSocketListener()
             webSocket = client.newWebSocket(request, listener)
 
-            logger.debug("WebSocket connection initiated")
+            logger.debug("WebSocket connection initiated to $websocketUrl")
             return true
         } catch (e: Exception) {
             logger.error("Failed to connect to WebSocket", e)
@@ -140,7 +143,7 @@ class WebSocketService(
 
                 // Create a new connection
                 val request = Request.Builder()
-                    .url("wss://realtime.artifactsmmo.com")
+                    .url(websocketUrl)
                     .build()
 
                 val listener = createWebSocketListener()

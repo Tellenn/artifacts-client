@@ -5,6 +5,7 @@ import com.tellenn.artifacts.models.SimpleItem
 import com.tellenn.artifacts.clients.requests.EquipRequest
 import com.tellenn.artifacts.clients.requests.UnequipRequest
 import com.tellenn.artifacts.clients.responses.ArtifactsResponseBody
+import com.tellenn.artifacts.clients.responses.ClaimPendingItemResponseBody
 import com.tellenn.artifacts.clients.responses.EquipmentResponseBody
 import com.tellenn.artifacts.clients.responses.RestResponseBody
 import com.tellenn.artifacts.clients.responses.UseItemResponseBody
@@ -60,6 +61,14 @@ class CharacterClient : BaseArtifactsClient() {
         return sendPostRequest("/my/$characterName/action/delete", requestBody).use { response ->
             val responseBody = response.body!!.string()
             objectMapper.readValue<ArtifactsResponseBody<UseItemResponseBody>>(responseBody)
+        }
+    }
+
+    fun claimPendingItem(characterName: String, id: String) : ArtifactsResponseBody<ClaimPendingItemResponseBody>{
+        waitForCooldown(characterName)
+        return sendPostRequest("/my/$characterName/action/claim_item/$id", "{}").use { response ->
+            val responseBody = response.body!!.string()
+            objectMapper.readValue<ArtifactsResponseBody<ClaimPendingItemResponseBody>>(responseBody)
         }
     }
 

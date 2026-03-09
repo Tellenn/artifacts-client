@@ -57,6 +57,7 @@ class CrafterJob(
             }
 
             character = cleanUpBank()
+            character = claimPendingItems()
 
             val skillToLevel = getLowestSkillLevel(character)
             val itemsToCraft = getListOfItemToCraftUnderLevel(
@@ -254,5 +255,17 @@ class CrafterJob(
         }
         character = movementService.moveToBank(character)
         return bankService.emptyInventory(character)
+    }
+
+    fun claimPendingItems() : ArtifactsCharacter{
+        val pending = accountClient.getPendingItems().data
+        if(pending.isNotEmpty()){
+            for (item in pending) {
+                character = characterService.claimPendingItem(character, item)
+            }
+        }
+        character = movementService.moveToBank(character)
+        character = bankService.emptyInventory(character)
+        return character
     }
 }
