@@ -1,5 +1,7 @@
 package com.tellenn.artifacts.services
 
+import com.tellenn.artifacts.clients.AccountClient
+import com.tellenn.artifacts.clients.SimulateClient
 import com.tellenn.artifacts.models.ArtifactsCharacter
 import com.tellenn.artifacts.models.Effect
 import com.tellenn.artifacts.models.MonsterData
@@ -18,12 +20,20 @@ class BattleSimulatorServiceTest {
     private lateinit var monsterRepository: MonsterRepository
     private lateinit var itemRepository: ItemRepository
     private lateinit var battleSimulatorService: BattleSimulatorService
+    private lateinit var simulateClient: SimulateClient
+    private lateinit var accountClient: AccountClient
 
     @BeforeEach
     fun setUp() {
         monsterRepository = mock(MonsterRepository::class.java)
         itemRepository = mock(ItemRepository::class.java)
-        battleSimulatorService = BattleSimulatorService(monsterRepository, itemRepository)
+        simulateClient = mock(SimulateClient::class.java)
+        accountClient = mock(AccountClient::class.java)
+        battleSimulatorService = BattleSimulatorService(
+            monsterRepository, itemRepository,
+            simulateClient = simulateClient,
+            accountClient = accountClient
+        )
     }
 
     @Test
