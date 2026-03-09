@@ -4,31 +4,22 @@ import com.fasterxml.jackson.module.kotlin.readValue
 import com.tellenn.artifacts.clients.responses.ArtifactsResponseBody
 import com.tellenn.artifacts.clients.responses.MovementResponseBody
 import lombok.extern.slf4j.Slf4j
-import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Component
 
 @Slf4j
 @Component
 class MovementClient : BaseArtifactsClient() {
-    private val logger = LoggerFactory.getLogger(MovementClient::class.java)
 
-    fun move(characterName: String, x: Int, y: Int): ArtifactsResponseBody<MovementResponseBody> {
-        var response = sendPostRequest("/my/$characterName/action/move", "{\"x\": ${x}, \"y\": ${y}}")
-        var movementResponse : ArtifactsResponseBody<MovementResponseBody> =
-            objectMapper.readValue<ArtifactsResponseBody<MovementResponseBody>>(response.body!!.string())
-
-        return movementResponse
-    }
     fun move(characterName: String, mapId: Int): ArtifactsResponseBody<MovementResponseBody> {
-        var response = sendPostRequest("/my/$characterName/action/move", "{\"mapId\": ${mapId}")
-        var movementResponse : ArtifactsResponseBody<MovementResponseBody> =
+        val response = sendPostRequest("/my/$characterName/action/move", "{\"mapId\": ${mapId}}")
+        val movementResponse : ArtifactsResponseBody<MovementResponseBody> =
             objectMapper.readValue<ArtifactsResponseBody<MovementResponseBody>>(response.body!!.string())
 
         return movementResponse
     }
     fun transition(characterName: String): ArtifactsResponseBody<MovementResponseBody> {
-        var response = sendPostRequest("/my/$characterName/action/transition", "{}")
-        var movementResponse : ArtifactsResponseBody<MovementResponseBody> =
+        val response = sendPostRequest("/my/$characterName/action/transition", "{}")
+        val movementResponse : ArtifactsResponseBody<MovementResponseBody> =
             objectMapper.readValue<ArtifactsResponseBody<MovementResponseBody>>(response.body!!.string())
 
         return movementResponse
