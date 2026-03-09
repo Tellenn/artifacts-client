@@ -307,21 +307,21 @@ class EquipmentService(
         val bis = getHashMapSlot()
         for(slot in bis){
             val item : BankItemDocument?
-            if(slot.key == "artifacts1") {
+            if(slot.key == "artifact1") {
                 item = getBestWisdomGear(
                     availableEquipment
-                        .filter { it.type == "artifacts" })
-            }else if(slot.key == "artifacts2"){
+                        .filter { it.type == "artifact" })
+            }else if(slot.key == "artifact2"){
                 item = getBestWisdomGear(
                     availableEquipment
-                        .filter { it.type == "artifacts" }
-                        .filter { it.code != bis["artifacts1"]?.code })
-            }else if(slot.key == "artifacts3"){
+                        .filter { it.type == "artifact" }
+                        .filter { it.code != bis["artifact1"]?.code })
+            }else if(slot.key == "artifact3"){
                 item = getBestWisdomGear(
                     availableEquipment
-                        .filter { it.type == "artifacts" }
-                        .filter { it.code != bis["artifacts1"]?.code }
-                        .filter { it.code != bis["artifacts2"]?.code })
+                        .filter { it.type == "artifact" }
+                        .filter { it.code != bis["artifact1"]?.code }
+                        .filter { it.code != bis["artifact2"]?.code })
             }else if(slot.key == "ring1" || slot.key == "ring2"){
                 item =
                     getBestWisdomGear(availableEquipment.filter { it.type == "ring" })
