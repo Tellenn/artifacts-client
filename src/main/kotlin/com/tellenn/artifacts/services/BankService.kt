@@ -63,7 +63,7 @@ class BankService(
         if(amount <= 0){
             return character
         }
-        var newCharacter = moveToBank(character)
+        val newCharacter = moveToBank(character)
         return bankClient.depositGold(newCharacter.name, amount).data.character
     }
 
@@ -71,7 +71,7 @@ class BankService(
         if(amount <= 0){
             return character
         }
-        var newCharacter = moveToBank(character)
+        val newCharacter = moveToBank(character)
         return bankClient.withdrawGold(newCharacter.name, amount).data.character
     }
 
@@ -114,7 +114,7 @@ class BankService(
             if (itemsToDeposit.isNotEmpty()) {
                 try {
                     newCharacter = bankClient.depositItems(character.name, itemsToDeposit).data.character
-                }catch (e: MapContentNotFoundException){
+                }catch (_: MapContentNotFoundException){
                     newCharacter = accountClient.getCharacter(newCharacter.name).data
                     return deposit(newCharacter, items)
                 }
@@ -184,6 +184,11 @@ class BankService(
         }catch (e: BankCorruptedException){
             bankItemSyncService.syncAllItems()
             throw e
+        }catch (_: MapContentNotFoundException){
+            var newCharacter = accountClient.getCharacter(newCharacter.name).data
+            newCharacter = moveToBank(newCharacter)
+            return withdrawMany(items, newCharacter)
+
         }
 
         // Remove items from the local database
@@ -248,7 +253,7 @@ class BankService(
         val oldx = character.x
         val oldy = character.y
         var newCharacter = emptyInventory(character)
-        newCharacter = movementService.moveCharacterToCell(oldx, oldy, newCharacter)
+        movementService.moveCharacterToCell(oldx, oldy, newCharacter)
         newCharacter = callable()
         // TODO : When gathering, sometime you get extra items and fail to fetch the previous items, how to prevent this ?
         newCharacter = moveToBank(newCharacter)

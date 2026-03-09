@@ -76,6 +76,14 @@ class BattleService(
             }else{
                 throw e
             }
+        }catch (_: CharacterInventoryFullException){
+            newCharacter = accountClient.getCharacter(newCharacter.name).data
+            val newQuantity = newCharacter.inventory.find { it.code == itemCode }?.let {quantity - it.quantity}
+            newCharacter = bankService.emptyInventory(newCharacter)
+            if(newQuantity != null && newQuantity > 0){
+                fightToGetItem(newCharacter, itemCode, quantity, shouldTrain)
+            }else
+            return newCharacter
         }
         return newCharacter
     }

@@ -126,7 +126,7 @@ class AlchemistJob(
         val food = itemService.getAllCraftableItemsBySkillAndSubtypeAndMaxLevel("cooking", "food", character.cookingLevel)
         return food
             .filter { it.effects?.none { effect -> effect.code != "heal" } ?: false }
-            .filter { it.craft?.items?.size == 1 && itemRepository.findByCode(it.craft.items[0].code)?.subtype == "fishing" }
+            .filter { it.craft?.items?.size == 1 && itemRepository.findByCode(it.craft.items[0].code).subtype == "fishing" }
             .filter { it.level <= character.fishingLevel }
             .maxBy { it.level }
     }
@@ -138,7 +138,7 @@ class AlchemistJob(
                 0 -> log.debug("Error when analysing ${it.name}, it's a craftable item that does not have crafts ?")
                 1 -> {
                     val craftableItem = craftableItems.first()
-                    if(craftableItem.craft?.items?.size == 1) {
+                    if(craftableItem.craft?.items?.size == 1 && bankService.canCraftFromBank(craftableItem, 1)) {
                         character = gatheringService.craftOrGather(character, craftableItem.code, min(character.inventoryMaxItems - 20, it.quantity) / craftableItem.craft.items[0].quantity)
                     }else{
                         log.debug("We have 1 craft, but it requires other items, unsure what to do so we abort")

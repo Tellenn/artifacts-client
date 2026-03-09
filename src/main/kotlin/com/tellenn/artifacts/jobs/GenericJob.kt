@@ -15,6 +15,7 @@ import com.tellenn.artifacts.services.TaskService
 import com.tellenn.artifacts.services.sync.BankItemSyncService
 import org.apache.logging.log4j.LogManager
 import org.springframework.stereotype.Component
+import java.lang.Thread.sleep
 import kotlin.math.min
 
 /**
@@ -22,7 +23,7 @@ import kotlin.math.min
  * Provides common functionality and structure for job implementations.
  */
 @Component
-open class GenericJob(
+class GenericJob(
     val mapService: MapService,
     val movementService: MovementService,
     val bankService: BankService,
@@ -38,6 +39,7 @@ open class GenericJob(
      */
     fun init(characterName : String) : ArtifactsCharacter{
         var tempCharacter = accountClient.getCharacter(characterName).data
+        sleep(tempCharacter.cooldown*1000L)
         tempCharacter = bankService.moveToBank(tempCharacter)
         tempCharacter = bankService.emptyInventory(tempCharacter)
         tempCharacter = characterService.rest(tempCharacter)
@@ -54,7 +56,7 @@ open class GenericJob(
                 try {
                     newCharacter = taskService.getNewMonsterTask(newCharacter)
                     newCharacter = taskService.doCharacterTask(newCharacter)
-                }catch (e: TaskFailedException){
+                }catch (_: TaskFailedException){
                     newCharacter = accountClient.getCharacter(character.name).data
                     newCharacter= taskService.abandonMonsterTask(newCharacter)
                 }

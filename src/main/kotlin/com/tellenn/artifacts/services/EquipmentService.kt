@@ -9,6 +9,7 @@ import com.tellenn.artifacts.models.ItemDetails
 import com.tellenn.artifacts.models.MonsterData
 import com.tellenn.artifacts.models.SimpleItem
 import com.tellenn.artifacts.db.repositories.ItemRepository
+import com.tellenn.artifacts.exceptions.CharacterInventoryFullException
 import com.tellenn.artifacts.exceptions.NotFoundException
 import com.tellenn.artifacts.services.battlesim.BattleSimulatorService
 import com.tellenn.artifacts.services.sync.BankItemSyncService
@@ -70,6 +71,11 @@ class EquipmentService(
                 }
             }
         }catch (_: NotFoundException){
+            newCharacter = accountClient.getCharacter(newCharacter.name).data
+            return equipBestAvailableEquipmentForMonsterInBank(newCharacter, monsterCode)
+        }catch (_: CharacterInventoryFullException){
+            newCharacter = accountClient.getCharacter(newCharacter.name).data
+            newCharacter = bankService.emptyInventory(newCharacter)
             return equipBestAvailableEquipmentForMonsterInBank(newCharacter, monsterCode)
         }
 
@@ -86,7 +92,7 @@ class EquipmentService(
                 .filter { it.craft != null && it.level <= newCharacter.level}
             if(worstHealingItem.isNotEmpty()){
                 val worstHealingItemCode = worstHealingItem.minBy { it.level }.code
-                newCharacter = bankService.withdrawOne(worstHealingItemCode, min(newCharacter.inventoryMaxItems -40, bankService.getOne(worstHealingItemCode).quantity), newCharacter)
+                newCharacter = bankService.withdrawOne(worstHealingItemCode, min(newCharacter.inventoryMaxItems /2, bankService.getOne(worstHealingItemCode).quantity), newCharacter)
             }
         }
         return newCharacter
