@@ -1,7 +1,7 @@
 package com.tellenn.artifacts.controller
 
-import com.tellenn.artifacts.db.documents.ItemDocument
 import com.tellenn.artifacts.db.repositories.ItemRepository
+import com.tellenn.artifacts.models.ItemDetails
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Test
 import org.mockito.Mockito.mock
@@ -33,7 +33,7 @@ class ItemControllerTest {
     private val itemController = ItemController(itemRepository)
 
     private val testItems = listOf(
-        ItemDocument(
+        ItemDetails(
             code = "ITEM001",
             name = "Test Item 1",
             description = "Description for test item 1",
@@ -42,9 +42,10 @@ class ItemControllerTest {
             level = 1,
             tradeable = true,
             effects = null,
-            craft = null
+            craft = null,
+            conditions = null
         ),
-        ItemDocument(
+        ItemDetails(
             code = "ITEM002",
             name = "Test Item 2",
             description = "Description for test item 2",
@@ -53,7 +54,8 @@ class ItemControllerTest {
             level = 2,
             tradeable = false,
             effects = null,
-            craft = null
+            craft = null,
+            conditions = null
         )
     )
 

@@ -3,10 +3,9 @@ package com.tellenn.artifacts.services
 import com.tellenn.artifacts.models.ArtifactsCharacter
 import com.tellenn.artifacts.models.Effect
 import com.tellenn.artifacts.models.MonsterData
-import com.tellenn.artifacts.db.documents.ItemDocument
-import com.tellenn.artifacts.db.documents.ItemEffectDocument
 import com.tellenn.artifacts.db.repositories.ItemRepository
 import com.tellenn.artifacts.db.repositories.MonsterRepository
+import com.tellenn.artifacts.models.ItemDetails
 import com.tellenn.artifacts.services.battlesim.BattleSimulatorService
 import org.junit.jupiter.api.Assertions.*
 import org.junit.jupiter.api.BeforeEach
@@ -340,7 +339,7 @@ class BattleSimulatorServiceTest {
         )
 
         // Create a mock lifesteal item
-        val lifestealItem = ItemDocument(
+        val lifestealItem = ItemDetails(
             code = "lifesteal_item",
             name = "Lifesteal Item",
             description = "An item with lifesteal effect",
@@ -349,7 +348,7 @@ class BattleSimulatorServiceTest {
             level = 1,
             tradeable = true,
             effects = listOf(
-                ItemEffectDocument(
+                Effect(
                     code = "lifesteal",
                     value = 20, // 20% lifesteal
                     description = "Restores 20% of the total attack of all elements in HP after a critical strike."

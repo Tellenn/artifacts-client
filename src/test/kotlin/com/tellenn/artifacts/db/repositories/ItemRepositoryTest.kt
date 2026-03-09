@@ -1,6 +1,6 @@
 package com.tellenn.artifacts.db.repositories
 
-import com.tellenn.artifacts.db.documents.ItemDocument
+import com.tellenn.artifacts.models.ItemDetails
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
@@ -15,7 +15,7 @@ class ItemRepositoryTest {
     private lateinit var itemRepository: ItemRepository
 
     private val testItems = listOf(
-        ItemDocument(
+        ItemDetails(
             code = "TEST_SWORD_1",
             name = "Test Sword",
             description = "A test sword for testing",
@@ -24,9 +24,10 @@ class ItemRepositoryTest {
             level = 1,
             tradeable = true,
             effects = null,
-            craft = null
+            craft = null,
+            conditions = null
         ),
-        ItemDocument(
+        ItemDetails(
             code = "TEST_POTION_1",
             name = "Test Potion",
             description = "A test potion for testing",
@@ -35,9 +36,10 @@ class ItemRepositoryTest {
             level = 5,
             tradeable = true,
             effects = null,
-            craft = null
+            craft = null,
+            conditions = null
         ),
-        ItemDocument(
+        ItemDetails(
             code = "TEST_ARMOR_1",
             name = "Test Armor",
             description = "A test armor for testing",
@@ -46,7 +48,8 @@ class ItemRepositoryTest {
             level = 10,
             tradeable = false,
             effects = null,
-            craft = null
+            craft = null,
+            conditions = null
         )
     )
 
