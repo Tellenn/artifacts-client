@@ -13,8 +13,8 @@ import org.springframework.stereotype.Component
 class SimulateClient : BaseArtifactsClient() {
 
     fun simulate1v1(character: ArtifactsCharacter, monsterName: String): ArtifactsResponseBody<SimulationResult> {
-        character.utility1SlotQuantity = 1
-        character.utility2SlotQuantity = 1
+        if(character.utility1SlotQuantity == 0) character.utility1SlotQuantity = 1
+        if(character.utility2SlotQuantity == 0) character.utility2SlotQuantity = 1
         val req = SimulationBattleRequest(listOf(character), monsterName, 10)
         return sendPostRequest("/simulation/fight_simulation", objectMapper.writeValueAsString(req)).use { response ->
             val responseBody = response.body!!.string()

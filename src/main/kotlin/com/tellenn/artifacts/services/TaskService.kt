@@ -137,7 +137,7 @@ class TaskService(
                 testCharacter["${slot}_slot"] = item.code
             }
         }
-        if(battleSimulatorService.simulateWithApi(monsterCode, character).data.losses > 1){
+        if(battleSimulatorService.simulateWithApi(monsterCode, character).data.losses > 1){ // 10 simulation, 1 mean 10% fails
             throw TaskFailedException()
         }
         if(quantityLeft > 0){
