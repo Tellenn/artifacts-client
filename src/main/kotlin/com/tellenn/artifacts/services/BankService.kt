@@ -21,30 +21,14 @@ class BankService(
     private val bankClient: BankClient,
     private val bankRepository: BankItemRepository,
     private val itemRepository: ItemRepository,
-    private val mapService: MapService,
-    private val movementService: MovementService,
     private val characterService: CharacterService,
     private val bankItemSyncService: BankItemSyncService,
     private val accountClient: AccountClient
 ) {
     private val log = LogManager.getLogger(BankService::class.java)
 
-    /**
-     * Moves a character to the closest bank if they're not already there.
-     *
-     * @param character The character to move to the bank
-     * @return The updated character after moving to the bank, or the original character if already at a bank
-     */
-    fun moveToBank(character: ArtifactsCharacter): ArtifactsCharacter {
-        val closestBank = mapService.findClosestMap(character = character, contentCode = "bank")
-        if (character.x == closestBank.x && character.y == closestBank.y) {
-            return character
-        }
-        return movementService.moveCharacterToCell(closestBank.x, closestBank.y, character)
-    }
-
     fun emptyInventory(character: ArtifactsCharacter) : ArtifactsCharacter{
-        var newCharacter = moveToBank(character)
+        var newCharacter = character
         val inventory = character.inventory
         val items = inventory.filter { it.quantity > 0 }.map { SimpleItem(it.code, it.quantity) }
         newCharacter = deposit(newCharacter, items)
@@ -63,16 +47,14 @@ class BankService(
         if(amount <= 0){
             return character
         }
-        val newCharacter = moveToBank(character)
-        return bankClient.depositGold(newCharacter.name, amount).data.character
+        return bankClient.depositGold(character.name, amount).data.character
     }
 
     fun withdrawMoney(character: ArtifactsCharacter, amount: Int) : ArtifactsCharacter{
         if(amount <= 0){
             return character
         }
-        val newCharacter = moveToBank(character)
-        return bankClient.withdrawGold(newCharacter.name, amount).data.character
+        return bankClient.withdrawGold(character.name, amount).data.character
     }
 
     fun deposit(character: ArtifactsCharacter, items: List<SimpleItem> ): ArtifactsCharacter {
@@ -80,7 +62,6 @@ class BankService(
 
         val filteredItems = items.filter { it.quantity > 0 || it.code.isNotEmpty() }
 
-        newCharacter = moveToBank(newCharacter)
         // Store original bank state for potential rollback
         val originalBankItems = mutableMapOf<String, BankItemDocument>()
         val newBankItems = mutableListOf<BankItemDocument>()
@@ -184,11 +165,6 @@ class BankService(
         }catch (e: BankCorruptedException){
             bankItemSyncService.syncAllItems()
             throw e
-        }catch (_: MapContentNotFoundException){
-            var newCharacter = accountClient.getCharacter(newCharacter.name).data
-            newCharacter = moveToBank(newCharacter)
-            return withdrawMany(items, newCharacter)
-
         }
 
         // Remove items from the local database
@@ -248,15 +224,20 @@ class BankService(
         return canCraft
     }
 
-    fun storeItemsToDoThenGetThemBack(character: ArtifactsCharacter, callable : () -> ArtifactsCharacter) : ArtifactsCharacter {
+    /**
+     * CAREFUL
+     * THIS CAUSE A DESYNC WHEN USING THE CALLBACK. THE CALLBACK SHOULD REFRESH THE CHARACTER DATA
+     */
+    fun storeItemsToDoThenGetThemBack(character: ArtifactsCharacter, movementService: MovementService, callable : () -> ArtifactsCharacter) : ArtifactsCharacter {
         val oldInventory = character.inventory.filter { it.code != "" }.map { SimpleItem(it.code, it.quantity)}
-        val oldx = character.x
-        val oldy = character.y
-        var newCharacter = emptyInventory(character)
-        movementService.moveCharacterToCell(oldx, oldy, newCharacter)
-        newCharacter = callable()
+        val oldMapId = character.mapId
+        var newCharacter = movementService.moveToBank(character)
+        newCharacter = emptyInventory(newCharacter)
+        movementService.moveCharacterToCell(oldMapId, newCharacter)
+        callable()
         // TODO : When gathering, sometime you get extra items and fail to fetch the previous items, how to prevent this ?
-        newCharacter = moveToBank(newCharacter)
+        newCharacter = accountClient.getCharacter(newCharacter.name).data // To make sure depending on the callable
+        newCharacter = movementService.moveToBank(newCharacter)
         newCharacter = withdrawMany(ArrayList(oldInventory), newCharacter)
         return newCharacter
 
@@ -268,7 +249,6 @@ class BankService(
         if(bankedItem == null){
             return newCharacter
         }
-        moveToBank(newCharacter)
         val quantityLeft = bankedItem.quantity
         return withdrawOne(code, quantityLeft, newCharacter)
     }

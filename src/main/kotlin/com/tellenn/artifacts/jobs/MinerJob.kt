@@ -16,7 +16,6 @@ import org.springframework.stereotype.Component
 import java.lang.Thread.sleep
 import kotlin.collections.filter
 import kotlin.collections.sortedBy
-import kotlin.math.min
 
 /**
  * Job implementation for characters with the "miner" job.
@@ -62,6 +61,7 @@ class MinerJob(
                 itemsToCraft.forEach {
                     log.info("${character.name} is stocking up on some ${it.code}")
                     character = gatheringService.craftOrGather(character, it.code, it.quantity)
+                    character = movementService.moveToBank(character)
                     character = bankService.emptyInventory(character)
                 }
                 continue
@@ -80,6 +80,7 @@ class MinerJob(
                     item.code,
                     (character.inventoryMaxItems -10 )/ itemService.getInvSizeToCraft(item)
                 )
+                character = movementService.moveToBank(character)
                 character = bankService.emptyInventory(character)
 
                 // Or do some tasks to get task coins

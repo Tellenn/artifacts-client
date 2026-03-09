@@ -44,7 +44,7 @@ class GatheringService(
         }
 
         if(functionLevel > 0 && bankService.isInBank(itemDetails.code, quantity)){
-            val newCharacter = bankService.moveToBank(character)
+            val newCharacter = movementService.moveToBank(character)
             return bankService.withdrawOne(itemDetails.code, quantity, newCharacter)
         }
         if(itemDetails.subtype == "task"){
@@ -54,7 +54,7 @@ class GatheringService(
                 .filter { it.buyPrice != null }
                 .first { itemDetails.code == it.code }
             if(npcItem.buyPrice != null && bankService.isInBank("tasks_coin", npcItem.buyPrice.times(quantity).plus(10))){
-                var newCharacter = bankService.moveToBank(character)
+                var newCharacter = movementService.moveToBank(character)
                 newCharacter = bankService.withdrawOne("tasks_coin", npcItem.buyPrice.times(quantity), newCharacter)
                 newCharacter = movementService.moveToNpc(newCharacter, npcItem.npc)
                 return npcClient.buyItem(newCharacter.name, npcItem.code, quantity).data.character
@@ -66,14 +66,15 @@ class GatheringService(
         else if(itemDetails.subtype == "mob"){
             // We don't have it and it's a mob item
             if(allowFight){
-                return bankService.storeItemsToDoThenGetThemBack(character) {
-                    battleService.fightToGetItem(character, itemDetails.code, quantity, shouldTrain)
+                val newCharacter = movementService.moveToBank(character)
+                return bankService.storeItemsToDoThenGetThemBack(newCharacter, movementService) {
+                    battleService.fightToGetItem(accountClient.getCharacter(newCharacter.name).data, itemDetails.code, quantity, shouldTrain)
                 }
             }else{
                 throw IllegalArgumentException("Cannot gather mob without fighting enabled")
             }
         }else if(itemDetails.subtype == "npc"){
-            // We don't have it and it's a npc selling it
+            // We don't have it, and it's a npc selling it
             val npcItem = npcClient.getNpcByItemCode(itemDetails.code).data.first()
             if(npcItem.currency == "gold" || npcItem.buyPrice == null){
                 throw IllegalArgumentException("Cannot gather npc with gold currency")
@@ -115,6 +116,7 @@ class GatheringService(
             val mapData = mapService.findClosestMap(character = character, contentCode = resourceService.findResourceContaining(item.code, skillLevel).code)
             var newCharacter = equipmentService.equipBestToolForSkill(character, item.subtype)
             newCharacter = equipmentService.equipBestAvailableEquipmentForCraftingOrGatheringInBank(newCharacter)
+            newCharacter = movementService.moveToBank(newCharacter)
             newCharacter = bankService.emptyInventory(newCharacter)
             newCharacter = movementService.moveCharacterToCell(mapData.x, mapData.y, newCharacter)
             while (quantityToCraft >= quantityGathered) {
@@ -140,6 +142,7 @@ class GatheringService(
                     )
                     log.warn("${newCharacter.name} is emptying their inventory", e)
                     newCharacter = accountClient.getCharacter(newCharacter.name).data
+                    newCharacter = movementService.moveToBank(newCharacter)
                     newCharacter = bankService.emptyInventory(newCharacter)
                     newCharacter = movementService.moveCharacterToCell(mapData.x, mapData.y, newCharacter)
                     // TODO : in this case, we lost the items previously collected for the GatherAndCollect. What to do ? 😮‍💨😮‍💨😮‍💨

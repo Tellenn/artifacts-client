@@ -63,7 +63,7 @@ class BattleService(
                 try {
                     newCharacter = battle(newCharacter, monster.code)
                 }catch (_ : CharacterInventoryFullException){
-                    newCharacter = bankService.moveToBank(newCharacter)
+                    newCharacter = movementService.moveToBank(newCharacter)
                     newCharacter = bankService.emptyInventory(newCharacter)
                     newCharacter = movementService.moveCharacterToCell(map.x, map.y, newCharacter)
                 }
@@ -79,6 +79,7 @@ class BattleService(
         }catch (_: CharacterInventoryFullException){
             newCharacter = accountClient.getCharacter(newCharacter.name).data
             val newQuantity = newCharacter.inventory.find { it.code == itemCode }?.let {quantity - it.quantity}
+            newCharacter = movementService.moveToBank(newCharacter)
             newCharacter = bankService.emptyInventory(newCharacter)
             if(newQuantity != null && newQuantity > 0){
                 fightToGetItem(newCharacter, itemCode, quantity, shouldTrain)

@@ -14,6 +14,7 @@ import okhttp3.OkHttpClient
 import okhttp3.Request
 import okhttp3.RequestBody.Companion.toRequestBody
 import okhttp3.Response
+import okhttp3.ResponseBody.Companion.toResponseBody
 import org.slf4j.LoggerFactory
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.beans.factory.annotation.Value
@@ -54,7 +55,7 @@ abstract class BaseArtifactsClient() {
             val data = response["data"] as? Map<*, *> ?: return
             val character = data["character"] as? Map<*, *> ?: return
             if(character.isEmpty()) return
-            messageService.sendCharacterMessage(character.toString());
+            messageService.sendCharacterMessage(character.toString())
         } catch (e: Exception) {
             log.warn("Failed to parse cooldown information: ${e.message}")
         }
@@ -72,8 +73,8 @@ abstract class BaseArtifactsClient() {
     private fun handleCooldown(responseBody: String) {
         try {
             val response = objectMapper.readValue<Map<String, Any>>(responseBody)
-            val data = response["data"] as? Map<String, Any> ?: return
-            val cooldown = data["cooldown"] as? Map<String, Any> ?: return
+            val data = response["data"] as? Map<*, *> ?: return
+            val cooldown = data["cooldown"] as? Map<*, *> ?: return
 
             val remainingSeconds = cooldown["remaining_seconds"] as? Int ?: return
             if (remainingSeconds > 0) {
@@ -209,7 +210,7 @@ abstract class BaseArtifactsClient() {
                     try {
                         // Parse the error response to extract the cooldown time
                         val errorResponse = objectMapper.readValue<Map<String, Any>>(responseBodyString)
-                        val error = errorResponse["error"] as? Map<String, Any>
+                        val error = errorResponse["error"] as? Map<*, *>
                         val message = error?.get("message") as? String
                         
                         if (message != null && message.contains("cooldown")) {
@@ -247,9 +248,7 @@ abstract class BaseArtifactsClient() {
 
             // Create a new response with the same body since we've consumed it
             val mediaType = "application/json; charset=utf-8".toMediaType()
-            val responseBody = responseBodyString.toByteArray().let { 
-                okhttp3.ResponseBody.create(mediaType, it) 
-            }
+            val responseBody = responseBodyString.toByteArray().toResponseBody(mediaType)
 
             return response.newBuilder()
                 .body(responseBody)
@@ -301,7 +300,7 @@ abstract class BaseArtifactsClient() {
                     try {
                         // Parse the error response to extract the cooldown time
                         val errorResponse = objectMapper.readValue<Map<String, Any>>(responseBodyString)
-                        val error = errorResponse["error"] as? Map<String, Any>
+                        val error = errorResponse["error"] as? Map<*, *>
                         val message = error?.get("message") as? String
                         
                         if (message != null && message.contains("cooldown")) {
@@ -327,7 +326,7 @@ abstract class BaseArtifactsClient() {
                 try{
 
                     throw mapResponseCodeToException(response.code, "Request failed with status code ${response.code}")
-                }catch (e: ArtifactsApiException){
+                }catch (_: ArtifactsApiException){
                     // Log the error to the database
                     logAndThrowError(response, clientType, path, requestMethod, body, null, responseBodyString)
                 }
@@ -347,9 +346,7 @@ abstract class BaseArtifactsClient() {
             log.debug("Réponse POST: $responseBodyString")
 
             // Create a new response with the same body since we've consumed it
-            val responseBody = responseBodyString.toByteArray().let { 
-                okhttp3.ResponseBody.create(mediaType, it) 
-            }
+            val responseBody = responseBodyString.toByteArray().toResponseBody(mediaType)
 
             return response.newBuilder()
                 .body(responseBody)

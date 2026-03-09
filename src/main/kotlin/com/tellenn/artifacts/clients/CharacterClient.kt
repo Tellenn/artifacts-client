@@ -32,7 +32,7 @@ class CharacterClient : BaseArtifactsClient() {
     }
 
     fun unequipItem(characterName: String, slot: String, quantity: Int): ArtifactsResponseBody<EquipmentResponseBody> {
-        val request = UnequipRequest(slot.toString(), quantity)
+        val request = UnequipRequest(slot, quantity)
         val requestBody = objectMapper.writeValueAsString(request)
         return sendPostRequest("/my/$characterName/action/unequip", requestBody).use { response ->
             val responseBody = response.body!!.string()

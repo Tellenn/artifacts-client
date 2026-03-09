@@ -7,7 +7,6 @@ import com.tellenn.artifacts.db.repositories.MonsterRepository
 import org.springframework.stereotype.Service
 import kotlin.math.roundToInt
 
-
 // Class to represent item information for battle simulation
 data class ItemInformation(
     val code: String,
@@ -31,18 +30,13 @@ class BattleSimulatorService(
     private val monsterRepository: MonsterRepository,
     private val itemRepository: ItemRepository
 ) {
-    // Class to hold damage calculation result
-    data class DamageResult(
-        val damage: Int,
-        val lifestealAmount: Int = 0
-    )
 
     // Utility class to get item information
     private val itemUtils = object {
         fun getItemInfo(itemCode: String?): ItemInformation? {
             if (itemCode == null || itemCode.isEmpty()) return null
 
-            val item = itemRepository.findByCode(itemCode) ?: return null
+            val item = itemRepository.findByCode(itemCode)
 
             return ItemInformation(
                 code = item.code,
@@ -60,14 +54,13 @@ class BattleSimulatorService(
 
     fun simulate(monsterCode: String, character: ArtifactsCharacter): BattleSimulatorResult {
         val monster = monsterRepository.findByCode(monsterCode)
-            ?: throw IllegalArgumentException("Monster with code $monsterCode not found")
 
         // Get utility items
-        val utility1: ItemInformation? = if (character.utility1Slot != null && character.utility1Slot != "") {
+        val utility1: ItemInformation? = if (character.utility1Slot != "") {
             itemUtils.getItemInfo(character.utility1Slot)
         } else null
 
-        val utility2: ItemInformation? = if (character.utility2Slot != null && character.utility2Slot != "") {
+        val utility2: ItemInformation? = if (character.utility2Slot != "") {
             itemUtils.getItemInfo(character.utility2Slot)
         } else null
 
@@ -119,7 +112,7 @@ class BattleSimulatorService(
         }
 
         // Calculate base damage per turn
-        var baseDamagePerTurn = computedFireDamage + computedEarthDamage + computedWaterDamage + computedAirDamage
+        val baseDamagePerTurn = computedFireDamage + computedEarthDamage + computedWaterDamage + computedAirDamage
 
         // Apply critical strike chance
         // Calculate average damage with critical strikes factored in
@@ -170,9 +163,10 @@ class BattleSimulatorService(
                 // Calculate average burn damage over multiple turns, accounting for 10% decrease each turn
                 var totalBurnDamage = 0
                 var currentBurnDamage = initialBurnDamage
-                val maxTurns = 10 // Reasonable number of turns to consider
+                val maxTurns = 20 // Reasonable number of turns to consider
 
                 for (turn in 1..maxTurns) {
+                    if(turn > 19) break
                     totalBurnDamage += currentBurnDamage
                     currentBurnDamage = (currentBurnDamage * 0.9).toInt() // Decrease by 10% each turn
                     if (currentBurnDamage <= 0) break

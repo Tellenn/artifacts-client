@@ -37,6 +37,7 @@ class WebSocketService(
     private val merchantService: MerchantService,
     private val accountClient: AccountClient,
     private val bankService: BankService,
+    private val movementService: MovementService,
     private val gatheringService: GatheringService
 ) {
     val objectMapper = jacksonObjectMapper().apply {
@@ -165,30 +166,6 @@ class WebSocketService(
     }
 
     /**
-     * Registers a message handler to receive WebSocket messages.
-     *
-     * @param handler The handler to register
-     */
-    fun registerMessageHandler(handler: WebSocketMessageHandler) {
-        messageHandlers.add(handler)
-        logger.info("Registered WebSocket message handler: ${handler.javaClass.simpleName}")
-    }
-
-    /**
-     * Unregisters a message handler.
-     *
-     * @param handler The handler to unregister
-     * @return true if the handler was removed, false if it wasn't registered
-     */
-    fun unregisterMessageHandler(handler: WebSocketMessageHandler): Boolean {
-        val removed = messageHandlers.remove(handler)
-        if (removed) {
-            logger.info("Unregistered WebSocket message handler: ${handler.javaClass.simpleName}")
-        }
-        return removed
-    }
-
-    /**
      * Adds a character thread to the map.
      *
      * @param characterName The name of the character
@@ -238,24 +215,6 @@ class WebSocketService(
     }
 
     /**
-     * Interrupts all character threads.
-     *
-     * @return The number of threads that were interrupted
-     */
-    fun interruptAllCharacterThreads(): Int {
-        logger.info("Interrupting all character threads")
-        var count = 0
-/*
-        characterThreads.forEach { (characterName, thread) ->
-            thread.interrupt()
-            logger.info("Interrupted thread for character: $characterName")
-            count++
-        }*/
-
-        return count
-    }
-
-    /**
      * Shuts down the WebSocket service and cleans up resources.
      * This should be called when the application is shutting down.
      */
@@ -267,7 +226,7 @@ class WebSocketService(
             if (!reconnectScheduler.awaitTermination(5, TimeUnit.SECONDS)) {
                 reconnectScheduler.shutdownNow()
             }
-        } catch (e: InterruptedException) {
+        } catch (_: InterruptedException) {
             reconnectScheduler.shutdownNow()
             Thread.currentThread().interrupt()
         }
@@ -319,7 +278,7 @@ class WebSocketService(
                                     interruptCharacterThread("Aerith")
                                     logger.info("!!!!!!!! Interrupted the thread of Aerith")
 
-                                    var character = accountClient.getCharacter("Aerith").data
+                                    val character = accountClient.getCharacter("Aerith").data
                                     merchantService.sellBankItemTo(character, event.map.interactions.content.code)
                                     restartCharacterThread("Aerith")
                                 }else if (event.map.interactions?.content?.type == "resource") {
@@ -336,6 +295,7 @@ class WebSocketService(
                                     try {
                                         var character = accountClient.getCharacter(characterName).data
                                         do {
+                                            character = movementService.moveToBank(character)
                                             character = bankService.emptyInventory(character)
                                             character = gatheringService.craftOrGather(
                                                 character,
@@ -346,7 +306,7 @@ class WebSocketService(
                                     }catch (_: MapContentNotFoundException){
 
                                     }catch (e: Exception){
-                                        logger.error("Uncaught error occured while gathering in the event", e);
+                                        logger.error("Uncaught error occured while gathering in the event", e)
                                     }finally {
                                         restartCharacterThread(characterName)
                                     }

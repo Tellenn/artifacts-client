@@ -1,12 +1,9 @@
 package com.tellenn.artifacts
 
 import com.fasterxml.jackson.databind.ObjectMapper
-import com.tellenn.artifacts.clients.AccountClient
-import com.tellenn.artifacts.clients.CharacterClient
 import com.tellenn.artifacts.clients.ServerStatusClient
 import com.tellenn.artifacts.models.ArtifactsCharacter
 import com.tellenn.artifacts.config.CharacterConfig
-import com.tellenn.artifacts.exceptions.UnknownJobException
 import com.tellenn.artifacts.jobs.AlchemistJob
 import com.tellenn.artifacts.jobs.CrafterJob
 import com.tellenn.artifacts.jobs.FighterJob
@@ -29,7 +26,6 @@ import org.springframework.boot.ApplicationRunner
 import org.springframework.stereotype.Component
 import jakarta.annotation.PreDestroy
 import java.lang.Thread.sleep
-import java.util.Collections
 
 @Slf4j
 @Component
@@ -54,9 +50,6 @@ class MainRuntime(
 ) : ApplicationRunner {
 
     private val log = LogManager.getLogger(MainRuntime::class.java)
-
-    // Thread-safe list that can be safely accessed and modified by multiple threads
-    val sharedThreadList: MutableList<Any> = Collections.synchronizedList(ArrayList())
 
     override fun run(args: ApplicationArguments?) {
         // Call the server to get the information
@@ -150,7 +143,7 @@ class MainRuntime(
                     log.info("Thread for character ${character.name} already exists, skipping")
                     continue
                 }
-                var charThread = CharacterThread(config, crafterJob, fighterJob, alchemistJob, minerJob, woodworkerJob)
+                val charThread = CharacterThread(config, crafterJob, fighterJob, alchemistJob, minerJob, woodworkerJob)
                 webSocketService.addCharacterThread(config.name, charThread)
                 charThread.startThread()
             } catch (e: Exception) {
@@ -159,10 +152,10 @@ class MainRuntime(
                 // Wait a moment before attempting to restart
                 try {
                     log.info("Attempting to restart thread for character: ${character.name}")
-                    Thread.sleep(1000) // Wait 1 second before restarting
+                    sleep(1000) // Wait 1 second before restarting
 
                     // Create a new thread and start it
-                    var charThread = CharacterThread(config, crafterJob, fighterJob, alchemistJob, minerJob, woodworkerJob)
+                    val charThread = CharacterThread(config, crafterJob, fighterJob, alchemistJob, minerJob, woodworkerJob)
                     webSocketService.addCharacterThread(config.name, charThread)
                     charThread.startThread()
 
@@ -181,9 +174,6 @@ class MainRuntime(
     @PreDestroy
     fun cleanup() {
         log.info("Application shutting down, cleaning up resources...")
-
-        // Interrupt all character threads
-        webSocketService.interruptAllCharacterThreads()
 
         // Shutdown the WebSocket service
         webSocketService.shutdown()

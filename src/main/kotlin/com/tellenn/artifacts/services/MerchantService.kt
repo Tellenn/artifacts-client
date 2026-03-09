@@ -2,7 +2,6 @@ package com.tellenn.artifacts.services
 
 import com.tellenn.artifacts.clients.NpcClient
 import com.tellenn.artifacts.models.ArtifactsCharacter
-import com.tellenn.artifacts.models.SimpleItem
 import lombok.extern.slf4j.Slf4j
 import okhttp3.internal.concurrent.TaskRunner.Companion.logger
 import org.springframework.stereotype.Service
@@ -27,11 +26,12 @@ class MerchantService (
                         && npcClient.getItemsBoughtWith(it.code).total == 0}
         logger.info("!!!!!!!! Found ${items.size} npcItems for the event $npcName")
         if(items.isNotEmpty()){
+            newCharacter = movementService.moveToBank(newCharacter)
             newCharacter = bankService.emptyInventory(newCharacter)
             for(item in items){
                 if(bankService.isInBank(item.code, 1)){
                     logger.info("%blue(!!!!!!!!) Selling item ${item.code} to $npcName")
-                    newCharacter = bankService.moveToBank(newCharacter)
+                    newCharacter = movementService.moveToBank(newCharacter)
                     newCharacter = bankService.withdrawAllOfOne(newCharacter, item.code)
 
                     logger.info("!!!!!!!! Withdrawn the items, moving to the npc")

@@ -8,11 +8,13 @@ import com.tellenn.artifacts.models.GEOrderHistory
 import com.tellenn.artifacts.clients.requests.CreateCharacterRequest
 import com.tellenn.artifacts.clients.responses.ArtifactsArrayResponseBody
 import com.tellenn.artifacts.clients.responses.ArtifactsResponseBody
+import com.tellenn.artifacts.models.Achievement
 import lombok.extern.slf4j.Slf4j
 import org.springframework.stereotype.Service
 
 @Slf4j
 @Service
+@Suppress("unused")
 class AccountClient() : BaseArtifactsClient() {
 
     fun getGESellOrders(code: String? = null, page: Int = 1, size: Int = 50): ArtifactsArrayResponseBody<GEOrder> {
@@ -75,6 +77,13 @@ class AccountClient() : BaseArtifactsClient() {
         return sendGetRequest("/accounts/Tellenn/characters").use { response ->
             val responseBody = response.body!!.string()
             objectMapper.readValue<ArtifactsResponseBody<List<ArtifactsCharacter>>>(responseBody)
+        }
+    }
+
+    fun getAccountAchievement(name: String = "Tellenn", completed: Boolean = true): ArtifactsArrayResponseBody<Achievement>{
+        return sendGetRequest("/accounts/${name}/achievements?completed=$completed").use { response ->
+            val responseBody = response.body!!.string()
+            objectMapper.readValue<ArtifactsArrayResponseBody<Achievement>>(responseBody)
         }
     }
 }

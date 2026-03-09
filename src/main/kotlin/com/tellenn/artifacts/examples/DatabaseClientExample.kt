@@ -47,7 +47,7 @@ class DatabaseClientExample(private val databaseClient: DatabaseClient) : Comman
             val item = databaseClient.getItemDetails(itemCode)
             logger.info("Item details for $itemCode:")
             logger.info("Name: ${item.name}")
-            logger.info("Description: ${item.description ?: "N/A"}")
+            logger.info("Description: ${item.description}")
             logger.info("Type: ${item.type}")
             logger.info("Subtype: ${item.subtype}")
             logger.info("Level: ${item.level}")

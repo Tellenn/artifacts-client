@@ -40,7 +40,10 @@ class GenericJob(
     fun init(characterName : String) : ArtifactsCharacter{
         var tempCharacter = accountClient.getCharacter(characterName).data
         sleep(tempCharacter.cooldown*1000L)
-        tempCharacter = bankService.moveToBank(tempCharacter)
+        tempCharacter = movementService.moveToBank(tempCharacter)
+        if(characterName != "Cloud" && tempCharacter.weaponSlot == "wooden_stick"){
+            characterService.unequip(tempCharacter, "weapon_slot", 1)
+        }
         tempCharacter = bankService.emptyInventory(tempCharacter)
         tempCharacter = characterService.rest(tempCharacter)
         return tempCharacter
@@ -66,7 +69,7 @@ class GenericJob(
     }
 
     fun craftBasicMaterialFromBank(skill: String, subType: String, itemService: ItemService, gatheringService: GatheringService, bankItemSyncService: BankItemSyncService, character: ArtifactsCharacter) : ArtifactsCharacter{
-        var newCharacter = character
+        var newCharacter = movementService.moveToBank(character)
         newCharacter = bankService.emptyInventory(newCharacter)
         itemService.getAllCraftableItemsBySkillAndSubtypeAndMaxLevel(skill, subType, character.getLevelOf(skill))
             .sortedBy { -it.level }
@@ -84,6 +87,7 @@ class GenericJob(
                         bankItemSyncService.syncAllItems()
                     }
                 }
+                newCharacter = movementService.moveToBank(newCharacter)
                 newCharacter = bankService.emptyInventory(newCharacter)
             }
         return newCharacter

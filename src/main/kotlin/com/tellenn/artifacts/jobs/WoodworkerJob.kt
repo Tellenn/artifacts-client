@@ -61,6 +61,7 @@ class WoodworkerJob(
                     for (it in itemsToCraft) {
                         log.info("${character.name} is stocking up on some ${it.code}")
                         character = gatheringService.craftOrGather(character, it.code, it.quantity)
+                        character = movementService.moveToBank(character)
                         character = bankService.emptyInventory(character)
                     }
                 }catch (e: MapContentNotFoundException){
@@ -83,6 +84,7 @@ class WoodworkerJob(
                     item.code,
                     (character.inventoryMaxItems -10 )/ itemService.getInvSizeToCraft(item)
                 )
+                character = movementService.moveToBank(character)
                 character = bankService.emptyInventory(character)
 
                 // Or do some tasks to get task coins

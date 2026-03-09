@@ -51,6 +51,7 @@ class CrafterJob(
             val bankDetails = bankService.getBankDetails()
             if(bankDetails.slots - bankService.getBankSize() < 20 && bankDetails.slots < 200 && bankDetails.gold > bankDetails.nextExpansionCost){
                 log.info("${character.name} is buying a bankSlot for ${bankDetails.nextExpansionCost}")
+                character = movementService.moveToBank(character)
                 character = bankService.withdrawMoney(character, bankDetails.nextExpansionCost)
                 character = bankService.buyBankSlot(character)
             }
@@ -72,6 +73,7 @@ class CrafterJob(
                             log.info("${character.name} is crafting a ${itemDetail.code} from items in bank for use in bank")
                             character =
                                 gatheringService.craftOrGather(character, itemDetail.code, 1, allowFight = false)
+                            character = movementService.moveToBank(character)
                             character = bankService.emptyInventory(character)
                             saveOrUpdateCraftedItem(itemDetail)
                             instantCraft = true
@@ -89,6 +91,7 @@ class CrafterJob(
                     try{
                         log.info("${character.name} is gathering and crafting a ${itemDetail.code} for use in bank")
                         character = gatheringService.craftOrGather(character, itemDetail.code, 1, allowFight = true, shouldTrain = false)
+                        character = movementService.moveToBank(character)
                         character = bankService.emptyInventory(character)
                         saveOrUpdateCraftedItem(itemDetail)
                     }catch (e : UnknownMapException){
@@ -102,11 +105,13 @@ class CrafterJob(
                     }catch (e: BattleLostException){
                         log.warn("Failed to get items for crafting ${itemDetail.code}", e)
                         character = accountClient.getCharacter(character.name).data
+                        character = movementService.moveToBank(character)
                         character = bankService.emptyInventory(character)
                     }catch (e: CharacterSkillTooLow){
                         log.warn("A sub component of the crafting of ${itemDetail.code} failed because the character has too low skill level")
                         log.debug(e)
                         character = accountClient.getCharacter(character.name).data
+                        character = movementService.moveToBank(character)
                         character = bankService.emptyInventory(character)
                     } // TODO Another failure case can be because of an event base requirement. Need to do something about it
                 }
@@ -120,6 +125,7 @@ class CrafterJob(
                     log.info("${character.name} is gathering and crafting a ${itemToCraft.code} for leveling")
                     character = gatheringService.craftOrGather(character, itemToCraft.code, 1, allowFight = true)
                     character = gatheringService.recycle(character, itemToCraft, 1)
+                    character = movementService.moveToBank(character)
                     character = bankService.emptyInventory(character)
                 }catch (e: CharacterSkillTooLow){
                     // Usually caused by a crating of a sub object, it can be nice if the main crafter level the sub resource
@@ -220,6 +226,7 @@ class CrafterJob(
     }
 
     private fun cleanUpBank(): ArtifactsCharacter {
+        character = movementService.moveToBank(character)
         character = bankService.emptyInventory(character)
         var nbItems = 10
         val itemsToRecycle = arrayListOf<ItemDetails>().toMutableList()
@@ -236,7 +243,6 @@ class CrafterJob(
             }
                 // If it's the tutorial item, destroy it
             if(nbItems>0 && it != null && it.code == "wooden_staff"){
-                character = bankService.withdrawAllOfOne(character, it.code)
                 character = characterService.destroyAllOfOne(character, it.code)
             }
             // If it's a dropped item, it'll be taken care of when an event happens
@@ -246,6 +252,7 @@ class CrafterJob(
                 character = gatheringService.recycle(character, it, 1)
             }
         }
+        character = movementService.moveToBank(character)
         return bankService.emptyInventory(character)
     }
 }

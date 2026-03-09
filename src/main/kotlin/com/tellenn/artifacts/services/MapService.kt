@@ -12,7 +12,7 @@ import kotlin.math.pow
 import kotlin.math.sqrt
 
 /**
- * Service for finding maps in proximity to a character.
+ * Service for finding maps close to a character.
  * Provides methods to find the closest map to a character.
  */
 @Service
@@ -26,7 +26,7 @@ class MapService(
      * Finds the closest map to a character.
      *
      * @param character The character to find the closest map to
-     * @param contentType Optional filter for map content type
+     * @param contentType Optional filter for map content
      * @param contentCode Optional filter for map content code
      * @return A Pair of x and y coordinates of the closest map, or null if no maps are found
      */
@@ -78,10 +78,9 @@ class MapService(
         val listOfTransition = mutableListOf<TransitionMapper>()
         var regionObjective: Int? = destinationRegion
         do {
-            val nextTransition = transitionMapperRepository.findByDestinationMapDataRegion(regionObjective).firstOrNull()
-            if(nextTransition == null) {
-                throw UnknownMapException(null, null) // TODO better exception
-            }
+            val nextTransition =
+                transitionMapperRepository.findByDestinationMapDataRegion(regionObjective).firstOrNull()
+                    ?: throw UnknownMapException(null, null)
             listOfTransition.add(nextTransition)
             regionObjective = nextTransition.sourceMapData.region
         }while (originRegion != regionObjective)
@@ -97,9 +96,14 @@ class MapService(
      * @return The distance between the character and the map
      */
     private fun calculateDistance(character: ArtifactsCharacter, map: MapData): Double {
+        var malus = 0
         val dx = (character.x - map.x).toDouble()
         val dy = (character.y - map.y).toDouble()
-        return sqrt(dx.pow(2) + dy.pow(2))
+        val originMap = mapMongoClient.getMapById(character.mapId)
+        if(originMap?.region != map.region){
+            malus = 5
+        }
+        return sqrt(dx.pow(2) + dy.pow(2))+malus
     }
 
     /**

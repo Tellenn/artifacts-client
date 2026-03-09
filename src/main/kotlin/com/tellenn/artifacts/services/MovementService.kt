@@ -1,7 +1,8 @@
 package com.tellenn.artifacts.services
 
+import com.tellenn.artifacts.clients.AccountClient
 import com.tellenn.artifacts.clients.MovementClient
-import com.tellenn.artifacts.db.repositories.ItemRepository
+import com.tellenn.artifacts.exceptions.UnreachableMapException
 import com.tellenn.artifacts.models.ArtifactsCharacter
 import com.tellenn.artifacts.models.MapData
 import org.slf4j.LoggerFactory
@@ -14,10 +15,11 @@ import org.springframework.stereotype.Service
 @Service
 class MovementService(
     private val movementClient: MovementClient,
+    private val accountClient: AccountClient,
     private val mapService: MapService,
-    private val itemRepository: ItemRepository
+    private val bankService: BankService
 ) {
-    private val logger = LoggerFactory.getLogger(MovementService::class.java)
+    private val log = LoggerFactory.getLogger(MovementService::class.java)
 
     /**
      * Moves a character to a specific cell.
@@ -31,7 +33,7 @@ class MovementService(
     fun moveCharacterToCell(x: Int, y: Int, character: ArtifactsCharacter): ArtifactsCharacter {
         // If character is provided and already at the destination, skip the API call
         if (character.x == x && character.y == y) {
-            logger.debug("Character ${character.name} is already at position ($x, $y), skipping movement call")
+            log.debug("Character ${character.name} is already at position ($x, $y), skipping movement call")
             return character
         }
 
@@ -43,9 +45,10 @@ class MovementService(
         val originMap = mapService.findByMapId(character.mapId)
         if(destinationMap?.region != originMap?.region){
             return transitionsFromRegions(character, originMap!!, destinationMap!!)
-        }else{
-            return movementClient.move(character.name, destinationMap!!.mapId).data.character
         }
+
+        return movementClient.move(character.name, destinationMap!!.mapId).data.character
+
 
     }
 
@@ -78,23 +81,43 @@ class MovementService(
         if (path.isEmpty()) {
             throw Exception("No transition path found from region ${originMap.region} to ${destinationMap.region}")
         }
+        var canUsePath = true
         path.forEach { transitionMapper ->
             transitionMapper.conditions?.forEach { condition ->
-                when (condition.operator) {
+                canUsePath = when (condition.operator) {
                     "cost", "has_item" -> {
-                        itemRepository.findByCode(condition.code) ?: throw Exception("Item ${condition.code} does not exist in database")
+                        canUsePath && bankService.isInBank(condition.code, condition.value)
                     }
                     "achievement_unlocked" -> {
-                        // TODO : Check that the character has the achievement
+                        canUsePath && accountClient.getAccountAchievement("Tellenn", true).data.any { it.code == condition.code }
                     }
                     else -> {
-                        // TODO : handle other conditions
-                        return character
+                        false
                     }
                 }
             }
         }
-        // TODO : Satisfy the conditions for the path
+        if(!canUsePath){
+            throw UnreachableMapException(destinationMap, character.name)
+        }
+        var newCharacter = character
+        path.forEach { transitionMapper ->
+            transitionMapper.conditions?.forEach { condition ->
+                when (condition.operator) {
+                    "cost", "has_item" -> {
+                        if(condition.code == "gold"){
+                            newCharacter = moveToBank(newCharacter)
+                            newCharacter = bankService.withdrawMoney(newCharacter, condition.value)
+                        }else {
+                            newCharacter = bankService.withdrawOne(condition.code, condition.value, newCharacter)
+                        }
+                    }
+                    else -> {
+                        log.trace("no condition to fulfill")
+                    }
+                }
+            }
+        }
         var currentCharacter = character
         path.forEach { transitionMapper ->
             // Move to the map where the transition is located
@@ -109,5 +132,19 @@ class MovementService(
 
         // After all transitions, move to the final destination map if needed
         return moveCharacterToCell(destinationMap.x, destinationMap.y, currentCharacter)
+    }
+
+    /**
+     * Moves a character to the closest bank if they're not already there.
+     *
+     * @param character The character to move to the bank
+     * @return The updated character after moving to the bank, or the original character if already at a bank
+     */
+    fun moveToBank(character: ArtifactsCharacter): ArtifactsCharacter {
+        val closestBank = mapService.findClosestMap(character = character, contentCode = "bank")
+        if (character.x == closestBank.x && character.y == closestBank.y) {
+            return character
+        }
+        return moveCharacterToCell(closestBank.x, closestBank.y, character)
     }
 }

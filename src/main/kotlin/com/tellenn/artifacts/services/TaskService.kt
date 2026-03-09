@@ -2,13 +2,11 @@ package com.tellenn.artifacts.services
 
 import com.tellenn.artifacts.clients.AccountClient
 import com.tellenn.artifacts.clients.CharacterClient
-import com.tellenn.artifacts.clients.GatheringClient
 import com.tellenn.artifacts.clients.TaskClient
 import com.tellenn.artifacts.models.ArtifactsCharacter
 import com.tellenn.artifacts.exceptions.BattleLostException
 import com.tellenn.artifacts.exceptions.TaskFailedException
 import com.tellenn.artifacts.exceptions.UnknownMapException
-import com.tellenn.artifacts.models.SimpleItem
 import org.apache.logging.log4j.LogManager
 import org.springframework.stereotype.Service
 
@@ -18,7 +16,6 @@ import org.springframework.stereotype.Service
  */
 @Service
 class TaskService(
-    private val gatheringClient: GatheringClient,
     private val bankService: BankService,
     private val movementService: MovementService,
     private val taskClient: TaskClient,
@@ -57,9 +54,9 @@ class TaskService(
             throw IllegalStateException("Character ${character.name} already has no task")
         }
 
-        var newCharacter = bankService.moveToBank(character)
+        var newCharacter = movementService.moveToBank(character)
         newCharacter = bankService.withdrawOne("tasks_coin", 1, newCharacter)
-        movementService.moveCharacterToMaster("items", character)
+        movementService.moveCharacterToMaster("items", newCharacter)
         return taskClient.abandonTask(character.name).data.character
     }
 
@@ -67,7 +64,7 @@ class TaskService(
         if(character.taskType.isNullOrEmpty()){
             throw IllegalStateException("Character ${character.name} already has no task")
         }
-        var newCharacter = bankService.moveToBank(character)
+        var newCharacter = movementService.moveToBank(character)
         newCharacter = bankService.withdrawOne("tasks_coin", 1, newCharacter)
         newCharacter = movementService.moveCharacterToMaster("monsters", newCharacter)
         return taskClient.abandonTask(newCharacter.name).data.character
@@ -92,7 +89,7 @@ class TaskService(
         if(itemCode.isNullOrBlank()){
             return newCharacter
         }
-        val item = itemService.getItem(itemCode);
+        val item = itemService.getItem(itemCode)
         var quantityLeft = newCharacter.taskTotal - character.taskProgress
         var sizeToCraft = itemService.getInvSizeToCraft(item)
         if(item.craft == null){
@@ -104,10 +101,10 @@ class TaskService(
                 newCharacter = gatheringService.craftOrGather(newCharacter, itemCode, quantityToCraft)
                 newCharacter = movementService.moveCharacterToMaster("items", newCharacter)
                 newCharacter = taskClient.giveItem(newCharacter.name, itemCode, quantityToCraft).data.character
-                newCharacter = bankService.moveToBank(newCharacter)
+                newCharacter = movementService.moveToBank(newCharacter)
                 quantityLeft -= quantityToCraft
             }
-        }catch (e: UnknownMapException){
+        }catch (_: UnknownMapException){
             newCharacter = accountClient.getCharacter(newCharacter.name).data
             newCharacter = abandonItemTask(newCharacter)
             newCharacter = getNewItemTask(newCharacter)
@@ -116,13 +113,13 @@ class TaskService(
 
         newCharacter = movementService.moveCharacterToMaster("items", newCharacter)
         newCharacter = taskClient.completeTask(newCharacter.name).data.character
-        newCharacter = bankService.moveToBank(newCharacter)
+        newCharacter = movementService.moveToBank(newCharacter)
 
         return newCharacter
     }
 
     fun completeMonsterTask(character: ArtifactsCharacter) : ArtifactsCharacter{
-        var count = 0;
+        var count = 0
         var newCharacter = character
         val monsterCode = character.task
         if(monsterCode.isNullOrBlank()){
@@ -142,12 +139,12 @@ class TaskService(
                 newCharacter = battleService.battle(newCharacter, character.task!!)
                 quantityLeft--
                 if (characterService.isInventoryFull(newCharacter)){
-                    newCharacter = bankService.moveToBank(newCharacter)
+                    newCharacter = movementService.moveToBank(newCharacter)
                     newCharacter = bankService.emptyInventory(newCharacter)
                     newCharacter = equipmentService.equipBestAvailableEquipmentForMonsterInBank(newCharacter, monsterCode)
                     newCharacter = movementService.moveCharacterToCell(monsterMap.x, monsterMap.y, newCharacter)
                 }
-            }catch (e: BattleLostException){
+            }catch (_: BattleLostException){
                 newCharacter = accountClient.getCharacter(newCharacter.name).data
                 log.debug("Monster in the task is too hard, stopping")
                 // TODO : Something more complex before giving up ?
@@ -167,7 +164,7 @@ class TaskService(
 
     fun exchangeRewardFromBank(character: ArtifactsCharacter): ArtifactsCharacter {
         var newCharacter = character
-        newCharacter = bankService.moveToBank(newCharacter)
+        newCharacter = movementService.moveToBank(newCharacter)
         newCharacter = bankService.withdrawOne("tasks_coin", 6, newCharacter)
         return exchangeReward(newCharacter)
     }

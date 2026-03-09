@@ -72,6 +72,7 @@ class AlchemistJob(
                             log.debug("We need to level up our alchemy to ${itemService.getItem("greater_health_potion").level + 5}")
                         }else{
                             character = gatheringService.craftOrGather(character, it.code, it.quantity)
+                            character = movementService.moveToBank(character)
                             character = bankService.emptyInventory(character)
                         }
                     }
@@ -100,6 +101,7 @@ class AlchemistJob(
                         allowFight = true
 
                     )
+                    character = movementService.moveToBank(character)
                     character = bankService.emptyInventory(character)
                     continue
                     // Or do some tasks to get task coins

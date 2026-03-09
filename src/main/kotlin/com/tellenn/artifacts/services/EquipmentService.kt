@@ -10,6 +10,7 @@ import com.tellenn.artifacts.models.MonsterData
 import com.tellenn.artifacts.models.SimpleItem
 import com.tellenn.artifacts.db.repositories.ItemRepository
 import com.tellenn.artifacts.exceptions.CharacterInventoryFullException
+import com.tellenn.artifacts.exceptions.MapContentNotFoundException
 import com.tellenn.artifacts.exceptions.NotFoundException
 import com.tellenn.artifacts.services.battlesim.BattleSimulatorService
 import com.tellenn.artifacts.services.sync.BankItemSyncService
@@ -27,6 +28,7 @@ class EquipmentService(
     private val itemRepository: ItemRepository,
     private val characterService: CharacterService,
     private val itemService: ItemService,
+    private val movementService: MovementService,
     private val battleSimulatorService: BattleSimulatorService,
     private val bankItemSyncService: BankItemSyncService,
     private val accountClient: AccountClient
@@ -69,7 +71,7 @@ class EquipmentService(
                 if(item?.code != null && character[slot+"_slot"] != item.code) {
                     newCharacter = characterService.equip(newCharacter, item.code, slot, 1)
                 }
-            }
+            }// TODO : Add a bit for buying runes if it helps
         }catch (_: NotFoundException){
             newCharacter = accountClient.getCharacter(newCharacter.name).data
             return equipBestAvailableEquipmentForMonsterInBank(newCharacter, monsterCode)
@@ -77,6 +79,12 @@ class EquipmentService(
             newCharacter = accountClient.getCharacter(newCharacter.name).data
             newCharacter = bankService.emptyInventory(newCharacter)
             return equipBestAvailableEquipmentForMonsterInBank(newCharacter, monsterCode)
+        }catch (_: MapContentNotFoundException){
+            // This means we have a desync and the character isn't where we think it is
+            var newCharacter = accountClient.getCharacter(newCharacter.name).data
+            newCharacter = movementService.moveToBank(newCharacter)
+            return equipBestAvailableEquipmentForMonsterInBank(newCharacter, monsterCode)
+
         }
 
         newCharacter = bankService.emptyInventory(newCharacter)
@@ -136,7 +144,7 @@ class EquipmentService(
 
             val healingPotionBattle = battleSimulatorService.simulate(monsterCode, character)
             if(healingPotionBattle.win){
-                var newCharacter = bankService.moveToBank(character)
+                var newCharacter = movementService.moveToBank(character)
                 val maxAvailable = bankService.getOne(weakestPotion.code)
                 newCharacter = bankService.withdrawOne(weakestPotion.code, min(100, maxAvailable.quantity), newCharacter)
                 return characterService.equip(newCharacter, weakestPotion.code, "utility1",min(100, maxAvailable.quantity))
@@ -158,7 +166,7 @@ class EquipmentService(
         val damageBoostBattle = battleSimulatorService.simulate(monsterCode, character)
 
         if(damageBoostBattle.win){
-            var newCharacter = bankService.moveToBank(character)
+            var newCharacter = movementService.moveToBank(character)
             if(weakestPotion != null){
                 val maxAvailable = bankService.getOne(weakestPotion.code)
                 newCharacter = bankService.withdrawOne(weakestPotion.code, min(100, maxAvailable.quantity), newCharacter)
@@ -245,7 +253,7 @@ class EquipmentService(
             }
         }
         if(bis.any { it.value != null }) {
-            newCharacter = bankService.moveToBank(character)
+            newCharacter = movementService.moveToBank(character)
 
             bis.forEach { (slot, item) ->
                 if (item?.code != null && character[slot + "_slot"] != item.code) {
@@ -268,9 +276,13 @@ class EquipmentService(
                 bankItemSyncService.syncAllItems()
                 newCharacter = accountClient.getCharacter(newCharacter.name).data
                 return equipBestAvailableEquipmentForCraftingOrGatheringInBank(newCharacter)
+            }catch (_: MapContentNotFoundException){
+                // This means we have a desync and the character isn't where we think it is
+                var newCharacter = accountClient.getCharacter(newCharacter.name).data
+                newCharacter = movementService.moveToBank(newCharacter)
+                return equipBestAvailableEquipmentForCraftingOrGatheringInBank(newCharacter)
             }
             // We do not empty the inventory in this case because the character may be crafting or gathering with requirements. There should be enough spaces tho
-            //newCharacter = bankService.emptyInventory(newCharacter)
         }
         return newCharacter
     }
@@ -456,7 +468,7 @@ class EquipmentService(
         }
 
         if(itemCode != null && itemCode.first != (character.weaponSlot ?: "")){
-            var newCharacter = bankService.moveToBank(character)
+            var newCharacter = movementService.moveToBank(character)
             newCharacter = bankService.withdrawOne(itemCode.first, 1, newCharacter)
             newCharacter = characterService.equip(newCharacter, itemCode.first, "weapon", 1)
             // we use the character here to get the code of the previous item equipped

@@ -2,7 +2,6 @@ package com.tellenn.artifacts.services
 
 import com.tellenn.artifacts.clients.CharacterClient
 import com.tellenn.artifacts.models.ArtifactsCharacter
-import org.apache.logging.log4j.LogManager
 import org.springframework.stereotype.Service
 
 /**
@@ -13,7 +12,6 @@ import org.springframework.stereotype.Service
 class CharacterService(
     private val characterClient: CharacterClient
 ) {
-    private val log = LogManager.getLogger(CharacterService::class.java)
 
     /**
      * Makes a character rest to recover HP.
@@ -52,14 +50,10 @@ class CharacterService(
     fun countInventoryItems(character: ArtifactsCharacter): Int {
         val inventory = character.inventory
         var count = 0
-        if (inventory != null) {
-            for (slot in inventory){
-                if(slot.code != ""){
-                    count += slot.quantity
-                }
+        for (slot in inventory){
+            if(slot.code != ""){
+                count += slot.quantity
             }
-        }else{
-            throw IllegalStateException("Character ${character.name} has no inventory")
         }
         return count
     }
@@ -78,7 +72,7 @@ class CharacterService(
 
     fun has(character: ArtifactsCharacter, quantity: Int, itemcode: String): Boolean {
         var count = 0
-        character.inventory?.filter { it.code == itemcode }?.forEach { count += it.quantity }
+        character.inventory.filter { it.code == itemcode }.forEach { count += it.quantity }
         return count >= quantity
     }
 

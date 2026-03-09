@@ -39,11 +39,12 @@ class FighterJob(
                 character = taskService.getNewMonsterTask(character)
                 log.info("${character.name} is doing a new monster task")
                 character = taskService.doCharacterTask(character)
+                character = movementService.moveToBank(character)
                 character = bankService.emptyInventory(character)
                 if(bankService.isInBank("tasks_coin",16)) {
                     character = taskService.exchangeRewardFromBank(character)
                 }
-            }catch (e: TaskFailedException){
+            }catch (_: TaskFailedException){
                 log.info("The task is too hard for ${character.name}, he's switching out")
                 character = accountClient.getCharacter(characterName).data
                 if(bankService.isInBank("tasks_coin",1)) {
@@ -53,6 +54,7 @@ class FighterJob(
                     val monsterMap = monsterService.findMonsterMap("red_slime")
                     character = movementService.moveCharacterToCell(monsterMap.x, monsterMap.y, character)
                     character = battleService.battleUntilInvIsFull(character, "red_slime")
+                    character = movementService.moveToBank(character)
                     character = bankService.emptyInventory(character)
                 }
             }
