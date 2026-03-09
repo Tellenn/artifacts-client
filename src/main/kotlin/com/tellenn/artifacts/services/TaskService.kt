@@ -7,6 +7,7 @@ import com.tellenn.artifacts.models.ArtifactsCharacter
 import com.tellenn.artifacts.exceptions.BattleLostException
 import com.tellenn.artifacts.exceptions.TaskFailedException
 import com.tellenn.artifacts.exceptions.UnknownMapException
+import com.tellenn.artifacts.services.battlesim.BattleSimulatorService
 import org.apache.logging.log4j.LogManager
 import org.springframework.stereotype.Service
 
@@ -26,7 +27,8 @@ class TaskService(
     private val equipmentService: EquipmentService,
     private val mapService: MapService,
     private val accountClient: AccountClient,
-    private val characterClient: CharacterClient
+    private val characterClient: CharacterClient,
+    private val battleSimulatorService: BattleSimulatorService
 ) {
     private val log = LogManager.getLogger(TaskService::class.java)
 
@@ -128,7 +130,16 @@ class TaskService(
         val monsterMap = mapService.findClosestMap(character, contentCode = monsterCode)
         var quantityLeft = character.taskTotal - character.taskProgress
 
-        // TODO : Check that you can actually beat the enemy
+        val testCharacter = character
+        val bis = equipmentService.findBestEquipmentForMonsterInBank(character, monsterCode)
+        bis.forEach { slot, item ->
+            if(item != null){
+                testCharacter["${slot}_slot"] = item.code
+            }
+        }
+        if(battleSimulatorService.simulateWithApi(monsterCode, character).data.losses > 1){
+            throw TaskFailedException()
+        }
         if(quantityLeft > 0){
             newCharacter = equipmentService.equipBestAvailableEquipmentForMonsterInBank(newCharacter, monsterCode)
             newCharacter = movementService.moveCharacterToCell(monsterMap.mapId, newCharacter)
@@ -147,7 +158,6 @@ class TaskService(
             }catch (_: BattleLostException){
                 newCharacter = accountClient.getCharacter(newCharacter.name).data
                 log.debug("Monster in the task is too hard, stopping")
-                // TODO : Something more complex before giving up ?
                 count++
                 if(count == 5){
                     throw TaskFailedException()
