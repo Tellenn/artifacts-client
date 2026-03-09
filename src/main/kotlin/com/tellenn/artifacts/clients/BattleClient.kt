@@ -11,6 +11,7 @@ import org.springframework.stereotype.Component
 class BattleClient : BaseArtifactsClient() {
 
     fun fight(characterName: String): ArtifactsResponseBody<CombatResponseBody> {
+        waitForCooldown(characterName)
         return sendPostRequest("/my/$characterName/action/fight", "{}").use { response ->
             val responseBody = response.body!!.string()
             objectMapper.readValue<ArtifactsResponseBody<CombatResponseBody>>(responseBody)

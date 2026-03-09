@@ -3,6 +3,7 @@ package com.tellenn.artifacts.clients
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule
 import com.fasterxml.jackson.module.kotlin.jacksonObjectMapper
 import com.fasterxml.jackson.module.kotlin.readValue
+import com.tellenn.artifacts.utils.TimeUtils
 import com.tellenn.artifacts.models.ArtifactsCharacter
 import com.tellenn.artifacts.clients.responses.ArtifactsResponseBody
 import com.tellenn.artifacts.exceptions.*
@@ -19,6 +20,9 @@ import org.slf4j.LoggerFactory
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.beans.factory.annotation.Value
 import org.springframework.stereotype.Component
+import java.time.Instant
+import java.util.concurrent.ConcurrentHashMap
+import kotlin.collections.get
 
 @Slf4j
 @Component
@@ -32,6 +36,9 @@ abstract class BaseArtifactsClient() {
     @Autowired
     private lateinit var messageService : MessageService
 
+    @Autowired
+    private lateinit var timeUtils: TimeUtils
+
     @Value("\${artifacts.api.url}")
     lateinit var url: String
 
@@ -42,6 +49,10 @@ abstract class BaseArtifactsClient() {
 
     val objectMapper = jacksonObjectMapper().apply {
         registerModule(JavaTimeModule())
+    }
+
+    companion object {
+        private val cooldowns = ConcurrentHashMap<String, Instant>()
     }
 
     /**
@@ -56,8 +67,18 @@ abstract class BaseArtifactsClient() {
             val character = data["character"] as? Map<*, *> ?: return
             if(character.isEmpty()) return
             messageService.sendCharacterMessage(character.toString())
+
+            val characterName = character["name"] as? String
+            val cooldownExpiration = character["cooldown_expiration"] as? String
+            if (characterName != null && cooldownExpiration != null) {
+                try {
+                    cooldowns[characterName] = Instant.parse(cooldownExpiration)
+                } catch (_: Exception) {
+                    log.warn("Failed to parse cooldown_expiration for character $characterName: $cooldownExpiration")
+                }
+            }
         } catch (e: Exception) {
-            log.warn("Failed to parse cooldown information: ${e.message}")
+            log.warn("Failed to parse character information: ${e.message}")
         }
     }
 
@@ -74,16 +95,39 @@ abstract class BaseArtifactsClient() {
         try {
             val response = objectMapper.readValue<Map<String, Any>>(responseBody)
             val data = response["data"] as? Map<*, *> ?: return
-            val cooldown = data["cooldown"] as? Map<*, *> ?: return
-
-            val remainingSeconds = cooldown["remaining_seconds"] as? Int ?: return
-            if (remainingSeconds > 0) {
-                log.debug("Cooldown detected: $remainingSeconds seconds. Sleeping thread...")
-                Thread.sleep(remainingSeconds * 1000L)
-                log.debug("Thread resumed after cooldown")
+            var cooldownExpiration: Instant?
+            var characterName: String?
+            if(data["cooldown_expiration"] != null){
+                characterName = data["name"] as? String
+                cooldownExpiration = Instant.parse(data["cooldown_expiration"] as String)
+            }else{
+                val character = data["character"] as? Map<*, *> ?: return
+                characterName = character["name"] as? String
+                cooldownExpiration = Instant.parse(character["cooldown_expiration"] as String)
             }
+
+            if (cooldownExpiration != null && characterName != null) {
+                try {
+                    cooldowns[characterName] = cooldownExpiration
+                } catch (_: Exception) {
+                    log.warn("Failed to parse cooldown expiration for character $characterName: $cooldownExpiration")
+                }
+            }
+
         } catch (e: Exception) {
-            log.warn("Failed to parse cooldown information: ${e.message}")
+            log.error("Failed to parse cooldown information: ${e.message}")
+        }
+    }
+
+    fun waitForCooldown(characterName: String) {
+        val expiration = cooldowns[characterName] ?: return
+        val now = timeUtils.now()
+        if (now.isBefore(expiration)) {
+            val sleepMillis = java.time.Duration.between(now, expiration).toMillis()
+            if (sleepMillis > 0) {
+                log.debug("Pre-emptive cooldown for $characterName: sleeping $sleepMillis ms")
+                Thread.sleep(sleepMillis)
+            }
         }
     }
 
@@ -274,7 +318,7 @@ abstract class BaseArtifactsClient() {
      * @param body The request body as a JSON string
      * @return The response from the server
      */
-    fun sendPostRequest(path : String, body: String) : Response {
+    fun sendPostRequest(path: String, body: String): Response {
         val postBody = body.trimIndent()
         val mediaType = "application/json; charset=utf-8".toMediaType()
         val requestBody = postBody.toRequestBody(mediaType)

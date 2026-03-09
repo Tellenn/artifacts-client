@@ -12,8 +12,7 @@ import org.springframework.transaction.annotation.Transactional
 class BankItemSyncService(
     private val itemRepository: ItemRepository,
     private val bankClient: BankClient,
-    private val bankRepository: BankItemRepository,
-    private val serverVersionService: ServerVersionService
+    private val bankRepository: BankItemRepository
 ) {
     private val logger = LoggerFactory.getLogger(BankItemSyncService::class.java)
 
@@ -51,8 +50,6 @@ class BankItemSyncService(
                 }
             }
 
-            // Save the server version after successful sync
-            serverVersionService.updateServerVersion()
             logger.debug("Bank sync completed and server version updated")
 
         } catch (e: Exception) {

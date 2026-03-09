@@ -11,13 +11,15 @@ import org.springframework.stereotype.Component
 class MovementClient : BaseArtifactsClient() {
 
     fun move(characterName: String, mapId: Int): ArtifactsResponseBody<MovementResponseBody> {
-        val response = sendPostRequest("/my/$characterName/action/move", "{\"mapId\": ${mapId}}")
+        waitForCooldown(characterName)
+        val response = sendPostRequest("/my/$characterName/action/move", "{\"map_id\": ${mapId}}")
         val movementResponse : ArtifactsResponseBody<MovementResponseBody> =
             objectMapper.readValue<ArtifactsResponseBody<MovementResponseBody>>(response.body!!.string())
 
         return movementResponse
     }
     fun transition(characterName: String): ArtifactsResponseBody<MovementResponseBody> {
+        waitForCooldown(characterName)
         val response = sendPostRequest("/my/$characterName/action/transition", "{}")
         val movementResponse : ArtifactsResponseBody<MovementResponseBody> =
             objectMapper.readValue<ArtifactsResponseBody<MovementResponseBody>>(response.body!!.string())

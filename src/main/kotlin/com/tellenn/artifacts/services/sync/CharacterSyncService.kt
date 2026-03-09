@@ -8,8 +8,7 @@ import org.springframework.stereotype.Service
 
 @Service
 class CharacterSyncService(
-    private val accountClient: AccountClient,
-    private val serverVersionService: ServerVersionService
+    private val accountClient: AccountClient
 ) {
     private val logger = LoggerFactory.getLogger(CharacterSyncService::class.java)
 
@@ -21,10 +20,9 @@ class CharacterSyncService(
      * If a character doesn't exist, it will be created.
      * Returns a map of character configurations to character objects.
      *
-     * @param forceSync Whether to force the sync regardless of server version (default: false)
      * @return Map of CharacterConfig to ArtifactsCharacter
      */
-    fun syncPredefinedCharacters(forceSync: Boolean = false): Map<CharacterConfig, ArtifactsCharacter> {
+    fun syncPredefinedCharacters(): Map<CharacterConfig, ArtifactsCharacter> {
         logger.debug("Starting character sync process")
 
         // Clear the existing map
@@ -57,8 +55,6 @@ class CharacterSyncService(
             }
         }
 
-        // Save the server version after successful sync
-        serverVersionService.updateServerVersion()
         logger.info("Character sync completed and server version updated. Total characters synced: ${characterMap.size}")
         return characterMap
     }

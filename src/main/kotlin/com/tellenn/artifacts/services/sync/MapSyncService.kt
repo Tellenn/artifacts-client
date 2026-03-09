@@ -11,8 +11,7 @@ import java.lang.Thread.sleep
 @Service
 class MapSyncService(
     private val mapClient: MapClient,
-    private val mapRepository: MapRepository,
-    private val serverVersionService: ServerVersionService
+    private val mapRepository: MapRepository
 ) {
     private val logger = LoggerFactory.getLogger(MapSyncService::class.java)
 
@@ -66,95 +65,8 @@ class MapSyncService(
         logger.info("Saving ${enrichedMaps.size} enriched maps to the repository")
         mapRepository.saveAll(enrichedMaps)
 
-        // Save the server version after successful sync
-        serverVersionService.updateServerVersion()
         logger.debug("Map sync completed and server version updated. Total chunks synced: ${enrichedMaps.size}")
         return enrichedMaps.size
-    }
-
-    /**
-     * Syncs a single map chunk
-     *
-     * @param x The X coordinate
-     * @param y The Y coordinate
-     * @param name The name of the map (default: "map_x_y")
-     * @param skin The skin of the map (default: "default")
-     * @param forceSync Whether to force the sync regardless of server version (default: false)
-     * @return True if the sync was successful, false if it failed or wasn't needed
-     */
-    @Transactional
-    fun syncMapChunk(x: Int, y: Int, name: String = "map_${x}_${y}", skin: String = "default", forceSync: Boolean = false): Boolean {
-        logger.info("Syncing map chunk at ($x,$y)")
-        
-        try {
-            // Use the batch API to get just one chunk
-            val response = mapClient.getMaps(
-                name = name,
-                content_type = null,
-                content_code = null,
-                page = 1,
-                size = 1
-            )
-            val dataPage = response.data
-
-            if (dataPage.isEmpty()) {
-                logger.error("No map chunk found at ($x,$y)")
-                return false
-            }
-
-            // Get the first (and only) map chunk
-            val mapData = dataPage.first()
-
-            // When syncing a single map, we might want to update its region based on neighbors already in DB
-            // But for simplicity, we just save it. autoEnrichMaps is primarily for full sync.
-            // However, we can at least apply basic enrichment if it's blocked
-            if (mapData.access?.type == "blocked") {
-                mapData.region = -1
-            }
-
-            // Convert MapData to MapDocument and save to MongoDB
-            mapRepository.save(mapData)
-
-            // Save the server version after successful sync
-            serverVersionService.updateServerVersion()
-            logger.info("Successfully synced map chunk at ($x,$y) and updated server version")
-            return true
-        } catch (e: Exception) {
-            logger.error("Failed to sync map chunk at ($x,$y)", e)
-            return false
-        }
-    }
-
-    private fun enrichMaps(maps : List<MapData>) : List<MapData>{
-        maps.forEach {
-            if (it.skin.startsWith("mine_")) {
-                it.region = 2
-            }else if (it.skin.startsWith("mine3_8")) {
-                it.region = 4
-            }else if (it.skin.startsWith("mine3_")) {
-                it.region = 3
-            }else if (it.skin.startsWith("lichmine_")) {
-                it.region = 5
-            }else if (it.skin.startsWith("desertmine_6")) {
-                it.region = 11
-            }else if (it.skin.startsWith("desertmine_")) {
-                it.region = 6
-            }else if (it.skin.startsWith("desertisland_house")) {
-                it.region = 10
-            }else if (it.skin.startsWith("rosenblood_")) {
-                it.region = 7
-            }else if (it.skin.startsWith("abandonedhouse_")) {
-                it.region = 8
-            }else if (it.skin.startsWith("desertisland_")) {
-                it.region = 9
-            }else {
-                it.region = 1
-            }
-            if(it.access?.type == "blocked"){
-                it.region = 0
-            }
-        }
-        return maps
     }
 
     /***
