@@ -106,10 +106,7 @@ class EquipmentService(
         return newCharacter
     }
 
-    fun equipBestPotionsForFight(
-        character: ArtifactsCharacter,
-        monsterCode: String
-    ): ArtifactsCharacter {
+    fun equipBestPotionsForFight(character: ArtifactsCharacter, monsterCode: String): ArtifactsCharacter {
         val initialResult = battleSimulatorService.simulate(monsterCode, character)
         if(initialResult.win){
             return character
@@ -282,7 +279,23 @@ class EquipmentService(
                 newCharacter = movementService.moveToBank(newCharacter)
                 return equipBestAvailableEquipmentForCraftingOrGatheringInBank(newCharacter)
             }
-            // We do not empty the inventory in this case because the character may be crafting or gathering with requirements. There should be enough spaces tho
+        }
+        val oldInventory = character.inventory
+        val newInventory = newCharacter.inventory
+        // Find the difference between them, and use bankService.deposit to store them
+        val oldQuantities = oldInventory.filter { it.code.isNotEmpty() }.groupBy { it.code }.mapValues { it.value.sumOf { slot -> slot.quantity } }
+        val newQuantities = newInventory.filter { it.code.isNotEmpty() }.groupBy { it.code }.mapValues { it.value.sumOf { slot -> slot.quantity } }
+
+        val itemsToStore = ArrayList<SimpleItem>()
+        newQuantities.forEach { (code, quantity) ->
+            val oldQuantity = oldQuantities[code] ?: 0
+            if (quantity > oldQuantity) {
+                itemsToStore.add(SimpleItem(code, quantity - oldQuantity))
+            }
+        }
+
+        if (itemsToStore.isNotEmpty()) {
+            newCharacter = bankService.deposit(newCharacter, itemsToStore)
         }
         return newCharacter
     }

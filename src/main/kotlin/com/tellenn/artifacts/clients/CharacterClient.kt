@@ -16,6 +16,7 @@ import org.springframework.stereotype.Component
 class CharacterClient : BaseArtifactsClient() {
 
     fun rest(characterName: String): ArtifactsResponseBody<RestResponseBody> {
+        waitForCooldown(characterName)
         return sendPostRequest("/my/$characterName/action/rest", "").use { response ->
             val responseBody = response.body!!.string()
             objectMapper.readValue<ArtifactsResponseBody<RestResponseBody>>(responseBody)
@@ -23,6 +24,7 @@ class CharacterClient : BaseArtifactsClient() {
     }
 
     fun equipItem(characterName: String, itemCode: String, slot: String, quantity: Int): ArtifactsResponseBody<EquipmentResponseBody> {
+        waitForCooldown(characterName)
         val request = EquipRequest(itemCode, slot, quantity)
         val requestBody = objectMapper.writeValueAsString(request)
         return sendPostRequest("/my/$characterName/action/equip", requestBody).use { response ->
@@ -32,6 +34,7 @@ class CharacterClient : BaseArtifactsClient() {
     }
 
     fun unequipItem(characterName: String, slot: String, quantity: Int): ArtifactsResponseBody<EquipmentResponseBody> {
+        waitForCooldown(characterName)
         val request = UnequipRequest(slot, quantity)
         val requestBody = objectMapper.writeValueAsString(request)
         return sendPostRequest("/my/$characterName/action/unequip", requestBody).use { response ->
@@ -41,6 +44,7 @@ class CharacterClient : BaseArtifactsClient() {
     }
 
     fun useItem(characterName: String, itemCode: String, quantity: Int = 1): ArtifactsResponseBody<UseItemResponseBody> {
+        waitForCooldown(characterName)
         val request = SimpleItem(itemCode, quantity)
         val requestBody = objectMapper.writeValueAsString(request)
         return sendPostRequest("/my/$characterName/action/use", requestBody).use { response ->
@@ -50,6 +54,7 @@ class CharacterClient : BaseArtifactsClient() {
     }
 
     fun destroy(characterName: String, code: String, quantity: Int) : ArtifactsResponseBody<UseItemResponseBody> {
+        waitForCooldown(characterName)
         val request = SimpleItem(code, quantity)
         val requestBody = objectMapper.writeValueAsString(request)
         return sendPostRequest("/my/$characterName/action/delete", requestBody).use { response ->
