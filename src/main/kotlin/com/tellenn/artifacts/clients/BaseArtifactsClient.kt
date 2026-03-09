@@ -4,6 +4,7 @@ import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule
 import com.fasterxml.jackson.module.kotlin.jacksonObjectMapper
 import com.fasterxml.jackson.module.kotlin.readValue
 import com.tellenn.artifacts.utils.TimeUtils
+import com.tellenn.artifacts.config.CharacterConfig
 import com.tellenn.artifacts.models.ArtifactsCharacter
 import com.tellenn.artifacts.clients.responses.ArtifactsResponseBody
 import com.tellenn.artifacts.exceptions.*
@@ -20,6 +21,7 @@ import org.slf4j.LoggerFactory
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.beans.factory.annotation.Value
 import org.springframework.stereotype.Component
+import java.lang.Thread.sleep
 import java.time.Instant
 import java.util.concurrent.ConcurrentHashMap
 import kotlin.collections.get
@@ -67,16 +69,6 @@ abstract class BaseArtifactsClient() {
             val character = data["character"] as? Map<*, *> ?: return
             if(character.isEmpty()) return
             messageService.sendCharacterMessage(character.toString())
-
-            val characterName = character["name"] as? String
-            val cooldownExpiration = character["cooldown_expiration"] as? String
-            if (characterName != null && cooldownExpiration != null) {
-                try {
-                    cooldowns[characterName] = Instant.parse(cooldownExpiration)
-                } catch (_: Exception) {
-                    log.warn("Failed to parse cooldown_expiration for character $characterName: $cooldownExpiration")
-                }
-            }
         } catch (e: Exception) {
             log.warn("Failed to parse character information: ${e.message}")
         }
@@ -86,32 +78,53 @@ abstract class BaseArtifactsClient() {
      * Checks if the response contains cooldown information and sleeps the thread if it does.
      * This handles cooldown information in the data field of successful responses.
      * 
-     * For 499 error responses with cooldown information in the error field, see the special handling
-     * in sendGetRequest and sendPostRequest methods.
-     * 
      * @param responseBody The response body as a string
      */
     private fun handleCooldown(responseBody: String) {
         try {
-            val response = objectMapper.readValue<Map<String, Any>>(responseBody)
-            val data = response["data"] as? Map<*, *> ?: return
-            var cooldownExpiration: Instant?
-            var characterName: String?
-            if(data["cooldown_expiration"] != null){
-                characterName = data["name"] as? String
-                cooldownExpiration = Instant.parse(data["cooldown_expiration"] as String)
-            }else{
-                val character = data["character"] as? Map<*, *> ?: return
-                characterName = character["name"] as? String
-                cooldownExpiration = Instant.parse(character["cooldown_expiration"] as String)
+
+            val characterNames = CharacterConfig.getPredefinedCharacters().joinToString("|") { it.name }
+            val characterNamesRegex = characterNames.toRegex()
+            val matchResult = characterNamesRegex.find(responseBody) ?: return
+
+            val cooldownExpirationRegex = """\s*"cooldown_expiration"\s*:\s*"([^"]+)"""".toRegex()
+            val cooldownMatchResult = cooldownExpirationRegex.find(responseBody)
+            val cooldownFromRegex = cooldownMatchResult?.groupValues?.get(1) ?: return
+
+            matchResult.groupValues.forEach {
+                cooldowns[it] = Instant.parse(cooldownFromRegex)
             }
 
-            if (cooldownExpiration != null && characterName != null) {
-                try {
-                    cooldowns[characterName] = cooldownExpiration
-                } catch (_: Exception) {
-                    log.warn("Failed to parse cooldown expiration for character $characterName: $cooldownExpiration")
-                }
+        } catch (e: Exception) {
+            log.error("Failed to parse cooldown information: ${e.message}")
+        }
+    }
+    
+    /**
+     * For 499 error responses with cooldown information in the error field, see the special handling
+     * in sendGetRequest and sendPostRequest methods.
+     *
+     * @param responseBody The response body as a string
+     */
+    private fun handle499Cooldown(responseBody: String) {
+        try {
+            /*
+            Message looks like 
+            {
+              "error": {
+                "code": 499,
+                "message": "The character is in cooldown: 2.4 seconds remaining."
+              }
+            }
+             */
+            val regex = """(\d+\.\d+|\d+) seconds remaining""".toRegex()
+            val matchResult = regex.find(responseBody)
+            val cooldownSeconds = matchResult?.groupValues?.get(1)?.toDoubleOrNull()
+
+            if (cooldownSeconds != null && cooldownSeconds > 0) {
+                log.debug("Character in cooldown: $cooldownSeconds seconds remaining. Sleeping thread...")
+                sleep((cooldownSeconds * 1000).toLong())
+                log.debug("Thread resumed after cooldown.")
             }
 
         } catch (e: Exception) {
@@ -126,7 +139,7 @@ abstract class BaseArtifactsClient() {
             val sleepMillis = java.time.Duration.between(now, expiration).toMillis()
             if (sleepMillis > 0) {
                 log.debug("Pre-emptive cooldown for $characterName: sleeping $sleepMillis ms")
-                Thread.sleep(sleepMillis)
+                sleep(sleepMillis)
             }
         }
     }
@@ -251,34 +264,9 @@ abstract class BaseArtifactsClient() {
 
                 // Check if this is a 499 cooldown error
                 if (response.code == ErrorCodes.CHARACTER_IN_COOLDOWN) {
-                    try {
-                        // Parse the error response to extract the cooldown time
-                        val errorResponse = objectMapper.readValue<Map<String, Any>>(responseBodyString)
-                        val error = errorResponse["error"] as? Map<*, *>
-                        val message = error?.get("message") as? String
-                        
-                        if (message != null && message.contains("cooldown")) {
-                            // Extract the cooldown time from the message
-                            val regex = """(\d+\.\d+|\d+) seconds remaining""".toRegex()
-                            val matchResult = regex.find(message)
-                            val cooldownSeconds = matchResult?.groupValues?.get(1)?.toDoubleOrNull()
-                            
-                            if (cooldownSeconds != null && cooldownSeconds > 0) {
-                                log.debug("Character in cooldown: $cooldownSeconds seconds remaining. Sleeping thread...")
-                                // Sleep for the cooldown time (convert to milliseconds)
-                                Thread.sleep((cooldownSeconds * 1000).toLong())
-                                log.debug("Thread resumed after cooldown. Retrying request...")
-                                
-                                // Retry the request
-                                return sendGetRequest(path)
-                            }
-                            else{
-                                log.warn("Failed to get the cooldown cooldown information: $message")
-                            }
-                        }
-                    } catch (e: Exception) {
-                        log.warn("Failed to parse cooldown information: ${e.message}")
-                    }
+                    handle499Cooldown(responseBodyString)
+                    log.debug("Thread resumed after cooldown. Retrying request...")
+                    return sendGetRequest(path)
                 }
                 logAndThrowError(response, clientType, path, requestMethod, requestParams, requestBody, responseBodyString)
             }
@@ -341,31 +329,9 @@ abstract class BaseArtifactsClient() {
 
                 // Check if this is a 499 cooldown error
                 if (response.code == ErrorCodes.CHARACTER_IN_COOLDOWN) {
-                    try {
-                        // Parse the error response to extract the cooldown time
-                        val errorResponse = objectMapper.readValue<Map<String, Any>>(responseBodyString)
-                        val error = errorResponse["error"] as? Map<*, *>
-                        val message = error?.get("message") as? String
-                        
-                        if (message != null && message.contains("cooldown")) {
-                            // Extract the cooldown time from the message
-                            val regex = """(\d+\.\d+|\d+) seconds remaining""".toRegex()
-                            val matchResult = regex.find(message)
-                            val cooldownSeconds = matchResult?.groupValues?.get(1)?.toDoubleOrNull()
-                            
-                            if (cooldownSeconds != null && cooldownSeconds > 0) {
-                                log.debug("Character in cooldown: $cooldownSeconds seconds remaining. Sleeping thread...")
-                                // Sleep for the cooldown time (convert to milliseconds)
-                                Thread.sleep((cooldownSeconds * 1000).toLong())
-                                log.debug("Thread resumed after cooldown. Retrying request...")
-                                
-                                // Retry the request
-                                return sendPostRequest(path, body)
-                            }
-                        }
-                    } catch (e: Exception) {
-                        log.warn("Failed to parse cooldown information: ${e.message}")
-                    }
+                    handle499Cooldown(responseBodyString)
+                    log.debug("Thread resumed after cooldown. Retrying request...")
+                    return sendPostRequest(path, body)
                 }
                 try{
 
