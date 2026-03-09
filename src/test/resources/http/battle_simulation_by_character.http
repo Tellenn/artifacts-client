@@ -1,0 +1,3 @@
+### Simulate Battle with Existing Character
+POST http://localhost:8888/simulate/Cloud?monsterCode=highwayman&useBankItems=true
+Content-Type: application/json

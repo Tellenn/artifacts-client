@@ -122,4 +122,22 @@ class ArtifactsCharacter(
             else -> null
         }
     }
+    operator fun set(equipmentType: String, value: String): String {
+        when (equipmentType) {
+            "weapon_slot" -> weaponSlot = value
+            "shield_slot" -> shieldSlot = value
+            "helmet_slot" -> helmetSlot = value
+            "body_armor_slot" -> bodyArmorSlot = value
+            "leg_armor_slot" -> legArmorSlot = value
+            "boots_slot" -> bootsSlot = value
+            "ring1_slot" -> ring1Slot = value
+            "ring2_slot" -> ring2Slot = value
+            "amulet_slot" -> amuletSlot = value
+            "artifact1_slot" -> artifact1Slot = value
+            "artifact2_slot" -> artifact2Slot = value
+            "artifact3_slot" -> artifact3Slot = value
+            "bag_slot" -> bagSlot = value
+        }
+        return value
+    }
 }

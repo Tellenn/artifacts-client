@@ -1,5 +1,9 @@
 package com.tellenn.artifacts.services.battlesim
 
+import com.tellenn.artifacts.clients.AccountClient
+import com.tellenn.artifacts.clients.SimulateClient
+import com.tellenn.artifacts.clients.responses.ArtifactsResponseBody
+import com.tellenn.artifacts.clients.responses.SimulationResult
 import com.tellenn.artifacts.models.ArtifactsCharacter
 import com.tellenn.artifacts.models.Effect
 import com.tellenn.artifacts.db.repositories.ItemRepository
@@ -28,7 +32,9 @@ data class BattleAnalysis(
 @Service
 class BattleSimulatorService(
     private val monsterRepository: MonsterRepository,
-    private val itemRepository: ItemRepository
+    private val itemRepository: ItemRepository,
+    private val simulateClient: SimulateClient,
+    private val accountClient: AccountClient
 ) {
 
     // Utility class to get item information
@@ -273,6 +279,15 @@ class BattleSimulatorService(
             characterHpRemaining = if (win) battleAnalysis.characterHpRemaining else 0,
             turns = turnsToKill
         )
+    }
+
+    fun simulateWithApi(monsterCode: String, character: ArtifactsCharacter): ArtifactsResponseBody<SimulationResult> {
+        return simulateClient.simulate1v1(character, monsterCode)
+    }
+
+    fun simulateWithCharacterName(monsterCode: String, characterName: String): ArtifactsResponseBody<SimulationResult> {
+        val character = accountClient.getCharacter(characterName).data
+        return simulateWithApi(monsterCode, character)
     }
 }
 
