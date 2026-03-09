@@ -35,7 +35,8 @@ class EquipmentService(
 ) {
     fun equipBestAvailableEquipmentForMonsterInBank(character: ArtifactsCharacter, monsterCode: String) : ArtifactsCharacter{
         val bis = findBestEquipmentForMonsterInBank(character, monsterCode)
-        var newCharacter = bankService.emptyInventory(character)
+        var newCharacter = movementService.moveToBank(character)
+        newCharacter = bankService.emptyInventory(newCharacter)
         val bankWithdraw = ArrayList<SimpleItem>()
         val ring1 = bis["ring1"]
         val ring2 = bis["ring2"]
