@@ -21,7 +21,7 @@ class MapSyncServiceTest {
         mapClient = mock(MapClient::class.java)
         mapRepository = mock(MapRepository::class.java)
         serverVersionService = mock(ServerVersionService::class.java)
-        mapSyncService = MapSyncService(mapClient, mapRepository, serverVersionService)
+        mapSyncService = MapSyncService(mapClient, mapRepository)
     }
 
     @Test

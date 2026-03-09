@@ -10,8 +10,7 @@ import java.lang.Thread.sleep
 @Service
 class MonsterSyncService(
     private val monsterClient: MonsterClient,
-    private val monsterRepository: MonsterRepository,
-    private val serverVersionService: ServerVersionService
+    private val monsterRepository: MonsterRepository
 ) {
     private val logger = LoggerFactory.getLogger(MonsterSyncService::class.java)
 
@@ -59,32 +58,7 @@ class MonsterSyncService(
             }
         } while (currentPage <= totalPages)
 
-        // Save the server version after successful sync
-        serverVersionService.updateServerVersion()
         logger.info("Monster sync completed and server version updated. Total monsters synced: $totalMonstersProcessed")
         return totalMonstersProcessed
-    }
-
-    /**
-     * Syncs a single monster by ID
-     *
-     * @param monsterId The ID of the monster to sync
-     * @return True if the sync was successful, false otherwise
-     */
-    @Transactional
-    fun syncMonster(monsterId: String): Boolean {
-        logger.info("Syncing monster with ID: $monsterId")
-        try {
-            val response = monsterClient.getMonster(monsterId)
-            val monsterData = response.data
-
-            monsterRepository.save(monsterData)
-
-            logger.info("Successfully synced monster with ID: $monsterId")
-            return true
-        } catch (e: Exception) {
-            logger.error("Failed to sync monster with ID: $monsterId", e)
-            return false
-        }
     }
 }

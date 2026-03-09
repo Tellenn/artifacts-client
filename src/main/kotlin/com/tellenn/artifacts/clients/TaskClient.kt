@@ -15,6 +15,7 @@ import org.springframework.stereotype.Component
 class TaskClient : BaseArtifactsClient() {
 
     fun giveItem(name: String, itemCode: String, quantity: Int = 1): ArtifactsResponseBody<TaskTradeResponseBody> {
+        waitForCooldown(name)
         val request = SimpleItem(itemCode, quantity)
         val requestBody = objectMapper.writeValueAsString(request)
         return sendPostRequest("/my/$name/action/task/trade", requestBody).use { response ->
@@ -24,6 +25,7 @@ class TaskClient : BaseArtifactsClient() {
     }
 
     fun completeTask(name: String): ArtifactsResponseBody<RewardDataResponseBody> {
+        waitForCooldown(name)
         return sendPostRequest("/my/$name/action/task/complete", "").use { response ->
             val responseBody = response.body!!.string()
             objectMapper.readValue<ArtifactsResponseBody<RewardDataResponseBody>>(responseBody)
@@ -31,6 +33,7 @@ class TaskClient : BaseArtifactsClient() {
     }
 
     fun acceptTask(name: String) : ArtifactsResponseBody<TaskDataResponseBody> {
+        waitForCooldown(name)
         return sendPostRequest("/my/$name/action/task/new", "").use { response ->
             val responseBody = response.body!!.string()
             objectMapper.readValue<ArtifactsResponseBody<TaskDataResponseBody>>(responseBody)
@@ -38,6 +41,7 @@ class TaskClient : BaseArtifactsClient() {
     }
 
     fun abandonTask(name: String) : ArtifactsResponseBody<DataResponseBody> {
+        waitForCooldown(name)
         return sendPostRequest("/my/$name/action/task/cancel", "").use { response ->
             val responseBody = response.body!!.string()
             objectMapper.readValue<ArtifactsResponseBody<DataResponseBody>>(responseBody)
@@ -45,6 +49,7 @@ class TaskClient : BaseArtifactsClient() {
     }
 
     fun gatchaReward(name: String) : ArtifactsResponseBody<RewardDataResponseBody>{
+        waitForCooldown(name)
         return sendPostRequest("/my/$name/action/task/exchange", "").use { response ->
             val responseBody = response.body!!.string()
             objectMapper.readValue<ArtifactsResponseBody<RewardDataResponseBody>>(responseBody)

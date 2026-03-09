@@ -3,26 +3,12 @@ package com.tellenn.artifacts.clients
 import com.fasterxml.jackson.module.kotlin.readValue
 import com.tellenn.artifacts.models.MapData
 import com.tellenn.artifacts.clients.responses.ArtifactsArrayResponseBody
-import com.tellenn.artifacts.clients.responses.ArtifactsResponseBody
 import lombok.extern.slf4j.Slf4j
 import org.springframework.stereotype.Component
 
 @Slf4j
 @Component
 class MapClient : BaseArtifactsClient() {
-
-    fun getMap(x: Int, y: Int, name: String = "default", skin: String = "default"): ArtifactsResponseBody<MapData> {
-        val queryParams = buildQueryParams(
-            "x" to x.toString(),
-            "y" to y.toString(),
-            "name" to name,
-            "skin" to skin
-        )
-        return sendGetRequest("/map$queryParams").use { response ->
-            val responseBody = response.body!!.string()
-            objectMapper.readValue<ArtifactsResponseBody<MapData>>(responseBody)
-        }
-    }
 
     fun getMaps(name: String? = null, 
                 content_type: String? = null, content_code: String? = null,
@@ -48,5 +34,4 @@ class MapClient : BaseArtifactsClient() {
         return if (queryParams.isNotEmpty()) "?$queryParams" else ""
     }
 
-    fun findByContentCode(monsterCode: String) {}
 }

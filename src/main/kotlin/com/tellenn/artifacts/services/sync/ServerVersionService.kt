@@ -1,8 +1,8 @@
 package com.tellenn.artifacts.services.sync
 
-import com.tellenn.artifacts.clients.ServerStatusClient
 import com.tellenn.artifacts.db.documents.ServerVersionDocument
 import com.tellenn.artifacts.db.repositories.ServerVersionRepository
+import com.tellenn.artifacts.models.ServerStatus
 import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Service
 import java.time.Instant
@@ -14,45 +14,23 @@ import java.time.Instant
  */
 @Service
 class ServerVersionService(
-    private val serverStatusClient: ServerStatusClient,
     private val serverVersionRepository: ServerVersionRepository
 ) {
     private val logger = LoggerFactory.getLogger(ServerVersionService::class.java)
 
     /**
-     * Get the current server version from the API.
-     *
-     * @return The current server version
-     */
-    fun getCurrentServerVersion(): String {
-        return try {
-            val serverStatus = serverStatusClient.getServerStatus()
-            serverStatus.data.version
-        } catch (e: Exception) {
-            logger.error("Failed to get server version", e)
-            // Return a unique value to force sync in case of error
-            "error-${Instant.now()}"
-        }
-    }
-
-    /**
      * Check if sync operations need to be performed.
      *
-     * @param forceSync Whether to force the sync regardless of version
+     * @param serverStatus The server status from the API
      * @return True if sync is needed, false otherwise
      */
-    fun isSyncNeeded(forceSync: Boolean = false): Boolean {
-        // Force sync if requested
-        if (forceSync) {
-            logger.debug("Force sync requested, sync needed")
-            return true
-        }
+    fun isSyncNeeded(serverStatus: ServerStatus): Boolean {
 
         // Get the current server version
-        val currentVersion = getCurrentServerVersion()
+        val currentVersion = serverStatus.version
 
         // Get the stored server version
-        val storedVersion = serverVersionRepository.findByIdEquals(ServerVersionDocument.Companion.SERVER_VERSION_ID)
+        val storedVersion = serverVersionRepository.findByIdEquals(ServerVersionDocument.SERVER_VERSION_ID)
 
         // If no stored version, sync is needed
         if (storedVersion == null) {
@@ -74,8 +52,8 @@ class ServerVersionService(
     /**
      * Update the stored server version after sync operations.
      */
-    fun updateServerVersion() {
-        val currentVersion = getCurrentServerVersion()
+    fun updateServerVersion(serverStatus: ServerStatus) {
+        val currentVersion = serverStatus.version
         val serverVersionDocument = ServerVersionDocument(
             version = currentVersion,
             lastSyncTime = Instant.now()

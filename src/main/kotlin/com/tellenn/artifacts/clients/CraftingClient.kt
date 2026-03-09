@@ -12,6 +12,7 @@ import org.springframework.stereotype.Component
 class CraftingClient : BaseArtifactsClient() {
 
     fun craft(characterName: String, itemCode: String, quantity: Int = 1): ArtifactsResponseBody<CraftingResponseBody> {
+        waitForCooldown(characterName)
         val request = SimpleItem(itemCode, quantity)
         val requestBody = objectMapper.writeValueAsString(request)
         return sendPostRequest("/my/$characterName/action/crafting", requestBody).use { response ->
@@ -21,6 +22,7 @@ class CraftingClient : BaseArtifactsClient() {
     }
 
     fun recycle(characterName: String, itemCode: String, quantity: Int) :  ArtifactsResponseBody<CraftingResponseBody>  {
+        waitForCooldown(characterName)
         val request = SimpleItem(itemCode, quantity)
         val requestBody = objectMapper.writeValueAsString(request)
         return sendPostRequest("/my/$characterName/action/recycling", requestBody).use { response ->

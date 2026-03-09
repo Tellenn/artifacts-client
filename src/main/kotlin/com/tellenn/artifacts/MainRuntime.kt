@@ -18,7 +18,7 @@ import com.tellenn.artifacts.services.sync.ResourceSyncService
 import com.tellenn.artifacts.services.sync.ServerVersionService
 import com.tellenn.artifacts.services.WebSocketService
 import com.tellenn.artifacts.services.sync.TransitionMapperSyncService
-import com.tellenn.artifacts.utils.TimeSync
+import com.tellenn.artifacts.utils.TimeUtils
 import lombok.extern.slf4j.Slf4j
 import org.apache.logging.log4j.LogManager
 import org.springframework.boot.ApplicationArguments
@@ -37,7 +37,7 @@ class MainRuntime(
     private val woodworkerJob: WoodworkerJob,
     private val serverStatusClient: ServerStatusClient,
     private val objectMapper: ObjectMapper,
-    private val timeSync: TimeSync,
+    private val timeSync: TimeUtils,
     private val itemSyncService: ItemSyncService,
     private val mapSyncService: MapSyncService,
     private val monsterSyncService: MonsterSyncService,
@@ -53,21 +53,17 @@ class MainRuntime(
 
     override fun run(args: ApplicationArguments?) {
         // Call the server to get the information
-        val serverStatus = serverStatusClient.getServerStatus()
-        timeSync.syncWithServerTime(serverStatus.data.serverTime)
+        val serverStatus = serverStatusClient.getServerStatus().data
+        timeSync.syncWithServerTime(serverStatus.serverTime)
         log.info("Time synchronized with server. Offset: ${timeSync.currentOffset}")
 
-        log.info(objectMapper.writeValueAsString(serverStatus.data))
-        AppConfig.maxLevel = serverStatus.data.maxLevel
+        log.info(objectMapper.writeValueAsString(serverStatus))
+        AppConfig.maxLevel = serverStatus.maxLevel
 
         log.debug(objectMapper.writeValueAsString(AppConfig))
         
-        // Get command line arguments
-        val forceSync = args?.containsOption("force-sync") ?: false
-        log.debug("Force sync: $forceSync")
-        
         // Check if sync is needed based on server version
-        val syncNeeded = serverVersionService.isSyncNeeded(forceSync)
+        val syncNeeded = serverVersionService.isSyncNeeded(serverStatus)
         
         if (syncNeeded) {
             log.info("Server version changed or force sync requested, performing all syncs")
@@ -98,7 +94,7 @@ class MainRuntime(
             sleep(1000)
             
             // Update the server version after all syncs are completed
-            serverVersionService.updateServerVersion()
+            serverVersionService.updateServerVersion(serverStatus)
             log.info("Server version updated after all syncs completed")
         } else {
             log.info("Server version unchanged, skipping syncs (except bank)")

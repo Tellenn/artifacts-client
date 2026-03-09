@@ -11,6 +11,7 @@ import org.springframework.stereotype.Component
 class GatheringClient : BaseArtifactsClient() {
 
     fun gather(characterName: String): ArtifactsResponseBody<GatheringResponseBody> {
+        waitForCooldown(characterName)
         return sendPostRequest("/my/$characterName/action/gathering", "").use { response ->
             val responseBody = response.body!!.string()
             objectMapper.readValue<ArtifactsResponseBody<GatheringResponseBody>>(responseBody)

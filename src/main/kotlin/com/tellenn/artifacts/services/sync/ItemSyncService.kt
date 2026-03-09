@@ -2,7 +2,6 @@ package com.tellenn.artifacts.services.sync
 
 import com.tellenn.artifacts.clients.ItemClient
 import com.tellenn.artifacts.db.repositories.ItemRepository
-import com.tellenn.artifacts.services.sync.ServerVersionService
 import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
@@ -11,8 +10,7 @@ import java.lang.Thread.sleep
 @Service
 class ItemSyncService(
     private val itemClient: ItemClient,
-    private val itemRepository: ItemRepository,
-    private val serverVersionService: ServerVersionService
+    private val itemRepository: ItemRepository
 ) {
     private val logger = LoggerFactory.getLogger(ItemSyncService::class.java)
 
@@ -57,8 +55,6 @@ class ItemSyncService(
             }
         } while (currentPage <= totalPages)
 
-        // Save the server version after successful sync
-        serverVersionService.updateServerVersion()
         logger.info("Item sync completed and server version updated. Total items synced: $totalItemsProcessed")
         return totalItemsProcessed
     }

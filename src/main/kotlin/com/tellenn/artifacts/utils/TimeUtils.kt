@@ -6,7 +6,7 @@ import org.springframework.stereotype.Component
 
 @Component
 @Suppress("unused")
-class TimeSync {
+class TimeUtils {
 
      private var offset: Duration = Duration.ZERO
 
