@@ -142,6 +142,8 @@ class AlchemistJob(
                     val craftableItem = craftableItems.first()
                     if(craftableItem.craft?.items?.size == 1 && bankService.canCraftFromBank(craftableItem, 1)) {
                         character = gatheringService.craftOrGather(character, craftableItem.code, min(character.inventoryMaxItems - 20, it.quantity) / craftableItem.craft.items[0].quantity)
+                        character = movementService.moveToBank(character)
+                        character = bankService.emptyInventory(character)
                     }else{
                         log.debug("We have 1 craft, but it requires other items, unsure what to do so we abort")
                     }
