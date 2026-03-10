@@ -36,6 +36,10 @@ class AlchemistJob(
 
     lateinit var character: ArtifactsCharacter
     val skill = "alchemy"
+    // TODO : Aerith has a bug, she moves a lot and have a lot of bugs. See clientErrors
+    // She goes to bank, equip good gear, then bad gear, then go back fishing 3 times, and loop
+    // Renoir seems to have the same bug ? Not really sure
+
 
     // TODO : Healing potion management
     // TODO : Buff potion management

@@ -15,7 +15,6 @@ import com.tellenn.artifacts.services.TaskService
 import com.tellenn.artifacts.services.sync.BankItemSyncService
 import org.apache.logging.log4j.LogManager
 import org.springframework.stereotype.Component
-import java.lang.Thread.sleep
 import kotlin.math.min
 
 /**
@@ -39,11 +38,10 @@ class GenericJob(
      */
     fun init(characterName : String) : ArtifactsCharacter{
         var tempCharacter = accountClient.getCharacter(characterName).data
-        sleep(tempCharacter.cooldown*1000L)
-        tempCharacter = movementService.moveToBank(tempCharacter)
         if(characterName != "Cloud" && tempCharacter.weaponSlot == "wooden_stick"){
             characterService.unequip(tempCharacter, "weapon_slot", 1)
         }
+        tempCharacter = movementService.moveToBank(tempCharacter)
         tempCharacter = bankService.emptyInventory(tempCharacter)
         tempCharacter = characterService.rest(tempCharacter)
         return tempCharacter
