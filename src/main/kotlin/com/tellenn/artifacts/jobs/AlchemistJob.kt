@@ -145,7 +145,7 @@ class AlchemistJob(
                 1 -> {
                     val craftableItem = craftableItems.first()
                     if(craftableItem.craft?.items?.size == 1 && bankService.canCraftFromBank(craftableItem, 1)) {
-                        character = gatheringService.craftOrGather(character, craftableItem.code, min(character.inventoryMaxItems - 20, it.quantity) / craftableItem.craft.items[0].quantity)
+                        character = gatheringService.craftOrGather(character, craftableItem.code, Math.floorDiv(min(character.inventoryMaxItems - 20, it.quantity), craftableItem.craft.items[0].quantity))
                         character = movementService.moveToBank(character)
                         character = bankService.emptyInventory(character)
                     }else{

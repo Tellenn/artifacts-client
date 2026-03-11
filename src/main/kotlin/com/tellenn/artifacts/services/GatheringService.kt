@@ -35,6 +35,7 @@ class GatheringService(
     private val log = LogManager.getLogger(GatheringService::class.java)
 
     fun craftOrGather(character: ArtifactsCharacter, itemCode: String, quantity: Int, functionLevel: Int = 0, allowFight: Boolean = false, shouldTrain: Boolean = true) : ArtifactsCharacter{
+        if(quantity <= 0) return character
         val itemDetails = itemService.getItem(itemCode)
         val sizeForOne = itemService.getInvSizeToCraft(itemDetails)
         val inventorySizeNeeded = quantity * sizeForOne
