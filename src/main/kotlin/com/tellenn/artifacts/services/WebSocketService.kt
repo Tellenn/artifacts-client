@@ -4,16 +4,15 @@ import com.fasterxml.jackson.databind.JsonNode
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule
 import com.fasterxml.jackson.module.kotlin.jacksonObjectMapper
 import com.fasterxml.jackson.module.kotlin.readValue
-import com.tellenn.artifacts.CharacterThread
 import com.tellenn.artifacts.clients.AccountClient
 import com.tellenn.artifacts.exceptions.MapContentNotFoundException
 import com.tellenn.artifacts.models.Event
+import com.tellenn.artifacts.services.MissionPriority
 import okhttp3.*
 import okhttp3.WebSocket
 import org.slf4j.LoggerFactory
 import org.springframework.beans.factory.annotation.Value
 import org.springframework.stereotype.Service
-import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.Executors
 import java.util.concurrent.ScheduledExecutorService
 import java.util.concurrent.TimeUnit
@@ -38,7 +37,8 @@ class WebSocketService(
     private val accountClient: AccountClient,
     private val bankService: BankService,
     private val movementService: MovementService,
-    private val gatheringService: GatheringService
+    private val gatheringService: GatheringService,
+    private val threadService: ThreadService
 ) {
     val objectMapper = jacksonObjectMapper().apply {
         registerModule(JavaTimeModule())
@@ -64,9 +64,6 @@ class WebSocketService(
     private var reconnectAttempts = 0
     private val initialReconnectDelayMs = 1000L // 1 second
     private val maxReconnectDelayMs = 30000L // 30 seconds
-
-    // Map to store character threads by character name
-    private val characterThreads = ConcurrentHashMap<String, CharacterThread>()
 
     // Message handlers
     private val messageHandlers = mutableListOf<WebSocketMessageHandler>()
@@ -168,54 +165,7 @@ class WebSocketService(
         logger.info("WebSocket disconnected")
     }
 
-    /**
-     * Adds a character thread to the map.
-     *
-     * @param characterName The name of the character
-     * @param thread The thread to add
-     * @return The previous thread associated with the character, or null if there was none
-     */
-    fun addCharacterThread(characterName: String, thread: CharacterThread): CharacterThread? {
-        logger.debug("Adding thread for character: $characterName")
-        return characterThreads.put(characterName, thread)
-    }
 
-    /**
-     * Gets a character thread from the map.
-     *
-     * @param characterName The name of the character
-     * @return The thread associated with the character, or null if there is none
-     */
-    fun getCharacterThread(characterName: String): CharacterThread? {
-        return characterThreads[characterName]
-    }
-
-    /**
-     * Interrupts a specific character thread.
-     *
-     * @param characterName The name of the character whose thread should be interrupted
-     * @return true if the thread was interrupted, false if the thread doesn't exist
-     */
-    fun interruptCharacterThread(characterName: String): Boolean {
-        val characterThread = characterThreads[characterName] ?: return false
-
-        logger.info("Interrupting thread for character: $characterName")
-        characterThread.thread.interrupt()
-        return true
-    }
-
-    /**
-     * Interrupts a specific character thread.
-     *
-     * @param characterName The name of the character whose thread should be interrupted
-     * @return true if the thread was interrupted, false if the thread doesn't exist
-     */
-    fun restartCharacterThread(characterName: String): Boolean {
-        val characterThread = characterThreads[characterName] ?: return false
-        characterThread.startThread()
-        logger.info("Restarting thread for character: $characterName")
-        return true
-    }
 
     /**
      * Shuts down the WebSocket service and cleans up resources.
@@ -278,12 +228,13 @@ class WebSocketService(
                                 if (event.map.interactions?.content?.type == "npc"){
 
                                     logger.info("!!!!!!!! Merchant spawned: ${event.map.interactions.content.code}")
-                                    interruptCharacterThread("Aerith")
-                                    logger.info("!!!!!!!! Interrupted the thread of Aerith")
-
-                                    val character = accountClient.getCharacter("Aerith").data
-                                    merchantService.sellBankItemTo(character, event.map.interactions.content.code)
-                                    restartCharacterThread("Aerith")
+                                    
+                                    // Execute synchronously in the WebSocket thread with AUTOMATIC priority
+                                    // Will not interrupt human-ordered tasks
+                                    threadService.executeMissionSync("Aerith", MissionPriority.AUTOMATIC) {
+                                        val character = accountClient.getCharacter("Aerith").data
+                                        merchantService.sellBankItemTo(character, event.map.interactions.content.code)
+                                    }
                                 }else if (event.map.interactions?.content?.type == "resource") {
                                     logger.info("Resource spawned: ${event.map.interactions.content.code}")
                                     logger.info("Resource is about ${event.code}")
@@ -294,24 +245,25 @@ class WebSocketService(
                                     }
                                     logger.info("I want to call ${characterName} to handle it")
 
-                                    interruptCharacterThread(characterName)
-                                    try {
-                                        var character = accountClient.getCharacter(characterName).data
-                                        do {
-                                            character = movementService.moveToBank(character)
-                                            character = bankService.emptyInventory(character)
-                                            character = gatheringService.craftOrGather(
-                                                character,
-                                                event.map.interactions.content.code,
-                                                character.inventoryMaxItems - 30
-                                            )
-                                        } while (true)
-                                    }catch (_: MapContentNotFoundException){
-
-                                    }catch (e: Exception){
-                                        logger.error("Uncaught error occured while gathering in the event", e)
-                                    }finally {
-                                        restartCharacterThread(characterName)
+                                    // Execute asynchronously with AUTOMATIC priority
+                                    // Will not interrupt human-ordered tasks
+                                    threadService.assignMissionAsync(characterName, MissionPriority.AUTOMATIC) {
+                                        try {
+                                            var character = accountClient.getCharacter(characterName).data
+                                            do {
+                                                character = movementService.moveToBank(character)
+                                                character = bankService.emptyInventory(character)
+                                                character = gatheringService.craftOrGather(
+                                                    character,
+                                                    event.map.interactions.content.code,
+                                                    character.inventoryMaxItems - 30
+                                                )
+                                            } while (true)
+                                        } catch (_: MapContentNotFoundException) {
+                                            // Resource no longer available
+                                        } catch (e: Exception) {
+                                            logger.error("Uncaught error occurred while gathering in the event", e)
+                                        }
                                     }
                                 }else if (event.map.interactions?.content?.type == "monster"){
                                     logger.info("Monster spawned: ${event.map.interactions.content.code}")

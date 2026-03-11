@@ -4,11 +4,7 @@ import com.fasterxml.jackson.databind.ObjectMapper
 import com.tellenn.artifacts.clients.ServerStatusClient
 import com.tellenn.artifacts.models.ArtifactsCharacter
 import com.tellenn.artifacts.config.CharacterConfig
-import com.tellenn.artifacts.jobs.AlchemistJob
-import com.tellenn.artifacts.jobs.CrafterJob
-import com.tellenn.artifacts.jobs.FighterJob
-import com.tellenn.artifacts.jobs.MinerJob
-import com.tellenn.artifacts.jobs.WoodworkerJob
+import com.tellenn.artifacts.services.ThreadService
 import com.tellenn.artifacts.services.sync.BankItemSyncService
 import com.tellenn.artifacts.services.sync.CharacterSyncService
 import com.tellenn.artifacts.services.sync.ItemSyncService
@@ -30,11 +26,6 @@ import java.lang.Thread.sleep
 @Slf4j
 @Component
 class MainRuntime(
-    private val alchemistJob: AlchemistJob,
-    private val crafterJob: CrafterJob,
-    private val fighterJob: FighterJob,
-    private val minerJob: MinerJob,
-    private val woodworkerJob: WoodworkerJob,
     private val serverStatusClient: ServerStatusClient,
     private val objectMapper: ObjectMapper,
     private val timeSync: TimeUtils,
@@ -46,7 +37,8 @@ class MainRuntime(
     private val bankItemSyncService: BankItemSyncService,
     private val resourceSyncService: ResourceSyncService,
     private val serverVersionService: ServerVersionService,
-    private val transitionMapperSyncService: TransitionMapperSyncService
+    private val transitionMapperSyncService: TransitionMapperSyncService,
+    private val threadService: ThreadService
 ) : ApplicationRunner {
 
     private val log = LogManager.getLogger(MainRuntime::class.java)
@@ -124,7 +116,7 @@ class MainRuntime(
     /**
      * Starts a thread for each character in the map.
      * Each thread runs a placeholder function.
-     * Stores thread references in the WebSocketService.
+     * Stores thread references in the ThreadService.
      * Includes exception handling to restart character threads if they fail to start.
      *
      * @param characterMap Map of CharacterConfig to ArtifactsCharacter
@@ -135,13 +127,12 @@ class MainRuntime(
         for ((config, character) in characterMap) {
             try {
                 // Check if a thread already exists for this character
-                if (webSocketService.getCharacterThread(character.name) != null) {
+                if (threadService.hasCharacterThread(character.name)) {
                     log.info("Thread for character ${character.name} already exists, skipping")
                     continue
                 }
-                val charThread = CharacterThread(config, crafterJob, fighterJob, alchemistJob, minerJob, woodworkerJob)
-                webSocketService.addCharacterThread(config.name, charThread)
-                charThread.startThread()
+                
+                threadService.startCharacterThread(config)
             } catch (e: Exception) {
                 log.error("Exception occurred while starting thread for character: ${character.name}", e)
 
@@ -150,11 +141,7 @@ class MainRuntime(
                     log.info("Attempting to restart thread for character: ${character.name}")
                     sleep(1000) // Wait 1 second before restarting
 
-                    // Create a new thread and start it
-                    val charThread = CharacterThread(config, crafterJob, fighterJob, alchemistJob, minerJob, woodworkerJob)
-                    webSocketService.addCharacterThread(config.name, charThread)
-                    charThread.startThread()
-
+                    threadService.startCharacterThread(config)
                     log.info("Successfully restarted thread for character: ${character.name}")
                 } catch (e2: Exception) {
                     log.error("Failed to restart thread for character: ${character.name}", e2)
@@ -170,6 +157,9 @@ class MainRuntime(
     @PreDestroy
     fun cleanup() {
         log.info("Application shutting down, cleaning up resources...")
+
+        // Stop all character threads
+        threadService.stopAllThreads()
 
         // Shutdown the WebSocket service
         webSocketService.shutdown()
