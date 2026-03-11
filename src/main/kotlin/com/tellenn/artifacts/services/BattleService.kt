@@ -52,8 +52,11 @@ class BattleService(
     fun fightToGetItem(character: ArtifactsCharacter, itemCode: String, quantity: Int, shouldTrain: Boolean = false): ArtifactsCharacter {
         val monster = monsterService.findMonsterThatDrop(itemCode)
         if(monster == null){
-            log.error("Monster with code $itemCode not found")
+            log.error("Monster with itemcode $itemCode not found")
             return character
+        }
+        if(monster.type == "boss"){
+            throw BattleLostException(monster.name) // TODO : Handle bosses (and beforehand)
         }
         val map = mapService.findClosestMap(character, contentCode = monster.code)
         var newCharacter = equipmentService.equipBestAvailableEquipmentForMonsterInBank(character, monster.code)
