@@ -8,6 +8,7 @@ import com.tellenn.artifacts.jobs.FighterJob
 import com.tellenn.artifacts.jobs.MinerJob
 import com.tellenn.artifacts.jobs.WoodworkerJob
 import org.slf4j.LoggerFactory
+import org.springframework.context.annotation.Lazy
 import org.springframework.stereotype.Service
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.atomic.AtomicBoolean
@@ -47,11 +48,11 @@ private class ManagedCharacterThread(
  */
 @Service
 class ThreadService(
-    private val crafterJob: CrafterJob,
-    private val fighterJob: FighterJob,
-    private val alchemistJob: AlchemistJob,
-    private val minerJob: MinerJob,
-    private val woodworkerJob: WoodworkerJob
+    @Lazy private val crafterJob: CrafterJob,
+    @Lazy private val fighterJob: FighterJob,
+    @Lazy private val alchemistJob: AlchemistJob,
+    @Lazy private val minerJob: MinerJob,
+    @Lazy private val woodworkerJob: WoodworkerJob
 ) {
     private val logger = LoggerFactory.getLogger(ThreadService::class.java)
 
@@ -400,5 +401,16 @@ class ThreadService(
      */
     fun getActiveCharacterNames(): List<String> {
         return characterThreads.keys.toList()
+    }
+
+    /**
+     * Checks if a character is currently on a mission.
+     *
+     * @param characterName The name of the character
+     * @return true if the character is on a mission, false if running in automatic mode or doesn't exist
+     */
+    fun isCharacterOnMission(characterName: String): Boolean {
+        val managedThread = getManagedThread(characterName) ?: return false
+        return managedThread.isOnMission.get()
     }
 }

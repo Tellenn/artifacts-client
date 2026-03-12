@@ -282,8 +282,13 @@ class BattleSimulatorService(
     }
 
     fun simulateWithApi(monsterCode: String, character: ArtifactsCharacter): ArtifactsResponseBody<SimulationResult> {
-        return simulateClient.simulate1v1(character, monsterCode)
+        return simulateWithApi(monsterCode, listOf(character))
     }
+
+    fun simulateWithApi(monsterCode: String, characters: List<ArtifactsCharacter>): ArtifactsResponseBody<SimulationResult> {
+        return simulateClient.simulate(characters, monsterCode)
+    }
+
 
     fun simulateWithCharacterName(monsterCode: String, characterName: String): ArtifactsResponseBody<SimulationResult> {
         val character = accountClient.getCharacter(characterName).data

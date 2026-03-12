@@ -11,13 +11,16 @@ import com.tellenn.artifacts.exceptions.UnknownMapException
 import com.tellenn.artifacts.models.ArtifactsCharacter
 import com.tellenn.artifacts.models.ItemDetails
 import com.tellenn.artifacts.services.BankService
+import com.tellenn.artifacts.services.BossFightService
 import com.tellenn.artifacts.services.CharacterService
 import com.tellenn.artifacts.services.EventService
 import com.tellenn.artifacts.services.GatheringService
 import com.tellenn.artifacts.services.ItemService
 import com.tellenn.artifacts.services.MapService
+import com.tellenn.artifacts.services.MonsterService
 import com.tellenn.artifacts.services.MovementService
 import com.tellenn.artifacts.services.TaskService
+import com.tellenn.artifacts.services.ThreadService
 import org.springframework.stereotype.Component
 import java.lang.Thread.sleep
 import kotlin.math.min
@@ -36,7 +39,10 @@ class CrafterJob(
     private val itemService: ItemService,
     private val craftedItemRepository: CraftedItemRepository,
     private val gatheringService: GatheringService,
-    private val eventService: EventService
+    private val eventService: EventService,
+    private val monsterService: MonsterService,
+    private val bossFightService: BossFightService,
+    private val threadService: ThreadService
 ) : GenericJob(mapService, movementService, bankService, characterService, accountClient, taskService) {
 
     lateinit var character: ArtifactsCharacter
@@ -58,6 +64,24 @@ class CrafterJob(
 
             character = cleanUpBank()
             character = claimPendingItems()
+
+            // Check if crafter skills are level 20+ and can attempt king_slime boss fight
+            if (character.weaponcraftingLevel >= 40 &&
+                character.gearcraftingLevel >= 40 &&
+                character.jewelrycraftingLevel >= 40 &&
+                bankService.isInBank("king_slimeball", 10)) {
+                tryBossFight("king_slime")
+            }else if (character.weaponcraftingLevel >= 30 &&
+                character.gearcraftingLevel >= 30 &&
+                character.jewelrycraftingLevel >= 30 &&
+                (bankService.isInBank("life_crystal_shard", 24) || bankService.isInBank("life_crystal", 1))) {
+                tryBossFight("lich")
+            }else if (character.weaponcraftingLevel >= 20 &&
+                character.gearcraftingLevel >= 20 &&
+                character.jewelrycraftingLevel >= 20 &&
+                bankService.isInBank("king_slimeball", 10)) {
+                tryBossFight("king_slime")
+            }
 
             val skillToLevel = getLowestSkillLevel(character)
             val itemsToCraft = getListOfItemToCraftUnderLevel(
@@ -187,6 +211,15 @@ class CrafterJob(
                 if(eventBasedItemCodes.contains(item.code)){
                     !bankService.isInBank(item.code, item.quantity)
                 }else{ false } } ?: false }
+            .filter { item ->
+                // Filter out items that require boss monster components not in bank
+                item.craft?.items?.none { ingredient ->
+                    val monster = monsterService.findMonsterThatDrop(ingredient.code)
+                    if(monster?.type == "boss"){
+                        !bankService.isInBank(ingredient.code, ingredient.quantity)
+                    }else{ false }
+                } ?: true
+            }
             .sortedBy { it.level }
     }
 
@@ -267,5 +300,33 @@ class CrafterJob(
         character = movementService.moveToBank(character)
         character = bankService.emptyInventory(character)
         return character
+    }
+
+    /**
+     * Attempts to fight a boss if all characters are available and there are less than 10 boss components in bank.
+     * Checks if Kepo, Renoir, and Cloud are available and simulates the fight.
+     *
+     * @param monsterCode The boss monster code to fight
+     */
+    private fun tryBossFight(monsterCode: String) {
+        try {
+            // Check if all default characters are available (not on missions)
+            val character1Available = !threadService.isCharacterOnMission(BossFightService.DEFAULT_CHARACTER_1)
+            val character2Available = !threadService.isCharacterOnMission(BossFightService.DEFAULT_CHARACTER_2)
+            val character3Available = !threadService.isCharacterOnMission(BossFightService.DEFAULT_CHARACTER_3)
+
+            if (character1Available && character2Available && character3Available) {
+                log.info("${character.name} is attempting to simulate $monsterCode boss fight")
+                val canWin = bossFightService.simulateBossFight(monsterCode)
+                if (canWin) {
+                    log.info("Simulation successful! Characters can beat $monsterCode")
+                    // TODO : add the boss fight :)
+                } else {
+                    log.info("Simulation shows characters cannot beat $monsterCode yet")
+                }
+            }
+        } catch (e: Exception) {
+            log.warn("Failed to simulate boss fight: ${e.message}")
+        }
     }
 }

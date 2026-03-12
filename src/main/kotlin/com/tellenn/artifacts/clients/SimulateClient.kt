@@ -12,10 +12,14 @@ import org.springframework.stereotype.Component
 @Component
 class SimulateClient : BaseArtifactsClient() {
 
-    fun simulate1v1(character: ArtifactsCharacter, monsterName: String): ArtifactsResponseBody<SimulationResult> {
-        if(character.utility1SlotQuantity == 0) character.utility1SlotQuantity = 1
-        if(character.utility2SlotQuantity == 0) character.utility2SlotQuantity = 1
-        val req = SimulationBattleRequest(listOf(character), monsterName, 10)
+    fun simulate(characters: List<ArtifactsCharacter>, monsterName: String): ArtifactsResponseBody<SimulationResult> {
+        val chars = characters.map {
+            if(it.utility1SlotQuantity == 0) it.utility1SlotQuantity = 1
+            if(it.utility2SlotQuantity == 0) it.utility2SlotQuantity = 1
+            it
+        }
+
+        val req = SimulationBattleRequest(chars, monsterName, 10)
         return sendPostRequest("/simulation/fight_simulation", objectMapper.writeValueAsString(req)).use { response ->
             val responseBody = response.body!!.string()
             objectMapper.readValue<ArtifactsResponseBody<SimulationResult>>(responseBody)

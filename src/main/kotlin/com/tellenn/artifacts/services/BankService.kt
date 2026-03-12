@@ -3,6 +3,7 @@ package com.tellenn.artifacts.services
 import com.tellenn.artifacts.AppConfig
 import com.tellenn.artifacts.clients.AccountClient
 import com.tellenn.artifacts.clients.BankClient
+import com.tellenn.artifacts.clients.MovementClient
 import com.tellenn.artifacts.models.ArtifactsCharacter
 import com.tellenn.artifacts.models.ItemDetails
 import com.tellenn.artifacts.models.SimpleItem
@@ -23,7 +24,9 @@ class BankService(
     private val itemRepository: ItemRepository,
     private val characterService: CharacterService,
     private val bankItemSyncService: BankItemSyncService,
-    private val accountClient: AccountClient
+    private val accountClient: AccountClient,
+    private val movementClient: MovementClient,
+    private val mapService: MapService
 ) {
     private val log = LogManager.getLogger(BankService::class.java)
 
@@ -96,7 +99,10 @@ class BankService(
                 try {
                     newCharacter = bankClient.depositItems(character.name, itemsToDeposit).data.character
                 }catch (_: MapContentNotFoundException){
+                    // TODO : Monitor this, the fact that we end up here shows an inconsitancy in the character data
                     newCharacter = accountClient.getCharacter(newCharacter.name).data
+                    val closestBank = mapService.findClosestMap(newCharacter, "bank")
+                    newCharacter = movementClient.move(newCharacter.name, closestBank.mapId).data.character
                     return deposit(newCharacter, items)
                 }
             }
