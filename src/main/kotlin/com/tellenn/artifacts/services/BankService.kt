@@ -270,4 +270,8 @@ class BankService(
     fun getHealingPotions() : List<ItemDetails> {
         return bankRepository.findByCodeContainingIgnoreCase("health").map { itemRepository.findByCode(it.code) }
     }
+
+    fun withdrawGold(amount: Int, newCharacter: ArtifactsCharacter) : ArtifactsCharacter{
+        return bankClient.withdrawGold(newCharacter.name, amount).data.character
+    }
 }

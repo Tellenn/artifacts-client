@@ -167,6 +167,7 @@ class CrafterJob(
                     }while (e.level == character.getLevelOf(e.skill))
                 }catch (e: Exception){
                     log.error("Uncaught error occured while gathering in the event", e)
+                    break
                 }
             }
         }while (true)
@@ -209,7 +210,11 @@ class CrafterJob(
                     }else{ false } } ?: false }
             .filter { it.craft?.items?.none { item ->
                 if(eventBasedItemCodes.contains(item.code)){
-                    !bankService.isInBank(item.code, item.quantity)
+                    if(it.level > 30) {
+                        !bankService.isInBank(item.code, item.quantity)
+                    }else{
+                        false
+                    }
                 }else{ false } } ?: false }
             .filter { item ->
                 // Filter out items that require boss monster components not in bank
@@ -245,7 +250,7 @@ class CrafterJob(
             .filter {
                 it.craft?.items?.none { item ->
                     if(rareItemCode.contains(item.code)){
-                        !bankService.isInBank(item.code, item.quantity)
+                        !bankService.isInBank(item.code, item.quantity) // Just false ?
                     }else{ false } } ?: false }
             .filter { it.craft?.items?.none { item ->
                 if(eventBasedItemCodes.contains(item.code)){

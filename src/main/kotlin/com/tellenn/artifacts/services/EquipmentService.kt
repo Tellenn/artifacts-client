@@ -31,7 +31,8 @@ class EquipmentService(
     private val movementService: MovementService,
     private val battleSimulatorService: BattleSimulatorService,
     private val bankItemSyncService: BankItemSyncService,
-    private val accountClient: AccountClient
+    private val accountClient: AccountClient,
+    private val merchantService: MerchantService
 ) {
     fun equipBestAvailableEquipmentForMonsterInBank(character: ArtifactsCharacter, monsterCode: String) : ArtifactsCharacter{
         val bis = findBestEquipmentForMonsterInBank(character, monsterCode)
@@ -72,7 +73,16 @@ class EquipmentService(
                 if(item?.code != null && character[slot+"_slot"] != item.code) {
                     newCharacter = characterService.equip(newCharacter, item.code, slot, 1)
                 }
-            }// TODO : Add a bit for buying runes if it helps
+            }
+
+        if(character.runeSlot == null && bis["rune_slot"] == null && character.level >= 20){
+            var rune = "healing_rune"
+            if(character.name == "Cloud"){
+                rune = "burn_rune"
+            }
+            newCharacter = merchantService.buy(rune, newCharacter)
+            newCharacter = characterService.equip(newCharacter, rune, "rune_slot", 1)
+        }
         }catch (_: NotFoundException){
             newCharacter = accountClient.getCharacter(newCharacter.name).data
             return equipBestAvailableEquipmentForMonsterInBank(newCharacter, monsterCode)
@@ -87,7 +97,7 @@ class EquipmentService(
             return equipBestAvailableEquipmentForMonsterInBank(newCharacter, monsterCode)
 
         }
-
+        newCharacter = movementService.moveToBank(newCharacter)
         newCharacter = bankService.emptyInventory(newCharacter)
 
         // Fetch healing potions if there are any interesting

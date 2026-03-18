@@ -7,7 +7,6 @@ import com.fasterxml.jackson.module.kotlin.readValue
 import com.tellenn.artifacts.clients.AccountClient
 import com.tellenn.artifacts.exceptions.MapContentNotFoundException
 import com.tellenn.artifacts.models.Event
-import com.tellenn.artifacts.services.MissionPriority
 import okhttp3.*
 import okhttp3.WebSocket
 import org.slf4j.LoggerFactory
@@ -239,30 +238,39 @@ class WebSocketService(
                                     logger.info("Resource spawned: ${event.map.interactions.content.code}")
                                     logger.info("Resource is about ${event.code}")
                                     val characterName = when (event.code) {
-                                        "strange_apparition" -> "Gustave"
-                                        "magic_apparition" -> "Kepo"
+                                        "strange_apparition" -> "Kepo"
+                                        "magic_apparition" -> "Gustave"
                                         else -> ""
                                     }
                                     logger.info("I want to call ${characterName} to handle it")
 
                                     // Execute asynchronously with AUTOMATIC priority
                                     // Will not interrupt human-ordered tasks
-                                    threadService.assignMissionAsync(characterName, MissionPriority.AUTOMATIC) {
-                                        try {
-                                            var character = accountClient.getCharacter(characterName).data
-                                            do {
-                                                character = movementService.moveToBank(character)
-                                                character = bankService.emptyInventory(character)
-                                                character = gatheringService.craftOrGather(
-                                                    character,
-                                                    event.map.interactions.content.code,
-                                                    character.inventoryMaxItems - 30
-                                                )
-                                            } while (true)
-                                        } catch (_: MapContentNotFoundException) {
-                                            // Resource no longer available
-                                        } catch (e: Exception) {
-                                            logger.error("Uncaught error occurred while gathering in the event", e)
+                                    val canGather = when (event.code) {
+                                        "strange_apparition" -> accountClient.getCharacter(characterName).data.miningLevel >= 35
+                                        "magic_apparition" -> accountClient.getCharacter(characterName).data.woodcuttingLevel >= 35
+                                        else -> false
+                                    }
+                                    if (!canGather) {
+                                        logger.info("${characterName} can't gather ${event.code} yet")
+                                    }else {
+                                        threadService.assignMissionAsync(characterName, MissionPriority.AUTOMATIC) {
+                                            try {
+                                                var character = accountClient.getCharacter(characterName).data
+                                                do {
+                                                    character = movementService.moveToBank(character)
+                                                    character = bankService.emptyInventory(character)
+                                                    character = gatheringService.craftOrGather(
+                                                        character,
+                                                        event.map.interactions.content.code,
+                                                        character.inventoryMaxItems - 30
+                                                    )
+                                                } while (true)
+                                            } catch (_: MapContentNotFoundException) {
+                                                // Resource no longer available
+                                            } catch (e: Exception) {
+                                                logger.error("Uncaught error occurred while gathering in the event", e)
+                                            }
                                         }
                                     }
                                 }else if (event.map.interactions?.content?.type == "monster"){

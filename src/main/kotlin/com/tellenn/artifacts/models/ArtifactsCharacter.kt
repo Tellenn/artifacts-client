@@ -4,7 +4,7 @@ import com.fasterxml.jackson.annotation.JsonProperty
 import java.time.Instant
 
 @Suppress("unused")
-class ArtifactsCharacter(
+data class ArtifactsCharacter(
     var name: String,
     var account: String,
     var level: Int,

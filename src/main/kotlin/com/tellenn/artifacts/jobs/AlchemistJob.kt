@@ -57,6 +57,10 @@ class AlchemistJob(
                 character = taskService.getNewItemTask(character)
                 character = taskService.doCharacterTask(character)
 
+            }else if(character.alchemyLevel > 20 && !bankService.isInBank("small_antidote", 100)){
+                // Making antidotes can really help progressing by killing spiders, spider legs is used in lv 20 gear
+                log.info("${character.name} is making some basic antidotes stock")
+                character = gatheringService.craftOrGather(character, "small_antidote", 20)
             }else if(character.alchemyLevel < character.fishingLevel){
                 val itemsToCraft = ArrayList<SimpleItem>()
                 getHealingPotions().forEach {

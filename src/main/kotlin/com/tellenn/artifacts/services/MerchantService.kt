@@ -48,4 +48,17 @@ class MerchantService (
         }
         return newCharacter
     }
+
+    fun buy(itemCode: String, character: ArtifactsCharacter): ArtifactsCharacter {
+        val merchant = npcClient.getNpcByItemCode(itemCode).data.firstOrNull()
+        val goldBank = bankService.getBankDetails().gold
+        var newCharacter = character
+        if(merchant != null && merchant.buyPrice != null && goldBank > merchant.buyPrice){
+            newCharacter = movementService.moveToBank(character)
+            newCharacter = bankService.withdrawGold( merchant.buyPrice, newCharacter)
+            newCharacter = movementService.moveToNpc(newCharacter, merchant.npc)
+            newCharacter = npcClient.buyItem(newCharacter.name, itemCode, 1).data.character
+        }
+        return newCharacter
+    }
 }

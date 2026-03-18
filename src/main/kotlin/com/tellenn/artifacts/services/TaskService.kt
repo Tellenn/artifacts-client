@@ -130,14 +130,14 @@ class TaskService(
         val monsterMap = mapService.findClosestMap(character, contentCode = monsterCode)
         var quantityLeft = character.taskTotal - character.taskProgress
 
-        val testCharacter = character
+        val testCharacter = character.copy()
         val bis = equipmentService.findBestEquipmentForMonsterInBank(character, monsterCode)
         bis.forEach { slot, item ->
             if(item != null){
                 testCharacter["${slot}_slot"] = item.code
             }
         }
-        if(battleSimulatorService.simulateWithApi(monsterCode, character).data.losses > 1){ // 10 simulation, 1 mean 10% fails
+        if(battleSimulatorService.simulateWithApi(monsterCode, testCharacter).data.losses > 1){ // 10 simulation, 1 mean 10% fails
             throw TaskFailedException()
         }
         if(quantityLeft > 0){
