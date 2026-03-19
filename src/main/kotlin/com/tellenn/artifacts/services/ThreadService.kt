@@ -10,6 +10,7 @@ import com.tellenn.artifacts.jobs.WoodworkerJob
 import org.slf4j.LoggerFactory
 import org.springframework.context.annotation.Lazy
 import org.springframework.stereotype.Service
+import java.io.InterruptedIOException
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.atomic.AtomicBoolean
 import java.util.concurrent.atomic.AtomicReference
@@ -66,8 +67,6 @@ class ThreadService(
      * @param config The character configuration
      */
     private fun runDefaultBehavior(config: CharacterConfig) {
-        logger.info("Character details - Name: ${config.name}, Job: ${config.job}")
-
         try {
             // Create and run the appropriate job based on the character's job type
             when (config.job.lowercase()) {
@@ -82,6 +81,10 @@ class ThreadService(
                 }
             }
         } catch (_: InterruptedException) {
+            // Thread was interrupted, likely for a mission
+            logger.info("Character ${config.name} default behavior interrupted")
+            Thread.currentThread().interrupt() // Preserve interrupt status
+        }  catch (_: InterruptedIOException) {
             // Thread was interrupted, likely for a mission
             logger.info("Character ${config.name} default behavior interrupted")
             Thread.currentThread().interrupt() // Preserve interrupt status
@@ -136,7 +139,6 @@ class ThreadService(
             }
 
             internalStartThread(config)
-            logger.info("Started thread for character: ${config.name}")
             true
         } catch (e: Exception) {
             logger.error("Failed to start thread for character: ${config.name}", e)

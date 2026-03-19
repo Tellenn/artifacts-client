@@ -17,10 +17,12 @@ import okhttp3.Request
 import okhttp3.RequestBody.Companion.toRequestBody
 import okhttp3.Response
 import okhttp3.ResponseBody.Companion.toResponseBody
+import java.util.concurrent.TimeUnit
 import org.slf4j.LoggerFactory
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.beans.factory.annotation.Value
 import org.springframework.stereotype.Component
+import java.io.InterruptedIOException
 import java.lang.Thread.sleep
 import java.time.Instant
 import java.util.concurrent.ConcurrentHashMap
@@ -47,7 +49,11 @@ abstract class BaseArtifactsClient() {
     @Value("\${artifacts.api.key}")
     lateinit var key: String
 
-    val client = OkHttpClient()
+    val client = OkHttpClient.Builder()
+        .connectTimeout(30, TimeUnit.SECONDS)
+        .readTimeout(30, TimeUnit.SECONDS)
+        .writeTimeout(30, TimeUnit.SECONDS)
+        .build()
 
     val objectMapper = jacksonObjectMapper().apply {
         registerModule(JavaTimeModule())
@@ -285,7 +291,7 @@ abstract class BaseArtifactsClient() {
             return response.newBuilder()
                 .body(responseBody)
                 .build()
-        } catch (e: Exception) {
+        }catch (e: Exception) {
             // Log any other exceptions that might occur
             if (e !is ArtifactsApiException) {  // Only log if not already logged as an API exception
                 logAndThrowError(null, clientType, path, requestMethod, requestParams, requestBody, "")
@@ -363,7 +369,7 @@ abstract class BaseArtifactsClient() {
                 .build()
         } catch (e: Exception) {
             // Log any other exceptions that might occur
-            if (e !is ArtifactsApiException) {  // Only log if not already logged as an API exception
+            if (e !is ArtifactsApiException && e !is InterruptedIOException && e !is InterruptedException) {  // Only log if not already logged as an API exception
                 logAndThrowError(null, clientType, path, requestMethod, requestParams, null, "")
             }
             throw e

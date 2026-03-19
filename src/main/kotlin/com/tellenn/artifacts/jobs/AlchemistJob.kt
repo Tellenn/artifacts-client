@@ -144,19 +144,31 @@ class AlchemistJob(
     private fun cookEasyItemsInBank(){
          bankService.getAllResources().forEach {
             val craftableItems = itemService.getItemsCraftedBySkillAndItemUnderLevel(it.code, "cooking", character.cookingLevel)
-            when(craftableItems.size){
-                0 -> log.debug("Error when analysing ${it.name}, it's a craftable item that does not have crafts ?")
-                1 -> {
-                    val craftableItem = craftableItems.first()
-                    if(craftableItem.craft?.items?.size == 1 && bankService.canCraftFromBank(craftableItem, 1)) {
-                        character = gatheringService.craftOrGather(character, craftableItem.code, Math.floorDiv(min(character.inventoryMaxItems - 20, it.quantity), craftableItem.craft.items[0].quantity))
-                        character = movementService.moveToBank(character)
-                        character = bankService.emptyInventory(character)
-                    }else{
-                        log.debug("We have 1 craft, but it requires other items, unsure what to do so we abort")
+            try {
+                when (craftableItems.size) {
+                    0 -> log.debug("Error when analysing ${it.name}, it's a craftable item that does not have crafts ?")
+                    1 -> {
+                        val craftableItem = craftableItems.first()
+                        if (craftableItem.craft?.items?.size == 1 && bankService.canCraftFromBank(craftableItem, 1)) {
+                            character = gatheringService.craftOrGather(
+                                character,
+                                craftableItem.code,
+                                Math.floorDiv(
+                                    min(character.inventoryMaxItems - 20, it.quantity),
+                                    craftableItem.craft.items[0].quantity
+                                )
+                            )
+                            character = movementService.moveToBank(character)
+                            character = bankService.emptyInventory(character)
+                        } else {
+                            log.debug("We have 1 craft, but it requires other items, unsure what to do so we abort")
+                        }
                     }
+
+                    else -> log.debug("There is more than 1 craft, so we need further analysis")
                 }
-                else -> log.debug("There is more than 1 craft, so we need further analysis")
+            }catch (_: IllegalArgumentException){
+                log.warn("Tried to craft something that require monster fight, wtf")
             }
         }
     }

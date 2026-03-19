@@ -133,7 +133,7 @@ class MovementService(
      */
     fun moveToBank(character: ArtifactsCharacter): ArtifactsCharacter {
         val closestBank = mapService.findClosestMap(character = character, contentCode = "bank")
-        if (character.x == closestBank.x && character.y == closestBank.y) {
+        if (character.mapId == closestBank.mapId) {
             return character
         }
         return moveCharacterToCell(closestBank.mapId, character)

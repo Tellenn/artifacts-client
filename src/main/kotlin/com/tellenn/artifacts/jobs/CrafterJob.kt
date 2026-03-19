@@ -69,17 +69,17 @@ class CrafterJob(
             if (character.weaponcraftingLevel >= 40 &&
                 character.gearcraftingLevel >= 40 &&
                 character.jewelrycraftingLevel >= 40 &&
-                bankService.isInBank("king_slimeball", 10)) {
+                !bankService.isInBank("king_slimeball", 10)) {
                 tryBossFight("king_slime")
             }else if (character.weaponcraftingLevel >= 30 &&
                 character.gearcraftingLevel >= 30 &&
                 character.jewelrycraftingLevel >= 30 &&
-                (bankService.isInBank("life_crystal_shard", 24) || bankService.isInBank("life_crystal", 1))) {
+                !(bankService.isInBank("life_crystal_shard", 24) || bankService.isInBank("life_crystal", 1))) {
                 tryBossFight("lich")
             }else if (character.weaponcraftingLevel >= 20 &&
                 character.gearcraftingLevel >= 20 &&
                 character.jewelrycraftingLevel >= 20 &&
-                bankService.isInBank("king_slimeball", 10)) {
+                !bankService.isInBank("king_slimeball", 10)) {
                 tryBossFight("king_slime")
             }
 
@@ -325,7 +325,7 @@ class CrafterJob(
                 val canWin = bossFightService.simulateBossFight(monsterCode)
                 if (canWin) {
                     log.info("Simulation successful! Characters can beat $monsterCode")
-                    // TODO : add the boss fight :)
+                    bossFightService.runBossFights(monsterCode)
                 } else {
                     log.info("Simulation shows characters cannot beat $monsterCode yet")
                 }

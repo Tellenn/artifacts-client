@@ -1,9 +1,13 @@
 package com.tellenn.artifacts.services
 
+import com.tellenn.artifacts.MainRuntime
 import com.tellenn.artifacts.clients.AccountClient
+import com.tellenn.artifacts.clients.BattleClient
 import com.tellenn.artifacts.models.ArtifactsCharacter
 import com.tellenn.artifacts.models.MonsterData
+import com.tellenn.artifacts.models.SimpleItem
 import com.tellenn.artifacts.services.battlesim.BattleSimulatorService
+import org.apache.logging.log4j.LogManager
 import org.springframework.stereotype.Service
 
 @Service
@@ -11,13 +15,22 @@ class BossFightService(
     private val monsterService: MonsterService,
     private val battleSimulatorService: BattleSimulatorService,
     private val accountClient: AccountClient,
-    private val equipmentService: EquipmentService
+    private val equipmentService: EquipmentService,
+    private val movementService: MovementService,
+    private val mapService: MapService,
+    private val threadService: ThreadService,
+    private val battleClient: BattleClient,
+    private val characterService: CharacterService,
+    private val bankService: BankService,
+    private val merchantService: MerchantService
 ) {
 
+    val log = LogManager.getLogger(MainRuntime::class.java)
+
     companion object {
-        const val DEFAULT_CHARACTER_1 = "Kepo"
-        const val DEFAULT_CHARACTER_2 = "Renoir"
-        const val DEFAULT_CHARACTER_3 = "Cloud"
+        const val DEFAULT_CHARACTER_1 = "Renoir"
+        const val DEFAULT_CHARACTER_2 = "Cloud"
+        const val DEFAULT_CHARACTER_3 = "Kepo"
     }
 
     /**
@@ -73,6 +86,94 @@ class BossFightService(
             listOf(character1WithBestGear, character2WithBestGear, character3WithBestGear),
             monster
         )
+    }
+
+
+
+    /**
+     * Runs a boss fight with three characters.
+     * Uses ThreadService to start missions for each character.
+     *
+     * @param monsterCode The code of the monster to fight
+     * @param character1Name First character name
+     * @param character2Name Second character name
+     * @param character3Name Third character name
+     */
+    fun runBossFights(
+        monsterCode: String,
+        character1Name: String = DEFAULT_CHARACTER_1,
+        character2Name: String = DEFAULT_CHARACTER_2,
+        character3Name: String = DEFAULT_CHARACTER_3,
+        amount: Int = 20
+    ) {
+        try {
+            // Stopping character 2 and 3 threads, they will become slave of character 1
+            threadService.stopCharacterThread(character2Name)
+            threadService.stopCharacterThread(character3Name)
+
+            var char1 = accountClient.getCharacter(character1Name).data
+            var char2 = accountClient.getCharacter(character2Name).data
+            var char3 = accountClient.getCharacter(character3Name).data
+
+            char1 = movementService.moveToBank(char1)
+            char2 = movementService.moveToBank(char2)
+            char3 = movementService.moveToBank(char3)
+            // TODO : Do the equipment async, as it queues the gear equipping to each char
+            // Treat the char1 as a Tank, so we want him to maximize his threat
+            char1 = equipmentService.equipBestAvailableEquipmentForMonsterInBank(character = char1, monsterCode = monsterCode, threatScoreMult = 10)
+            // Char 2 is a pure dps
+            char2 = equipmentService.equipBestAvailableEquipmentForMonsterInBank(char2, monsterCode)
+            // Char 3 is a dps as well, but we'll force a healing rune to heal up the tank
+            char3 = equipmentService.equipBestAvailableEquipmentForMonsterInBank(char3, monsterCode)
+            if(char3.runeSlot != "healing_aura_rune"){
+                // If the char3 is not a healing aura, we'll equip a healing aura
+                if(bankService.isInBank("healing_aura_rune", 1)){
+                    val oldRune = char3.runeSlot
+                    char3 = bankService.withdrawOne("healing_aura_rune", 1, char3)
+                    char3 = characterService.equip( char3, "healing_aura_rune", "rune", 1)
+                    if(oldRune != null){
+                        char3 = bankService.deposit(char3, listOf(SimpleItem(oldRune, 1)))
+                    }
+                }else if(bankService.getBankDetails().gold > 25000){
+                    // If we don't have a healing aura, we'll buy one
+                    char3 = merchantService.buy("healing_aura_rune", char3)
+                    val oldRune = char3.runeSlot
+                    char3 = characterService.equip(char3, "healing_aura_rune", "rune", 1)
+                    if(oldRune != null){
+                        char3 = movementService.moveToBank(char3)
+                        char3 = bankService.deposit(char3, listOf(SimpleItem(oldRune, 1)))
+                    }
+                }
+            }
+            val map = mapService.findClosestMap(char1, contentCode = monsterCode)
+
+            char1 = movementService.moveCharacterToCell(map.mapId, char1)
+            char2 = movementService.moveCharacterToCell(map.mapId, char2)
+            char3 = movementService.moveCharacterToCell(map.mapId, char3)
+            var run = 1
+            do {
+                char1 = characterService.rest(char1)
+                char2 = characterService.rest(char2)
+                char3 = characterService.rest(char3)
+
+                val chars = battleClient.fightBoss(char1.name, char2.name, char3.name)
+                chars.data.characters.forEach {
+                    when(it.name){
+                        character1Name -> char1 = it
+                        character2Name -> char2 = it
+                        character3Name -> char3 = it
+                    }
+                }
+                run++
+            }while (run < amount)
+
+        }catch (e: Exception){
+            log.error("Error running boss fights", e)
+        }finally {
+            threadService.restartCharacterThread(character1Name)
+            threadService.restartCharacterThread(character2Name)
+            threadService.restartCharacterThread(character3Name)
+        }
     }
 
     /**

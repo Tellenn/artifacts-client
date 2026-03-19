@@ -107,6 +107,8 @@ class BankService(
                 }
             }
 
+        }catch(e: InterruptedException){
+            throw e
         } catch (e: Exception) {
             log.error("Failed to deposit items to bank: ${e.message}")
 

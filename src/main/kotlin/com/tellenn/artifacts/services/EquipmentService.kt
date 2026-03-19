@@ -9,6 +9,7 @@ import com.tellenn.artifacts.models.ItemDetails
 import com.tellenn.artifacts.models.MonsterData
 import com.tellenn.artifacts.models.SimpleItem
 import com.tellenn.artifacts.db.repositories.ItemRepository
+import com.tellenn.artifacts.exceptions.BankCorruptedException
 import com.tellenn.artifacts.exceptions.CharacterInventoryFullException
 import com.tellenn.artifacts.exceptions.MapContentNotFoundException
 import com.tellenn.artifacts.exceptions.NotFoundException
@@ -34,8 +35,8 @@ class EquipmentService(
     private val accountClient: AccountClient,
     private val merchantService: MerchantService
 ) {
-    fun equipBestAvailableEquipmentForMonsterInBank(character: ArtifactsCharacter, monsterCode: String) : ArtifactsCharacter{
-        val bis = findBestEquipmentForMonsterInBank(character, monsterCode)
+    fun equipBestAvailableEquipmentForMonsterInBank(character: ArtifactsCharacter, monsterCode: String, threatScoreMult:Int = 1) : ArtifactsCharacter{
+        val bis = findBestEquipmentForMonsterInBank(character, monsterCode, threatScoreMult)
         var newCharacter = movementService.moveToBank(character)
         newCharacter = bankService.emptyInventory(newCharacter)
         val bankWithdraw = ArrayList<SimpleItem>()
@@ -95,7 +96,10 @@ class EquipmentService(
             var newCharacter = accountClient.getCharacter(newCharacter.name).data
             newCharacter = movementService.moveToBank(newCharacter)
             return equipBestAvailableEquipmentForMonsterInBank(newCharacter, monsterCode)
-
+        }catch (_: BankCorruptedException){
+            // This means we have a desync and the character isn't where we think it is
+            val newCharacter = accountClient.getCharacter(newCharacter.name).data
+            return equipBestAvailableEquipmentForMonsterInBank(newCharacter, monsterCode)
         }
         newCharacter = movementService.moveToBank(newCharacter)
         newCharacter = bankService.emptyInventory(newCharacter)
@@ -193,13 +197,14 @@ class EquipmentService(
         return character
     }
 
-    fun findBestEquipmentForMonsterInBank(character: ArtifactsCharacter, monsterCode: String) : MutableMap<String, ItemDetails?>{
+    fun findBestEquipmentForMonsterInBank(character: ArtifactsCharacter, monsterCode: String, threatScoreMult:Int = 1) : MutableMap<String, ItemDetails?>{
         val storedEquipment = bankService.getAllEquipmentsUnderLevel(character.level)
         var availableEquipment : MutableList<BankItemDocument> = storedEquipment.toMutableList()
         getEquippedItems(character = character).forEach { availableEquipment = addItemQuantityByOne(availableEquipment, it)}
         val monster = monsterClient.getMonster(monsterCode).data
         val bis = getHashMapSlot()
-        val bestWeapon = getBestScoreForItems(availableEquipment.filter { it.type == "weapon" }, monster, null)
+        val bestWeapon = getBestScoreForItems(availableEquipment.filter { it.type == "weapon" }, monster, null,
+            threatScoreMult)
         for(slot in bis){
             val item : BankItemDocument?
             if(slot.key == "artifact1") {
@@ -207,14 +212,16 @@ class EquipmentService(
                     availableEquipment
                         .filter { it.type == "artifact" },
                     monster,
-                    bestWeapon)
+                    bestWeapon,
+                    threatScoreMult)
             }else if(slot.key == "artifact2"){
                 item = getBestScoreForItems(
                     availableEquipment
                         .filter { it.type == "artifact" }
                         .filter { it.code != bis["artifact1"]?.code },
                     monster,
-                    bestWeapon)
+                    bestWeapon,
+                    threatScoreMult)
             }else if(slot.key == "artifact3"){
                 item = getBestScoreForItems(
                     availableEquipment
@@ -222,13 +229,16 @@ class EquipmentService(
                         .filter { it.code != bis["artifact1"]?.code }
                         .filter { it.code != bis["artifact2"]?.code },
                     monster,
-                    bestWeapon)
+                    bestWeapon,
+                    threatScoreMult)
             }else if(slot.key == "ring1" || slot.key == "ring2"){
                 item =
-                    getBestScoreForItems(availableEquipment.filter { it.type == "ring" }, monster, bestWeapon)
+                    getBestScoreForItems(availableEquipment.filter { it.type == "ring" }, monster, bestWeapon,
+                        threatScoreMult)
             }else{
                 item =
-                    getBestScoreForItems(availableEquipment.filter { it.type == slot.key }, monster, bestWeapon)
+                    getBestScoreForItems(availableEquipment.filter { it.type == slot.key }, monster, bestWeapon,
+                        threatScoreMult)
             }
             bis[slot.key] = item
             availableEquipment = reduceItemQuantityByOne(availableEquipment, item?.code ?: "")
@@ -368,7 +378,7 @@ class EquipmentService(
         return itemMap.maxBy { it.value }.key
     }
 
-    fun getBestScoreForItems(items: List<BankItemDocument>, monster: MonsterData, weapon: BankItemDocument?) : BankItemDocument? {
+    fun getBestScoreForItems(items: List<BankItemDocument>, monster: MonsterData, weapon: BankItemDocument?, threatScoreMult: Int = 1) : BankItemDocument? {
         if(items.isEmpty()){
             return null
         }
@@ -388,6 +398,7 @@ class EquipmentService(
                         "dmg" ->             multiplier +=  effect.value / 100.0
                         "hp" ->              score +=       effect.value / 10
                         "prospecting" ->     score +=       effect.value / 10
+                        "threat" ->          score +=       effect.value / 10 * threatScoreMult
                         "wisdom" ->          score +=       effect.value / 10
                         "haste" ->           score +=       effect.value / 10
                         "res_air" ->         score +=      (monster.attackAir   * effect.value /100.0).toInt()
