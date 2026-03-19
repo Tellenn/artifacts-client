@@ -72,7 +72,7 @@ class CrafterJob(
                 character,
                 listOf("weaponcrafting","gearcrafting","jewelrycrafting")
             )
-
+            //tryBossFight("king_slime","king_slimeball",1)
 
             if (!itemsToCraft.isEmpty()) {
                 var instantCraft = false

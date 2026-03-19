@@ -2,7 +2,6 @@ package com.tellenn.artifacts.services
 
 import com.tellenn.artifacts.AppConfig
 import com.tellenn.artifacts.clients.AccountClient
-import com.tellenn.artifacts.clients.MonsterClient
 import com.tellenn.artifacts.db.documents.BankItemDocument
 import com.tellenn.artifacts.models.ArtifactsCharacter
 import com.tellenn.artifacts.models.ItemDetails
@@ -25,7 +24,7 @@ import kotlin.math.min
 @Service
 class EquipmentService(
     private val bankService: BankService,
-    private val monsterClient: MonsterClient,
+    private val monsterService: MonsterService,
     private val itemRepository: ItemRepository,
     private val characterService: CharacterService,
     private val itemService: ItemService,
@@ -127,7 +126,7 @@ class EquipmentService(
             return character
         }
         val fakeCharacter = character
-        val monster = monsterClient.getMonster(monsterCode).data
+        val monster = monsterService.getMonster(monsterCode)
 
         val monsterEffects = monster.effects.map { it.code }
 
@@ -201,7 +200,7 @@ class EquipmentService(
         val storedEquipment = bankService.getAllEquipmentsUnderLevel(character.level)
         var availableEquipment : MutableList<BankItemDocument> = storedEquipment.toMutableList()
         getEquippedItems(character = character).forEach { availableEquipment = addItemQuantityByOne(availableEquipment, it)}
-        val monster = monsterClient.getMonster(monsterCode).data
+        val monster = monsterService.getMonster(monsterCode)
         val bis = getHashMapSlot()
         val bestWeapon = getBestScoreForItems(availableEquipment.filter { it.type == "weapon" }, monster, null,
             threatScoreMult)

@@ -28,4 +28,8 @@ class MonsterService(
     fun findMonster(monsterCode: String) : MonsterData{
         return monsterRepository.findByCode(monsterCode)
     }
+
+    fun getMonster(monsterCode: String) : MonsterData {
+        return monsterRepository.findByCode(monsterCode)
+    }
 }
