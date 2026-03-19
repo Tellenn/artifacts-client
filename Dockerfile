@@ -1,5 +1,5 @@
 # Stage 1: Build the application
-FROM maven:3.9.6-eclipse-temurin-17-focal AS build
+FROM maven:3.9-eclipse-temurin-25-noble AS build
 
 # Set working directory
 WORKDIR /app
@@ -13,7 +13,7 @@ COPY src ./src
 RUN mvn clean install -DskipTests
 
 # Stage 2: Create the final image
-FROM eclipse-temurin:25-jre-focal
+FROM eclipse-temurin:25-jre-jammy
 
 # Set working directory
 WORKDIR /app
