@@ -125,7 +125,6 @@ class BossFightService(
                 char1 = movementService.moveToBank(char1)
                 char2 = movementService.moveToBank(char2)
                 char3 = movementService.moveToBank(char3)
-                // TODO : Do the equipment async, as it queues the gear equipping to each char
                 // Treat the char1 as a Tank, so we want him to maximize his threat
                 char1 = equipmentService.equipBestAvailableEquipmentForMonsterInBank(
                     character = char1,

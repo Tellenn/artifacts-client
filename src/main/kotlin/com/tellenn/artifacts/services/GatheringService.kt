@@ -128,7 +128,6 @@ class GatheringService(
                     }
                     newCharacter = gather.character
                 }catch (e: CharacterInventoryFullException){
-                    log.error("&&&&&&&&&& Has emptied their inventory &&&&&&&&&&&")
                     clientErrorService.logError(
                         clientType = "SERVICE",
                         endpoint = "gatheringService.gather",
@@ -146,7 +145,6 @@ class GatheringService(
                     newCharacter = movementService.moveToBank(newCharacter)
                     newCharacter = bankService.emptyInventory(newCharacter)
                     newCharacter = movementService.moveCharacterToCell(mapData.mapId, newCharacter)
-                    // TODO : in this case, we lost the items previously collected for the GatherAndCollect. What to do ? 😮‍💨😮‍💨😮‍💨
                 }
             }
             return gatheringClient.gather(characterName = character.name).data.character

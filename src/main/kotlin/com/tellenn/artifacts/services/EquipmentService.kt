@@ -9,6 +9,7 @@ import com.tellenn.artifacts.models.MonsterData
 import com.tellenn.artifacts.models.SimpleItem
 import com.tellenn.artifacts.db.repositories.ItemRepository
 import com.tellenn.artifacts.exceptions.BankCorruptedException
+import com.tellenn.artifacts.exceptions.BattleLostException
 import com.tellenn.artifacts.exceptions.CharacterInventoryFullException
 import com.tellenn.artifacts.exceptions.MapContentNotFoundException
 import com.tellenn.artifacts.exceptions.NotFoundException
@@ -189,7 +190,8 @@ class EquipmentService(
                 newCharacter =
                     characterService.equip(newCharacter, effectPotion, "utility2", min(100, maxAvailable.quantity))
             }else{
-                // TODO : Equip the potion if it exists in bank, otherwise ... ?
+                throw BattleLostException(monsterCode)
+            // If we win with the potion, but we don't have some, let's just admit that we lost ahead of time
             }
             return newCharacter
         }
@@ -397,9 +399,9 @@ class EquipmentService(
                         "dmg" ->             multiplier +=  effect.value / 100.0
                         "hp" ->              score +=       effect.value / 10
                         "prospecting" ->     score +=       effect.value / 10
-                        "threat" ->          score +=       effect.value / 10 * threatScoreMult
-                        "wisdom" ->          score +=       effect.value / 10
-                        "haste" ->           score +=       effect.value / 10
+                        "threat" ->          score +=       effect.value * threatScoreMult / 10
+                        "wisdom" ->          score +=       effect.value / 100
+                        "haste" ->           score +=       effect.value / 100
                         "res_air" ->         score +=      (monster.attackAir   * effect.value /100.0).toInt()
                         "res_water" ->       score +=      (monster.attackWater * effect.value /100.0).toInt()
                         "res_earth" ->       score +=      (monster.attackEarth * effect.value /100.0).toInt()

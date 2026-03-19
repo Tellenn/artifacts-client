@@ -99,7 +99,7 @@ class BankService(
                 try {
                     newCharacter = bankClient.depositItems(character.name, itemsToDeposit).data.character
                 }catch (_: MapContentNotFoundException){
-                    // TODO : Monitor this, the fact that we end up here shows an inconsitancy in the character data
+
                     newCharacter = accountClient.getCharacter(newCharacter.name).data
                     val closestBank = mapService.findClosestMap(newCharacter, "bank")
                     newCharacter = movementClient.move(newCharacter.name, closestBank.mapId).data.character

@@ -36,16 +36,7 @@ class AlchemistJob(
 
     lateinit var character: ArtifactsCharacter
     val skill = "alchemy"
-    // TODO : Aerith has a bug, she moves a lot and have a lot of bugs. See clientErrors
-    // She goes to bank, equip good gear, then bad gear, then go back fishing 3 times, and loop
-    // Renoir seems to have the same bug ? Not really sure
 
-
-    // TODO : Healing potion management
-    // TODO : Buff potion management
-    // TODO : Teleportation potion management
-    // TODO : dynamic assigned work
-    // TODO : Improve and use the battlesim
     fun run(characterName: String) {
         sleep(2000)
         character = init(characterName)
@@ -53,23 +44,31 @@ class AlchemistJob(
             character = catchBackCrafter(character)
             cookEasyItemsInBank()
             if(character.alchemyLevel == maxLevel && character.cookingLevel == maxLevel){
+                // If level max, should craft potions for stock before doing tasks.
+                var craftedPotions = false
+                itemService.getPotions().forEach { potion ->
+                    if(!bankService.isInBank(potion.code, 400)){
+                        log.info("${character.name} is crafting ${potion.code} for stocks")
+                        character = gatheringService.craftOrGather(character, potion.code, (character.inventoryMaxItems - 40) / itemService.getInvSizeToCraft(itemService.getItem(potion.code)) )
+                        character = movementService.moveToBank(character)
+                        character = bankService.emptyInventory(character)
+                        craftedPotions = true
+                    }
+                }
+                if(craftedPotions){ continue}
                 log.info("${character.name} is doing a new itemTask")
                 character = taskService.getNewItemTask(character)
                 character = taskService.doCharacterTask(character)
 
-            }else if(character.alchemyLevel > 20 && !bankService.isInBank("small_antidote", 100)){
-                // Making antidotes can really help progressing by killing spiders, spider legs is used in lv 20 gear
-                log.info("${character.name} is making some basic antidotes stock")
-                character = gatheringService.craftOrGather(character, "small_antidote", 20)
             }else if(character.alchemyLevel < character.fishingLevel){
                 val itemsToCraft = ArrayList<SimpleItem>()
+                if(character.alchemyLevel >= 20 && !bankService.isInBank("small_antidote", 10)){
+                    itemsToCraft.add(SimpleItem("small_antidote", (character.inventoryMaxItems - 10) / itemService.getInvSizeToCraft(itemService.getItem("small_antidote")) ))
+                }
                 getHealingPotions().forEach {
                     if(!bankService.isInBank(it.code, 400)){
                         itemsToCraft.add(SimpleItem(it.code, (character.inventoryMaxItems - 10) / itemService.getInvSizeToCraft(it) ))
                     }
-                }
-                if(character.alchemyLevel >= 20 && !bankService.isInBank("small_antidote", 400)){
-                    itemsToCraft.add(SimpleItem("small_antidote", (character.inventoryMaxItems - 10) / itemService.getInvSizeToCraft(itemService.getItem("small_antidote")) ))
                 }
 
                 // Do some stock for the crafter
@@ -97,10 +96,12 @@ class AlchemistJob(
                         continue
                     }
                     val item =
-                        itemService.getBestCraftableItemsBySkillAndSubtypeAndMaxLevel(skill, "potion", character.alchemyLevel)
-                    if (item == null) {
-                        throw Exception("No craftable item found")
-                    }
+                        itemService.getBestCraftableItemsBySkillAndSubtypeAndMaxLevel(
+                            skill,
+                            "potion",
+                            character.alchemyLevel
+                        ) ?: throw Exception("No craftable item found")
+
                     log.info("${character.name} is crafting ${item.code} to level up their alchemy")
                     character = gatheringService.craftOrGather(
                         character = character,
@@ -119,7 +120,7 @@ class AlchemistJob(
                     val itemsToCraft = getBestFishBasedFood()
                     log.info("${character.name} is crafting ${itemsToCraft.code} to level up their fishing / cooking")
                     character =
-                        gatheringService.craftOrGather(character, itemsToCraft.code, character.inventoryMaxItems - 20)
+                        gatheringService.craftOrGather(character, itemsToCraft.code, character.inventoryMaxItems - 30)
                 }catch (e: MapContentNotFoundException){
                     log.error("Tried to gather something that wasn't there. Investigate why?", e)
                 }

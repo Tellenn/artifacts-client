@@ -93,4 +93,10 @@ class ItemService(
         return items
     }
 
+    fun getPotions(): List<ItemDetails> {
+        val alchemyPotions = itemRepository.findByCraftSkillAndLevelLessThanEqualOrderByLevelDesc("alchemy", 100)
+        return alchemyPotions.filter { item ->
+            item.subtype == "potion" && item.craft != null && item.craft.skill == "alchemy"}.sortedBy { it.level }
+    }
+
 }

@@ -122,7 +122,7 @@ class BattleService(
         val response = battleClient.fight(currentCharacter.name)
 
         // Update character with the latest data
-        currentCharacter = response.data.characters.first() // TODO : support for multi character
+        currentCharacter = response.data.characters.first()
         log.debug("Character ${currentCharacter.name} gathered resource, inventory: ${characterService.countInventoryItems(currentCharacter)}/${currentCharacter.inventoryMaxItems}")
 
         if(currentCharacter.hp * 2 < (currentCharacter.maxHp * 1.1)){
