@@ -264,6 +264,43 @@ abstract class BaseArtifactsClient() {
 
         try {
             val response = client.newCall(getRequest).execute()
+            if(response.headers["x-ratelimit-remaining-hour"] == "0"){
+
+                response.headers["x-ratelimit-reset-hour"]?.toLongOrNull()?.let { resetTimestamp ->
+                    val now = System.currentTimeMillis() /1000
+                    val sleepMillis = resetTimestamp - now
+                    if (sleepMillis > 0) {
+                        log.error("Hourly rate limit reached for $clientType, sleeping for $sleepMillis seconds")
+                        sleep(sleepMillis * 1000)
+                    }
+                }
+                response.close()
+                return sendGetRequest(path)
+            }
+            if(response.headers["x-ratelimit-remaining-minute"] == "0"){
+                response.headers["x-ratelimit-reset-minute"]?.toLongOrNull()?.let { resetTimestamp ->
+                    val now = System.currentTimeMillis() /1000
+                    val sleepMillis = resetTimestamp - now
+                    if (sleepMillis > 0) {
+                        log.error("Minutle rate limit reached for $clientType, sleeping for $sleepMillis seconds")
+                        sleep(sleepMillis * 1000)
+                    }
+                }
+                response.close()
+                return sendGetRequest(path)
+            }
+            if(response.headers["x-ratelimit-remaining-second"] == "0"){
+                response.headers["x-ratelimit-reset-second"]?.toLongOrNull()?.let { resetTimestamp ->
+                    val now = System.currentTimeMillis() /1000
+                    val sleepMillis = resetTimestamp - now
+                    if (sleepMillis > 0) {
+                        log.error("Second rate limit reached for $clientType, sleeping for $sleepMillis seconds")
+                        sleep(sleepMillis * 1000)
+                    }
+                }
+                response.close()
+                return sendGetRequest(path)
+            }
             if (!response.isSuccessful) {
                 // Get the response body as a string for error logging
                 val responseBodyString = response.body?.string() ?: ""
@@ -329,6 +366,42 @@ abstract class BaseArtifactsClient() {
 
         try {
             val response = client.newCall(postRequest).execute()
+            if(response.headers["x-ratelimit-remaining-hour"] == "0"){
+                response.headers["x-ratelimit-reset-hour"]?.toLongOrNull()?.let { resetTimestamp ->
+                    val now = System.currentTimeMillis() /1000
+                    val sleepMillis = resetTimestamp - now
+                    if (sleepMillis > 0) {
+                        log.error("Hourly rate limit reached for $clientType, sleeping for $sleepMillis seconds")
+                        sleep(sleepMillis * 1000)
+                    }
+                }
+                response.close()
+                return sendPostRequest(path, body)
+            }
+            if(response.headers["x-ratelimit-remaining-minute"] == "0"){
+                response.headers["x-ratelimit-reset-minute"]?.toLongOrNull()?.let { resetTimestamp ->
+                    val now = System.currentTimeMillis() /1000
+                    val sleepMillis = resetTimestamp - now
+                    if (sleepMillis > 0) {
+                        log.error("Minutle rate limit reached for $clientType, sleeping for $sleepMillis seconds")
+                        sleep(sleepMillis * 1000)
+                    }
+                }
+                response.close()
+                return sendPostRequest(path, body)
+            }
+            if(response.headers["x-ratelimit-remaining-second"] == "0"){
+                response.headers["x-ratelimit-reset-second"]?.toLongOrNull()?.let { resetTimestamp ->
+                    val now = System.currentTimeMillis() /1000
+                    val sleepMillis = resetTimestamp - now
+                    if (sleepMillis > 0) {
+                        log.error("Second rate limit reached for $clientType, sleeping for $sleepMillis seconds")
+                        sleep(sleepMillis * 1000)
+                    }
+                }
+                response.close()
+                return sendPostRequest(path, body)
+            }
             if (!response.isSuccessful) {
                 // Get the response body as a string for error logging
                 val responseBodyString = response.body?.string() ?: ""

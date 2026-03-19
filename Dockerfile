@@ -13,7 +13,7 @@ COPY src ./src
 RUN mvn clean install -DskipTests
 
 # Stage 2: Create the final image
-FROM eclipse-temurin:17-jre-focal
+FROM eclipse-temurin:25-jre-focal
 
 # Set working directory
 WORKDIR /app
