@@ -2,16 +2,12 @@ package com.tellenn.artifacts.services
 
 import com.tellenn.artifacts.clients.AccountClient
 import com.tellenn.artifacts.clients.BattleClient
-import com.tellenn.artifacts.clients.CharacterClient
 import com.tellenn.artifacts.models.ArtifactsCharacter
 import com.tellenn.artifacts.exceptions.BattleLostException
 import com.tellenn.artifacts.exceptions.CharacterInventoryFullException
 import com.tellenn.artifacts.exceptions.MapNotFoundException
-import com.tellenn.artifacts.models.SimpleItem
 import org.apache.logging.log4j.LogManager
 import org.springframework.stereotype.Service
-import kotlin.math.max
-import kotlin.math.min
 
 @Service
 class BattleService(
@@ -22,9 +18,8 @@ class BattleService(
     private val movementService: MovementService,
     private val accountClient: AccountClient,
     private val equipmentService: EquipmentService,
-    private val itemService: ItemService,
-    private val characterClient: CharacterClient,
-    private val bankService: BankService
+    private val bankService: BankService,
+    private val bossFightService: BossFightService
 ) {
 
     private val log = LogManager.getLogger(GatheringService::class.java)
@@ -56,7 +51,14 @@ class BattleService(
             return character
         }
         if(monster.type == "boss"){
-            throw BattleLostException(monster.name) // TODO : Handle bosses (and beforehand)
+            if(bossFightService.simulateBossFight(monster.code)){
+                return bossFightService.runBossFights(
+                    monsterCode = monster.code,
+                    itemCode = itemCode,
+                    quantity = quantity)
+            }else{
+                throw BattleLostException(monster.name)
+            }
         }
         val map = mapService.findClosestMap(character, contentCode = monster.code)
         var newCharacter = equipmentService.equipBestAvailableEquipmentForMonsterInBank(character, monster.code)
@@ -125,15 +127,6 @@ class BattleService(
 
         if(currentCharacter.hp * 2 < (currentCharacter.maxHp * 1.1)){
             log.debug("Character ${currentCharacter.name} is wounded, resting...")
-            val ownedHealingItems = itemService.getHealingItems(character.inventory.map { SimpleItem(it.code, it.quantity) })
-            if(ownedHealingItems.isNotEmpty()){
-                val item = ownedHealingItems.map { item -> itemService.getItem(item.code) }.minBy { it.level }
-                val owned = ownedHealingItems.find { it.code == item.code }?.quantity ?: 1
-                val missingHealth = currentCharacter.maxHp - currentCharacter.hp
-                val healingValue = item.effects?.first { it.code == "heal" }?.value ?: 1
-                val numberToEat = missingHealth / healingValue
-                currentCharacter = characterClient.useItem(currentCharacter.name, item.code, min(max(1,numberToEat), owned)).data.character
-            }
             // If still wounded or still haven't eaten
             if(currentCharacter.hp < currentCharacter.maxHp ){
                 currentCharacter = characterService.rest(currentCharacter)

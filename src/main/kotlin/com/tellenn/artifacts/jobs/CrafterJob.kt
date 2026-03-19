@@ -65,23 +65,7 @@ class CrafterJob(
             character = cleanUpBank()
             character = claimPendingItems()
 
-            // Check if crafter skills are level 20+ and can attempt king_slime boss fight
-            if (character.weaponcraftingLevel >= 40 &&
-                character.gearcraftingLevel >= 40 &&
-                character.jewelrycraftingLevel >= 40 &&
-                !bankService.isInBank("king_slimeball", 10)) {
-                tryBossFight("king_slime")
-            }else if (character.weaponcraftingLevel >= 30 &&
-                character.gearcraftingLevel >= 30 &&
-                character.jewelrycraftingLevel >= 30 &&
-                !(bankService.isInBank("life_crystal_shard", 24) || bankService.isInBank("life_crystal", 1))) {
-                tryBossFight("lich")
-            }else if (character.weaponcraftingLevel >= 20 &&
-                character.gearcraftingLevel >= 20 &&
-                character.jewelrycraftingLevel >= 20 &&
-                !bankService.isInBank("king_slimeball", 10)) {
-                tryBossFight("king_slime")
-            }
+            // TODO : Logic to craft unique artifacts
 
             val skillToLevel = getLowestSkillLevel(character)
             val itemsToCraft = getListOfItemToCraftUnderLevel(
@@ -313,7 +297,7 @@ class CrafterJob(
      *
      * @param monsterCode The boss monster code to fight
      */
-    private fun tryBossFight(monsterCode: String) {
+    private fun tryBossFight(monsterCode: String, itemCode: String, quantity: Int) {
         try {
             // Check if all default characters are available (not on missions)
             val character1Available = !threadService.isCharacterOnMission(BossFightService.DEFAULT_CHARACTER_1)
@@ -325,7 +309,11 @@ class CrafterJob(
                 val canWin = bossFightService.simulateBossFight(monsterCode)
                 if (canWin) {
                     log.info("Simulation successful! Characters can beat $monsterCode")
-                    bossFightService.runBossFights(monsterCode)
+                    bossFightService.runBossFights(
+                        monsterCode = monsterCode,
+                        itemCode = itemCode,
+                        quantity = quantity
+                    )
                 } else {
                     log.info("Simulation shows characters cannot beat $monsterCode yet")
                 }

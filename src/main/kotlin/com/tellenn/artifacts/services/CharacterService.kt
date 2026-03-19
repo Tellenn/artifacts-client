@@ -3,7 +3,10 @@ package com.tellenn.artifacts.services
 import com.tellenn.artifacts.clients.CharacterClient
 import com.tellenn.artifacts.models.ArtifactsCharacter
 import com.tellenn.artifacts.models.PendingItem
+import com.tellenn.artifacts.models.SimpleItem
 import org.springframework.stereotype.Service
+import kotlin.math.max
+import kotlin.math.min
 
 /**
  * Service for managing character-related operations.
@@ -11,7 +14,8 @@ import org.springframework.stereotype.Service
  */
 @Service
 class CharacterService(
-    private val characterClient: CharacterClient
+    private val characterClient: CharacterClient,
+    private val itemService: ItemService
 ) {
 
     /**
@@ -26,6 +30,17 @@ class CharacterService(
         if (character.hp >= character.maxHp) {
             return character
         }
+        var currentCharacter = character
+        val ownedHealingItems = itemService.getHealingItems(character.inventory.map { SimpleItem(it.code, it.quantity) })
+        if(ownedHealingItems.isNotEmpty()){
+            val item = ownedHealingItems.map { item -> itemService.getItem(item.code) }.minBy { it.level }
+            val owned = ownedHealingItems.find { it.code == item.code }?.quantity ?: 1
+            val missingHealth = currentCharacter.maxHp - currentCharacter.hp
+            val healingValue = item.effects?.first { it.code == "heal" }?.value ?: 1
+            val numberToEat = Math.ceilDiv(missingHealth, healingValue)
+            currentCharacter = characterClient.useItem(currentCharacter.name, item.code, min(max(1,numberToEat), owned)).data.character
+        }
+
 
         // Character needs to rest
         val response = characterClient.rest(character.name)

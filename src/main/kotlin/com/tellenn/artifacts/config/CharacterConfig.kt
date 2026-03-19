@@ -16,8 +16,10 @@ class CharacterConfig(
             )
         }
 
-        fun getCharacterByName(name: String): CharacterConfig {
-            return getPredefinedCharacters().find { it.name == name } ?: CharacterConfig("Aerith", "women1", "alchemist")
+        fun getPredefinedCharactersMap(): Map<String, CharacterConfig> {
+            val map = HashMap<String, CharacterConfig>()
+            getPredefinedCharacters().forEach { map[it.name] = it }
+            return map
         }
     }
 }
