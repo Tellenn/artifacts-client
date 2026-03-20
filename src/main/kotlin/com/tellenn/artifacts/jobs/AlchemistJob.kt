@@ -78,7 +78,7 @@ class AlchemistJob(
                         if(it.code == "greater_health_potion" && character.alchemyLevel < itemService.getItem("greater_health_potion").level + 5 ){
                             log.debug("We need to level up our alchemy to ${itemService.getItem("greater_health_potion").level + 5}")
                         }else{
-                            character = gatheringService.craftOrGather(character, it.code, it.quantity)
+                            character = gatheringService.craftOrGather(character, it.code, it.quantity, allowFight = true)
                             character = movementService.moveToBank(character)
                             character = bankService.emptyInventory(character)
                         }
