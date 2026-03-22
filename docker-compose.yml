@@ -1,6 +1,7 @@
 services:
   app:
     image: tellenn/tellenn-artifacts-client:latest
+    restart: always
     ports:
       - "8880:8888"
     environment:
@@ -8,6 +9,13 @@ services:
       - ARTIFACTS_API_URL=https://api.artifactsmmo.com
       - SPRING_DATA_MONGODB_URI=mongodb://mongo:27017/tellenn-artifacts
       - SPRING_DATA_MONGODB_DATABASE=artifacts
+      - JAVA_OPTS=-Xmx2g -Xms1g
+    deploy:
+      resources:
+        limits:
+          memory: 4g
+        reservations:
+          memory: 2g
     depends_on:
       - mongo
     networks:
@@ -15,6 +23,7 @@ services:
 
   mongo:
     image: mongo
+    restart: always
     ports:
       - "27017:27017"
     volumes:
@@ -24,6 +33,7 @@ services:
 
   ui:
     image: tellenn/ui-tellenn-artifacts-client:latest
+    restart: always
     ports:
       - "8899:8080"
     depends_on:
