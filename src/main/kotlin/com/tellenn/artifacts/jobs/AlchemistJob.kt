@@ -169,7 +169,7 @@ class AlchemistJob(
                     else -> log.debug("There is more than 1 craft, so we need further analysis")
                 }
             }catch (_: IllegalArgumentException){
-                log.warn("Tried to craft something that require monster fight, wtf")
+                log.warn("Desync between local database and API, skipping ${it.name}")
             }
         }
     }

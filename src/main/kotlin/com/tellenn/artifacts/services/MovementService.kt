@@ -62,7 +62,7 @@ class MovementService(
             character = character,
             contentType = "npc",
             contentCode = npcName
-        )
+        ) // TODO Use the api instead, it's usually event based
 
         return moveCharacterToCell(map.mapId, character)
     }
@@ -84,7 +84,7 @@ class MovementService(
                         canUsePath && bankService.isInBank(condition.code, condition.value)
                     }
                     "achievement_unlocked" -> {
-                        canUsePath && accountClient.getAccountAchievement("Tellenn", true).data.any { it.code == condition.code }
+                        canUsePath && accountClient.getAccountAchievements(character.account, true).data.any { it.code == condition.code }
                     }
                     else -> {
                         false
@@ -129,10 +129,11 @@ class MovementService(
      * Moves a character to the closest bank if they're not already there.
      *
      * @param character The character to move to the bank
+     * @param checkAchievement Whether to check if the bank is reachable based on achievements
      * @return The updated character after moving to the bank, or the original character if already at a bank
      */
-    fun moveToBank(character: ArtifactsCharacter): ArtifactsCharacter {
-        val closestBank = mapService.findClosestMap(character = character, contentCode = "bank")
+    fun moveToBank(character: ArtifactsCharacter, checkAchievement: Boolean = true): ArtifactsCharacter {
+        val closestBank = mapService.findClosestMap(character = character, contentCode = "bank", checkAchievement = checkAchievement)
         if (character.mapId == closestBank.mapId) {
             return character
         }

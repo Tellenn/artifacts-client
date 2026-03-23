@@ -12,6 +12,7 @@ import com.tellenn.artifacts.db.repositories.BankItemRepository
 import com.tellenn.artifacts.db.repositories.ItemRepository
 import com.tellenn.artifacts.exceptions.BankCorruptedException
 import com.tellenn.artifacts.exceptions.MapContentNotFoundException
+import com.tellenn.artifacts.exceptions.MissingItemException
 import com.tellenn.artifacts.models.BankDetails
 import com.tellenn.artifacts.services.sync.BankItemSyncService
 import org.apache.logging.log4j.LogManager
@@ -171,6 +172,10 @@ class BankService(
         try {
             newCharacter = bankClient.withdrawItems(newCharacter.name, items).data.character
         }catch (e: BankCorruptedException){
+            bankItemSyncService.syncAllItems()
+            throw e
+        }catch (e: MissingItemException){
+            // This happens because we registered someone wanting to deposit an item, but he haven't done it yet
             bankItemSyncService.syncAllItems()
             throw e
         }

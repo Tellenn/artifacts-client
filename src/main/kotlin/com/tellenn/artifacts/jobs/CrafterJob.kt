@@ -5,6 +5,7 @@ import com.tellenn.artifacts.db.documents.BankItemDocument
 import com.tellenn.artifacts.db.documents.CraftedItemDocument
 import com.tellenn.artifacts.db.repositories.CraftedItemRepository
 import com.tellenn.artifacts.exceptions.BattleLostException
+import com.tellenn.artifacts.exceptions.CharacterInventoryFullException
 import com.tellenn.artifacts.exceptions.CharacterSkillTooLow
 import com.tellenn.artifacts.exceptions.MissingItemException
 import com.tellenn.artifacts.exceptions.UnknownMapException
@@ -140,6 +141,8 @@ class CrafterJob(
                     // Usually caused by a crating of a sub object, it can be nice if the main crafter level the sub resource
                     character = accountClient.getCharacter(character.name).data
                     do {
+                        character = movementService.moveToBank(character)
+                        character = bankService.emptyInventory(character)
                         val item =
                             itemService.getAllCraftableItemsBySkillAndMaxLevel(e.skill, character.getLevelOf(e.skill))
                                 .first { it.code != "cursed_plank" && it.code != "magical_plank" && it.code != "strangold_bar" }
@@ -149,7 +152,17 @@ class CrafterJob(
                             (character.inventoryMaxItems - 10) / itemService.getInvSizeToCraft(item)
                         )
                     }while (e.level == character.getLevelOf(e.skill))
+                }catch(e: CharacterSkillTooLow){
+                    log.warn("Tried to craft sub item from a too high level job", e)
+                    continue
+                }catch (_: CharacterInventoryFullException) {
+                    log.warn("Character inventory is full, something went terribly wrong")
+                    character = accountClient.getCharacter(character.name).data
+                    character = movementService.moveToBank(character)
+                    character = bankService.emptyInventory(character)
+                    break
                 }catch (e: Exception){
+                    character = accountClient.getCharacter(character.name).data
                     log.error("Uncaught error occured while gathering in the event", e)
                     break
                 }

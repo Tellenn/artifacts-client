@@ -3,6 +3,7 @@ package com.tellenn.artifacts.jobs
 import com.tellenn.artifacts.AppConfig.maxLevel
 import com.tellenn.artifacts.clients.AccountClient
 import com.tellenn.artifacts.exceptions.MapContentNotFoundException
+import com.tellenn.artifacts.exceptions.MissingItemException
 import com.tellenn.artifacts.models.ArtifactsCharacter
 import com.tellenn.artifacts.models.SimpleItem
 import com.tellenn.artifacts.services.BankService
@@ -65,7 +66,11 @@ class WoodworkerJob(
                         character = bankService.emptyInventory(character)
                     }
                 }catch (e: MapContentNotFoundException){
+                    character = accountClient.getCharacter(character.name).data
                     log.error("Tried to gather something that wasn't there. Investigate why?", e)
+                }catch (e: MissingItemException){
+                    character = accountClient.getCharacter(character.name).data
+                    log.error("Tried to craft while not having enought items ... it's a bother",e)
                 }finally {
                     continue
                 }

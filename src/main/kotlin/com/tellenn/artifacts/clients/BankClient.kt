@@ -49,7 +49,6 @@ class BankClient : BaseArtifactsClient() {
         }catch (_: NotFoundException){
             throw BankCorruptedException()
         }
-
     }
 
     fun depositGold(characterName: String, amount: Int)  : ArtifactsResponseBody<BankGoldTransaction> {

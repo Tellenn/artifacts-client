@@ -1,9 +1,7 @@
 package com.tellenn.artifacts.services
 
-import com.tellenn.artifacts.models.ArtifactsCharacter
-import com.tellenn.artifacts.models.MapContent
-import com.tellenn.artifacts.models.MapData
-import com.tellenn.artifacts.models.Interactions
+import com.tellenn.artifacts.clients.AccountClient
+import com.tellenn.artifacts.models.*
 import com.tellenn.artifacts.clients.responses.ArtifactsArrayResponseBody
 import com.tellenn.artifacts.db.clients.MapMongoClient
 import com.tellenn.artifacts.db.repositories.TransitionMapperRepository
@@ -19,13 +17,15 @@ class MapProximityServiceTest {
 
     private lateinit var transitionMapperRepository: TransitionMapperRepository
     private lateinit var mapMongoClient: MapMongoClient
+    private lateinit var accountClient: AccountClient
     private lateinit var mapService: MapService
 
     @BeforeEach
     fun setUp() {
         mapMongoClient = mock(MapMongoClient::class.java)
         transitionMapperRepository = mock(TransitionMapperRepository::class.java)
-        mapService = MapService(mapMongoClient, transitionMapperRepository)
+        accountClient = mock(AccountClient::class.java)
+        mapService = MapService(mapMongoClient, transitionMapperRepository, accountClient)
     }
 
     @Test
@@ -106,7 +106,124 @@ class MapProximityServiceTest {
         )
     }
 
+    @Test
+    fun `findClosestMap should filter by achievements when checkAchievement is true`() {
+        // Given
+        val character = createTestCharacter(x = 5, y = 5)
+        character.account = "TestAccount"
+
+        val map1 = createTestMapData(x = 10, y = 10) // No access conditions
+        val map2 = createLockedMapData(x = 3, y = 3, achievementCode = "locked_ach") // Locked by achievement
+
+        val maps = listOf(map1, map2)
+
+        val response = ArtifactsArrayResponseBody(
+            data = maps,
+            total = maps.size,
+            page = 1,
+            size = maps.size,
+            pages = 1
+        )
+
+        `when`(mapMongoClient.getMaps(
+            content_type = null,
+            content_code = null,
+            page = 1,
+            size = 100
+        )).thenReturn(response)
+
+        // Mock achievements: character does NOT have "locked_ach"
+        val achievementsResponse = ArtifactsArrayResponseBody(
+            data = listOf(createAchievement("some_other_ach")),
+            total = 1,
+            page = 1,
+            size = 1,
+            pages = 1
+        )
+        `when`(accountClient.getAccountAchievements("TestAccount", true)).thenReturn(achievementsResponse)
+
+        // When
+        val result = mapService.findClosestMap(character, checkAchievement = true)
+
+        // Then
+        // map2 is closer but locked, so it should return map1
+        assertEquals(map1, result)
+    }
+
+    @Test
+    fun `findClosestMap should return closest map if achievement is unlocked`() {
+        // Given
+        val character = createTestCharacter(x = 5, y = 5)
+        character.account = "TestAccount"
+
+        val map1 = createTestMapData(x = 10, y = 10)
+        val map2 = createLockedMapData(x = 3, y = 3, achievementCode = "locked_ach")
+
+        val maps = listOf(map1, map2)
+
+        val response = ArtifactsArrayResponseBody(
+            data = maps,
+            total = maps.size,
+            page = 1,
+            size = maps.size,
+            pages = 1
+        )
+
+        `when`(mapMongoClient.getMaps(
+            content_type = null,
+            content_code = null,
+            page = 1,
+            size = 100
+        )).thenReturn(response)
+
+        // Mock achievements: character HAS "locked_ach"
+        val achievementsResponse = ArtifactsArrayResponseBody(
+            data = listOf(createAchievement("locked_ach")),
+            total = 1,
+            page = 1,
+            size = 1,
+            pages = 1
+        )
+        `when`(accountClient.getAccountAchievements("TestAccount", true)).thenReturn(achievementsResponse)
+
+        // When
+        val result = mapService.findClosestMap(character, checkAchievement = true)
+
+        // Then
+        // map2 is closer and unlocked
+        assertEquals(map2, result)
+    }
+
     // Helper methods to create test objects
+
+    private fun createLockedMapData(x: Int, y: Int, achievementCode: String): MapData {
+        val conditions = listOf(Conditions(code = achievementCode, operator = "achievement_unlocked", value = 0))
+        val access = Access(type = "achievement", conditions = conditions)
+        
+        return MapData(
+            name = "map_${x}_${y}",
+            skin = "default",
+            x = x,
+            y = y,
+            mapId = 1,
+            layer = "main",
+            access = access,
+            interactions = null,
+            region = 1
+        )
+    }
+
+    private fun createAchievement(code: String): Achievement {
+        return Achievement(
+            name = "Achievement $code",
+            code = code,
+            description = "Desc",
+            points = 10,
+            objectives = emptyList(),
+            rewards = Rewards(0,null),
+            completedAt = "now"
+        )
+    }
 
     private fun createTestCharacter(x: Int, y: Int): ArtifactsCharacter {
         return ArtifactsCharacter(

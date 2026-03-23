@@ -7,8 +7,6 @@ import org.springframework.stereotype.Repository
 
 @Repository
 interface TransitionMapperRepository : MongoRepository<TransitionMapper, String> {
-    @Query("{ 'sourceMapData.region': ?0, 'destinationMapData.region': ?1 }")
-    fun findBySourceMapDataRegionAndDestinationMapDataRegion(sourceRegion: Int, destinationRegion: Int): TransitionMapper?
 
-    fun findByDestinationMapDataRegion(destinationRegion: Int?): List<TransitionMapper>
+    fun findBySourceMapDataRegion(sourceRegion: Int?): List<TransitionMapper>
 }

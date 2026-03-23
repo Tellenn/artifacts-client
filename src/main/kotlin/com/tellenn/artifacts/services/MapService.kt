@@ -1,5 +1,6 @@
 package com.tellenn.artifacts.services
 
+import com.tellenn.artifacts.clients.AccountClient
 import com.tellenn.artifacts.models.ArtifactsCharacter
 import com.tellenn.artifacts.models.MapData
 import com.tellenn.artifacts.db.clients.MapMongoClient
@@ -18,7 +19,8 @@ import kotlin.math.sqrt
 @Service
 class MapService(
     private val mapMongoClient: MapMongoClient,
-    private val transitionMapperRepository: TransitionMapperRepository
+    private val transitionMapperRepository: TransitionMapperRepository,
+    private val accountClient: AccountClient
 ) {
     private val logger = LoggerFactory.getLogger(MapService::class.java)
 
@@ -33,7 +35,8 @@ class MapService(
     fun findClosestMap(
         character: ArtifactsCharacter,
         contentType: String? = null,
-        contentCode: String? = null
+        contentCode: String? = null,
+        checkAchievement: Boolean = false
     ): MapData {
         logger.debug("Finding closest map to character ${character.name} at position (${character.x}, ${character.y})")
 
@@ -50,8 +53,27 @@ class MapService(
             throw UnknownMapException(contentType, contentCode)
         }
 
+        var filteredMaps = mapsResponse.data
+        if (checkAchievement) {
+            val achievements = accountClient.getAccountAchievements(character.account, true).data
+            filteredMaps = filteredMaps.filter { mapData ->
+                mapData.access?.conditions?.all { condition ->
+                    if (condition.operator == "achievement_unlocked") {
+                        achievements.any { it.code == condition.code }
+                    } else {
+                        true
+                    }
+                } ?: true
+            }
+        }
+
+        if (filteredMaps.isEmpty()) {
+            logger.warn("No maps found with the specified criteria after filtering for achievements")
+            throw UnknownMapException(contentType, contentCode)
+        }
+
         // Find the closest map
-        val closestMap = findClosestMapToCharacter(character, mapsResponse.data)
+        val closestMap = findClosestMapToCharacter(character, filteredMaps)
 
 
         logger.debug("Closest map to character ${character.name} is at position (${closestMap.x}, ${closestMap.y})")
@@ -71,21 +93,28 @@ class MapService(
      * @return A list of TransitionMapper objects representing the path, or empty if no path found
      */
     fun findTransitionPath(originRegion: Int, destinationRegion: Int): List<TransitionMapper> {
-        val directTransition = transitionMapperRepository.findBySourceMapDataRegionAndDestinationMapDataRegion(originRegion, destinationRegion)
-        if (directTransition != null) {
-            return listOf(directTransition)
-        }
-        val listOfTransition = mutableListOf<TransitionMapper>()
-        var regionObjective: Int? = destinationRegion
-        do {
-            val nextTransition =
-                transitionMapperRepository.findByDestinationMapDataRegion(regionObjective).firstOrNull()
-                    ?: throw UnknownMapException(null, null)
-            listOfTransition.add(nextTransition)
-            regionObjective = nextTransition.sourceMapData.region
-        }while (originRegion != regionObjective)
+        if (originRegion == destinationRegion) return emptyList()
 
-        return listOfTransition
+        val queue: MutableList<Pair<Int, List<TransitionMapper>>> = mutableListOf(originRegion to emptyList())
+        val visited = mutableSetOf(originRegion)
+
+        while (queue.isNotEmpty()) {
+            val (currentRegion, path) = queue.removeAt(0)
+
+            val transitions = transitionMapperRepository.findBySourceMapDataRegion(currentRegion)
+            for (transition in transitions) {
+                val nextRegion = transition.destinationMapData.region ?: continue
+                if (nextRegion == destinationRegion) {
+                    return path + transition
+                }
+                if (nextRegion !in visited) {
+                    visited.add(nextRegion)
+                    queue.add(nextRegion to (path + transition))
+                }
+            }
+        }
+
+        return emptyList()
     }
 
     /**

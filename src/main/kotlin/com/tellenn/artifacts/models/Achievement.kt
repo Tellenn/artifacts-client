@@ -9,7 +9,7 @@ class Achievement(
     @param:JsonProperty("description") val description: String,
     @param:JsonProperty("points") val points: Int,
     @param:JsonProperty("objectives") val objectives: List<Objective>,
-    @param:JsonProperty("rewards") val rewards: List<Reward>,
+    @param:JsonProperty("rewards") val rewards: Rewards,
     @param:JsonProperty("completed_at") val completedAt: String?
     )
 
@@ -22,7 +22,7 @@ class Objective(
 )
 
 @Suppress("unused")
-class Reward(
-    @param:JsonProperty("gold") val type: String,
-    @param:JsonProperty("items") val quantity: List<SimpleItem>,
+class Rewards(
+    @param:JsonProperty("gold") val gold: Int,
+    @param:JsonProperty("items") val items: List<SimpleItem>?,
 )

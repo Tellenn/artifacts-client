@@ -81,7 +81,7 @@ class AccountClient() : BaseArtifactsClient() {
         }
     }
 
-    fun getAccountAchievement(name: String = "Tellenn", completed: Boolean = true): ArtifactsArrayResponseBody<Achievement>{
+    fun getAccountAchievements(name: String = "Tellenn", completed: Boolean = true): ArtifactsArrayResponseBody<Achievement>{
         return sendGetRequest("/accounts/${name}/achievements?completed=$completed").use { response ->
             val responseBody = response.body!!.string()
             objectMapper.readValue<ArtifactsArrayResponseBody<Achievement>>(responseBody)

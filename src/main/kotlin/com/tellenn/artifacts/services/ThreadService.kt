@@ -49,11 +49,11 @@ private class ManagedCharacterThread(
  */
 @Service
 class ThreadService(
-    @Lazy private val crafterJob: CrafterJob,
-    @Lazy private val fighterJob: FighterJob,
-    @Lazy private val alchemistJob: AlchemistJob,
-    @Lazy private val minerJob: MinerJob,
-    @Lazy private val woodworkerJob: WoodworkerJob
+    @param:Lazy private val crafterJob: CrafterJob,
+    @param:Lazy private val fighterJob: FighterJob,
+    @param:Lazy private val alchemistJob: AlchemistJob,
+    @param:Lazy private val minerJob: MinerJob,
+    @param:Lazy private val woodworkerJob: WoodworkerJob
 ) {
     private val logger = LoggerFactory.getLogger(ThreadService::class.java)
 

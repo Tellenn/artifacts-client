@@ -3,6 +3,7 @@ package com.tellenn.artifacts.clients
 import com.fasterxml.jackson.module.kotlin.readValue
 import com.tellenn.artifacts.clients.responses.ArtifactsResponseBody
 import com.tellenn.artifacts.clients.responses.MovementResponseBody
+import com.tellenn.artifacts.clients.responses.TransitionResponseBody
 import lombok.extern.slf4j.Slf4j
 import org.springframework.stereotype.Component
 
@@ -18,11 +19,11 @@ class MovementClient : BaseArtifactsClient() {
 
         return movementResponse
     }
-    fun transition(characterName: String): ArtifactsResponseBody<MovementResponseBody> {
+    fun transition(characterName: String): ArtifactsResponseBody<TransitionResponseBody> {
         waitForCooldown(characterName)
         val response = sendPostRequest("/my/$characterName/action/transition", "{}")
-        val movementResponse : ArtifactsResponseBody<MovementResponseBody> =
-            objectMapper.readValue<ArtifactsResponseBody<MovementResponseBody>>(response.body!!.string())
+        val movementResponse : ArtifactsResponseBody<TransitionResponseBody> =
+            objectMapper.readValue<ArtifactsResponseBody<TransitionResponseBody>>(response.body!!.string())
 
         return movementResponse
     }
