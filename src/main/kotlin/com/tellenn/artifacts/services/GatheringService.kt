@@ -45,7 +45,7 @@ class GatheringService(
         val itemDetails = itemService.getItem(itemCode)
         val sizeForOne = itemService.getInvSizeToCraft(itemDetails)
         val inventorySizeNeeded = quantity * sizeForOne
-        require( quantity >0 && inventorySizeNeeded >= character.inventoryMaxItems){"Cannot craft or gather $quantity item with code $itemCode because the inventory is too small"}
+        require( quantity >0 && inventorySizeNeeded <= character.inventoryMaxItems){"Cannot craft or gather $quantity item with code $itemCode because the inventory is too small"}
 
         if(functionLevel > 0 && bankService.isInBank(itemDetails.code, quantity))
             // It's a sub item and I have it in stock
