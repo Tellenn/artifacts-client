@@ -174,7 +174,7 @@ class GatheringService(
         require(!(npcItem.currency == "gold" || npcItem.buyPrice == null)) { "Will not buy component with gold currency" }
         var newCharacter = craftOrGather(character, npcItem.currency, npcItem.buyPrice * quantity, functionLevel + 1, allowFight, shouldTrain)
         newCharacter = movementService.moveToBank(newCharacter)
-        newCharacter = bankService.withdrawOne(item.code, quantity, newCharacter)
+        newCharacter = bankService.withdrawOne(npcItem.currency, npcItem.buyPrice * quantity, newCharacter)
         newCharacter = movementService.moveToNpc(newCharacter, npcItem.npc)
         return npcClient.buyItem(newCharacter.name, npcItem.code, quantity).data.character
     }
