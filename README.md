@@ -1,4 +1,4 @@
-# Tellenn Artifacts Client
+# Tellenn's Artifacts Client
 
 This is a client library for interacting with the Artifacts MMO API.
 
@@ -15,7 +15,7 @@ The project includes functionality to synchronize all items from the Artifacts A
 ### Prerequisites
 
 - MongoDB server running on localhost:27017 (or configure the connection in `application.properties`)
-- Java 11 or higher
+- Java 25
 
 ### Configuration
 
@@ -41,7 +41,7 @@ The application can be containerized using Docker. The project includes a Docker
 #### Building the Docker Image
 
 ```bash
-docker build llenn/tellenn-artifacts-client:latest .
+docker build tellenn/tellenn-artifacts-client:latest .
 ```
 
 #### Running with Docker Compose
@@ -63,6 +63,9 @@ This will:
 The following environment variables can be configured:
 
 - `SPRING_DATA_MONGODB_URI`: MongoDB connection URI (default: mongodb://mongo:27017/tellenn-artifacts)
+- `SPRING_DATA_MONGODB_DATABASE`: The database in the mongo server (default: artifacts)
+- `ARTIFACTS_API_URL`: the base url, (default: https://api.artifactsmmo.com)
+- `ARTIFACTS_API_KEY`: The api key in the account page
 
 You can override these in the docker-compose.yml file or by setting environment variables.
 
