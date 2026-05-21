@@ -9,6 +9,7 @@ import com.tellenn.artifacts.models.ItemDetails
 import com.tellenn.artifacts.exceptions.CharacterInventoryFullException
 import com.tellenn.artifacts.exceptions.CharacterSkillTooLow
 import com.tellenn.artifacts.exceptions.MissingItemException
+import com.tellenn.artifacts.models.SimpleItem
 import org.apache.logging.log4j.LogManager
 import org.springframework.stereotype.Service
 
@@ -34,71 +35,74 @@ class GatheringService(
 ) {
     private val log = LogManager.getLogger(GatheringService::class.java)
 
+    /*
+     * The goal of this function is to be able to craft any item with any complexity as long as it's possible within a single inventory
+     * It can gather, craft, fight, buy in order to be able to craft
+     * The goal is to have everything available in the bank, and then fetch everything from the bank
+     */
     fun craftOrGather(character: ArtifactsCharacter, itemCode: String, quantity: Int, functionLevel: Int = 0, allowFight: Boolean = false, shouldTrain: Boolean = true) : ArtifactsCharacter{
-        if(quantity <= 0) return character
+
         val itemDetails = itemService.getItem(itemCode)
         val sizeForOne = itemService.getInvSizeToCraft(itemDetails)
         val inventorySizeNeeded = quantity * sizeForOne
+        require( quantity >0 && inventorySizeNeeded >= character.inventoryMaxItems){"Cannot craft or gather $quantity item with code $itemCode because the inventory is too small"}
 
-        if(inventorySizeNeeded >= character.inventoryMaxItems){
-            throw IllegalArgumentException("Cannot craft or gather item with code ${itemCode} because the inventory is full")
-        }
-
-        if(functionLevel > 0 && bankService.isInBank(itemDetails.code, quantity)){
-            val newCharacter = movementService.moveToBank(character)
-            return bankService.withdrawOne(itemDetails.code, quantity, newCharacter)
-        }
-        if(itemDetails.subtype == "task"){
-            // We don't have it and it's a task item
-            val npcItem = npcClient.getNpcItems("tasks_trader")
-                .data
-                .filter { it.buyPrice != null }
-                .first { itemDetails.code == it.code }
-            if(npcItem.buyPrice != null && bankService.isInBank("tasks_coin", npcItem.buyPrice.times(quantity).plus(10))){
-                var newCharacter = movementService.moveToBank(character)
-                newCharacter = bankService.withdrawOne("tasks_coin", npcItem.buyPrice.times(quantity), newCharacter)
-                newCharacter = movementService.moveToNpc(newCharacter, npcItem.npc)
-                return npcClient.buyItem(newCharacter.name, npcItem.code, quantity).data.character
-
-            }else{
-                throw MissingItemException() // TODO : Better exception
+        if(functionLevel > 0 && bankService.isInBank(itemDetails.code, quantity))
+            // It's a sub item and I have it in stock
+            return character
+        return when {
+            itemDetails.subtype == "task" -> {
+                // It's a task reward item, and we don't have it in stock
+                tradeTaskItem(character, itemDetails, quantity)
             }
-        }
-        else if(itemDetails.subtype == "mob"){
-            // We don't have it and it's a mob item
-            if(allowFight){
-                val newCharacter = movementService.moveToBank(character)
-                return bankService.storeItemsToDoThenGetThemBack(newCharacter, movementService) {
-                    battleService.fightToGetItem(accountClient.getCharacter(newCharacter.name).data, itemDetails.code, quantity, shouldTrain)
+
+            itemDetails.subtype == "mob" -> {
+                // It's a monster loot
+                fightToGet(character, itemDetails, quantity, allowFight, shouldTrain)
+            }
+
+            itemDetails.subtype == "npc" -> {
+                // We don't have it, and it's a npc selling it
+                tradeNpc(character, itemDetails, quantity, functionLevel, allowFight, shouldTrain)
+            }
+
+            itemDetails.code == "wooden_stick" -> {
+                // Specific for tutorial item
+                characterService.unequip(character, "weapon", 1)
+            }
+
+            itemDetails.craft == null -> {
+                // If there is no craft, we gather
+                gather(character, itemDetails, quantity)
+            }
+
+            // TODO : Add support for GC, need a value for "time per gold" or complexity
+
+            else -> {
+                // Otherwise we craft (and call the same function for it)
+                var newCharacter = character
+                val itemsToWithdraw = mutableListOf<SimpleItem>()
+                for (i in itemDetails.craft.items) {
+                    newCharacter =
+                        craftOrGather(newCharacter, i.code, i.quantity * quantity, functionLevel + 1, allowFight, shouldTrain)
+                    // This is to empty the inventory if we need to stock up on something with a side product.
+                    // It avoid the inventoryFullException when fighting mostly
+                    newCharacter = movementService.moveToBank(newCharacter)
+                    newCharacter = bankService.emptyInventory(newCharacter)
+                    itemsToWithdraw.add(SimpleItem(i.code, i.quantity * quantity))
                 }
-            }else{
-                throw IllegalArgumentException("Cannot gather mob without fighting enabled")
+                newCharacter = movementService.moveToBank(newCharacter)
+                newCharacter = bankService.withdrawMany(itemsToWithdraw as ArrayList<SimpleItem>, newCharacter)
+                craft(newCharacter, itemDetails, quantity)
             }
-        }else if(itemDetails.subtype == "npc"){
-            // We don't have it, and it's a npc selling it
-            val npcItem = npcClient.getNpcByItemCode(itemDetails.code).data.first()
-            if(npcItem.currency == "gold" || npcItem.buyPrice == null){
-                throw IllegalArgumentException("Cannot gather npc with gold currency")
-            }
-            var newCharacter = craftOrGather(character, npcItem.currency, npcItem.buyPrice * quantity, functionLevel + 1, allowFight, shouldTrain)
-            newCharacter = movementService.moveToNpc(newCharacter, npcItem.npc)
-            return npcClient.buyItem(newCharacter.name, npcItem.code, quantity).data.character
         }
-        // Specific for tutorial item
-        if(itemDetails.code == "wooden_stick"){
-            return characterService.unequip(character, "weapon", 1)
-        }
-        if(itemDetails.craft == null){
-            // If there is no craft, we gather
-            return gather(character, itemDetails, quantity)
-        }else{
-            // Otherwise we craft (and call the same function for it)
-            var newCharacter = character
-            for( i in itemDetails.craft.items){
-                newCharacter = craftOrGather(newCharacter, i.code, i.quantity*quantity, functionLevel + 1, allowFight, shouldTrain)
-            }
-            return craft(newCharacter, itemDetails, quantity)
-        }
+    }
+
+    fun recycle(character: ArtifactsCharacter, item: ItemDetails, i: Int): ArtifactsCharacter {
+        val mapData = mapService.findClosestMap(character = character, contentCode = item.craft?.skill)
+        val newCharacter = movementService.moveCharacterToCell(mapData.mapId, character)
+        return craftingClient.recycle(newCharacter.name, item.code, i).data.character
+
     }
 
     private fun gather(character: ArtifactsCharacter, item: ItemDetails, quantityToCraft: Int) : ArtifactsCharacter{
@@ -164,10 +168,42 @@ class GatheringService(
         return newCharacter
     }
 
-    fun recycle(character: ArtifactsCharacter, item: ItemDetails, i: Int): ArtifactsCharacter {
-        val mapData = mapService.findClosestMap(character = character, contentCode = item.craft?.skill)
-        val newCharacter = movementService.moveCharacterToCell(mapData.mapId, character)
-        return craftingClient.recycle(newCharacter.name, item.code, i).data.character
+    private fun tradeNpc(character: ArtifactsCharacter, item: ItemDetails, quantity: Int, functionLevel: Int = 0, allowFight: Boolean = false, shouldTrain: Boolean = false): ArtifactsCharacter {
+        // We don't have it, and it's a npc selling it
+        val npcItem = npcClient.getNpcByItemCode(item.code).data.first()
+        require(!(npcItem.currency == "gold" || npcItem.buyPrice == null)) { "Will not buy component with gold currency" }
+        var newCharacter = craftOrGather(character, npcItem.currency, npcItem.buyPrice * quantity, functionLevel + 1, allowFight, shouldTrain)
+        newCharacter = movementService.moveToBank(newCharacter)
+        newCharacter = bankService.withdrawOne(item.code, quantity, newCharacter)
+        newCharacter = movementService.moveToNpc(newCharacter, npcItem.npc)
+        return npcClient.buyItem(newCharacter.name, npcItem.code, quantity).data.character
+    }
 
+    private fun tradeTaskItem(character: ArtifactsCharacter, itemDetails: ItemDetails, quantity: Int): ArtifactsCharacter{
+        // We don't have it and it's a task item
+        val npcItem = npcClient.getNpcItems("tasks_trader")
+            .data
+            .filter { it.buyPrice != null }
+            .first { itemDetails.code == it.code }
+        if(npcItem.buyPrice != null && bankService.isInBank("tasks_coin", npcItem.buyPrice.times(quantity).plus(10))){
+            var newCharacter = movementService.moveToBank(character)
+            newCharacter = bankService.withdrawOne("tasks_coin", npcItem.buyPrice.times(quantity), newCharacter)
+            newCharacter = movementService.moveToNpc(newCharacter, npcItem.npc)
+            return npcClient.buyItem(newCharacter.name, npcItem.code, quantity).data.character
+        }else{
+            throw MissingItemException() // TODO : Better exception
+        }
+    }
+
+    private fun fightToGet(character: ArtifactsCharacter, itemDetails: ItemDetails, quantity: Int, allowFight: Boolean = false, shouldTrain: Boolean = false): ArtifactsCharacter{
+        // We don't have it and it's a mob item
+        if(allowFight){
+            val newCharacter = movementService.moveToBank(character)
+            return bankService.storeItemsToDoThenGetThemBack(newCharacter, movementService) {
+                battleService.fightToGetItem(accountClient.getCharacter(newCharacter.name).data, itemDetails.code, quantity, shouldTrain)
+            }
+        }else{
+            throw IllegalArgumentException("Cannot gather mob without fighting enabled")
+        }
     }
 }
