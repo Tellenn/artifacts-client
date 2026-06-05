@@ -139,4 +139,9 @@ class MovementService(
         }
         return moveCharacterToCell(closestBank.mapId, character)
     }
+
+    fun moveToGrandExchange(character: ArtifactsCharacter): ArtifactsCharacter {
+        val geMap = mapService.findClosestMap(character = character, contentCode = "grandexchange")
+        return moveCharacterToCell(geMap.mapId, character)
+    }
 }

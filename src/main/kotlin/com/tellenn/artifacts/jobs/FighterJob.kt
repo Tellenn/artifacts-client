@@ -8,6 +8,7 @@ import com.tellenn.artifacts.services.BattleService
 import com.tellenn.artifacts.services.CharacterService
 import com.tellenn.artifacts.services.EquipmentService
 import com.tellenn.artifacts.services.MapService
+import com.tellenn.artifacts.services.AchievementService
 import com.tellenn.artifacts.services.MonsterService
 import com.tellenn.artifacts.services.MovementService
 import com.tellenn.artifacts.services.TaskService
@@ -26,7 +27,8 @@ class FighterJob(
     taskService: TaskService,
     private val battleService: BattleService,
     private val equipmentService: EquipmentService,
-    private val monsterService: MonsterService
+    private val monsterService: MonsterService,
+    private val achievementService: AchievementService
 ) : GenericJob(mapService, movementService, bankService, characterService, accountClient, taskService) {
 
     lateinit var character: ArtifactsCharacter
@@ -34,6 +36,10 @@ class FighterJob(
     fun run(characterName: String) {
         character = init(characterName)
         do{
+            if (isCrafterMaxLevel()) {
+                character = achievementService.executeAchievement(character, "fighter")
+                continue
+            }
 
             try {
                 character = taskService.getNewMonsterTask(character)

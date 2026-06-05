@@ -7,6 +7,7 @@ import com.tellenn.artifacts.config.CharacterConfig
 import com.tellenn.artifacts.models.ArtifactsCharacter
 import com.tellenn.artifacts.models.MonsterData
 import com.tellenn.artifacts.models.SimpleItem
+import com.tellenn.artifacts.exceptions.BattleLostException
 import com.tellenn.artifacts.services.battlesim.BattleSimulatorService
 import org.apache.logging.log4j.LogManager
 import org.springframework.stereotype.Service
@@ -32,6 +33,30 @@ class BossFightService(
         const val DEFAULT_CHARACTER_1 = "Renoir"
         const val DEFAULT_CHARACTER_2 = "Cloud"
         const val DEFAULT_CHARACTER_3 = "Kepo"
+    }
+
+    /**
+     * Official entry point for boss fights triggered during gathering.
+     * Checks that all default characters are available, simulates the fight,
+     * then executes if both conditions are met.
+     *
+     * @throws BattleLostException if characters are unavailable or the simulation predicts defeat
+     */
+    fun tryFightForItem(monsterCode: String, itemCode: String, quantity: Int): ArtifactsCharacter {
+        val allAvailable = listOf(DEFAULT_CHARACTER_1, DEFAULT_CHARACTER_2, DEFAULT_CHARACTER_3)
+            .none { threadService.isCharacterOnMission(it) }
+
+        if (!allAvailable) {
+            log.info("Boss fight for $monsterCode skipped: not all default characters are available")
+            throw BattleLostException(monsterCode)
+        }
+
+        if (!simulateBossFight(monsterCode)) {
+            log.info("Boss fight simulation failed for $monsterCode: party is not strong enough yet")
+            throw BattleLostException(monsterCode)
+        }
+
+        return runBossFights(monsterCode = monsterCode, itemCode = itemCode, quantity = quantity)
     }
 
     /**

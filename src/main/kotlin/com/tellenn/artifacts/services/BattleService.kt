@@ -51,14 +51,7 @@ class BattleService(
             return character
         }
         if(monster.type == "boss"){
-            if(bossFightService.simulateBossFight(monster.code)){
-                return bossFightService.runBossFights(
-                    monsterCode = monster.code,
-                    itemCode = itemCode,
-                    quantity = quantity)
-            }else{
-                throw BattleLostException(monster.name)
-            }
+            return bossFightService.tryFightForItem(monster.code, itemCode, quantity)
         }
         val map = mapService.findClosestMap(character, contentCode = monster.code)
         var newCharacter = equipmentService.equipBestAvailableEquipmentForMonsterInBank(character, monster.code)

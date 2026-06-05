@@ -11,6 +11,7 @@ import com.tellenn.artifacts.services.BankService
 import com.tellenn.artifacts.services.CharacterService
 import com.tellenn.artifacts.services.GatheringService
 import com.tellenn.artifacts.services.ItemService
+import com.tellenn.artifacts.services.AchievementService
 import com.tellenn.artifacts.services.MapService
 import com.tellenn.artifacts.services.MovementService
 import com.tellenn.artifacts.services.TaskService
@@ -32,6 +33,7 @@ class AlchemistJob(
     private val gatheringService: GatheringService,
     private val itemService: ItemService,
     private val itemRepository: ItemRepository,
+    private val achievementService: AchievementService,
 ) : GenericJob(mapService, movementService, bankService, characterService, accountClient, taskService) {
 
     lateinit var character: ArtifactsCharacter
@@ -41,6 +43,10 @@ class AlchemistJob(
         sleep(2000)
         character = init(characterName)
         do{
+            if (isCrafterMaxLevel()) {
+                character = achievementService.executeAchievement(character, "alchemist")
+                continue
+            }
             character = catchBackCrafter(character)
             cookEasyItemsInBank()
             if(character.alchemyLevel == maxLevel && character.cookingLevel == maxLevel){
@@ -65,9 +71,13 @@ class AlchemistJob(
                 if(character.alchemyLevel >= 20 && !bankService.isInBank("small_antidote", 10)){
                     itemsToCraft.add(SimpleItem("small_antidote", (character.inventoryMaxItems - 10) / itemService.getInvSizeToCraft(itemService.getItem("small_antidote")) ))
                 }
+                val greaterHealthPotionLevel = itemService.getItem("greater_health_potion").level
                 getHealingPotions().forEach {
-                    if(!bankService.isInBank(it.code, 400)){
-                        itemsToCraft.add(SimpleItem(it.code, (character.inventoryMaxItems - 10) / itemService.getInvSizeToCraft(it) ))
+                    val readyToCraft = it.code != "greater_health_potion" || character.alchemyLevel >= greaterHealthPotionLevel + 5
+                    if (!bankService.isInBank(it.code, 400) && readyToCraft) {
+                        itemsToCraft.add(SimpleItem(it.code, (character.inventoryMaxItems - 10) / itemService.getInvSizeToCraft(it)))
+                    } else if (!readyToCraft) {
+                        log.debug("${character.name} needs alchemy level ${greaterHealthPotionLevel + 5} to craft ${it.code}, currently ${character.alchemyLevel}")
                     }
                 }
 
@@ -75,13 +85,9 @@ class AlchemistJob(
                 if(itemsToCraft.isNotEmpty()){
                     itemsToCraft.forEach {
                         log.info("${character.name} is crafting ${it.code} for stocks")
-                        if(it.code == "greater_health_potion" && character.alchemyLevel < itemService.getItem("greater_health_potion").level + 5 ){
-                            log.debug("We need to level up our alchemy to ${itemService.getItem("greater_health_potion").level + 5}")
-                        }else{
-                            character = gatheringService.craftOrGather(character, it.code, it.quantity, allowFight = true)
-                            character = movementService.moveToBank(character)
-                            character = bankService.emptyInventory(character)
-                        }
+                        character = gatheringService.craftOrGather(character, it.code, it.quantity, allowFight = true)
+                        character = movementService.moveToBank(character)
+                        character = bankService.emptyInventory(character)
                     }
                     continue
                     // Otherwise levelup
@@ -139,7 +145,8 @@ class AlchemistJob(
             .filter { it.effects?.none { effect -> effect.code != "heal" } ?: false }
             .filter { it.craft?.items?.size == 1 && itemRepository.findByCode(it.craft.items[0].code).subtype == "fishing" }
             .filter { it.level <= character.fishingLevel }
-            .maxBy { it.level }
+            .maxByOrNull { it.level }
+            ?: error("${character.name} : invariant violated — no fish-based food found at cooking level ${character.cookingLevel} / fishing level ${character.fishingLevel}")
     }
 
     private fun cookEasyItemsInBank(){
@@ -169,7 +176,7 @@ class AlchemistJob(
                     else -> log.debug("There is more than 1 craft, so we need further analysis")
                 }
             }catch (_: IllegalArgumentException){
-                log.warn("Desync between local database and API, skipping ${it.name}")
+                log.warn("Cannot complete recipe for ${it.name}: incompatible ingredient (mob drop or oversized batch)")
             }
         }
     }

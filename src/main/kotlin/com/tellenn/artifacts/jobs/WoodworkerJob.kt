@@ -10,6 +10,7 @@ import com.tellenn.artifacts.services.BankService
 import com.tellenn.artifacts.services.CharacterService
 import com.tellenn.artifacts.services.GatheringService
 import com.tellenn.artifacts.services.ItemService
+import com.tellenn.artifacts.services.AchievementService
 import com.tellenn.artifacts.services.MapService
 import com.tellenn.artifacts.services.MovementService
 import com.tellenn.artifacts.services.TaskService
@@ -31,7 +32,8 @@ class WoodworkerJob(
     taskService: TaskService,
     val gatheringService: GatheringService,
     val itemService: ItemService,
-    val bankItemSyncService: BankItemSyncService
+    val bankItemSyncService: BankItemSyncService,
+    val achievementService: AchievementService
 ) : GenericJob(mapService, movementService, bankService, characterService, accountClient, taskService) {
 
     lateinit var character: ArtifactsCharacter
@@ -44,6 +46,10 @@ class WoodworkerJob(
 
 
         do{
+            if (isCrafterMaxLevel()) {
+                character = achievementService.executeAchievement(character, "woodworker")
+                continue
+            }
             character = catchBackCrafter(character)
             val itemsToCraft = ArrayList<SimpleItem>()
             val gatheringItems = itemService.getAllCraftBySkillUnderLevel(skill, character.woodcuttingLevel)

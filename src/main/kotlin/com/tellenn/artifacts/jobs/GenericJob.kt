@@ -1,5 +1,6 @@
 package com.tellenn.artifacts.jobs
 
+import com.tellenn.artifacts.AppConfig.maxLevel
 import com.tellenn.artifacts.MainRuntime
 import com.tellenn.artifacts.clients.AccountClient
 import com.tellenn.artifacts.config.CharacterConfig.Companion.getPredefinedCharacters
@@ -64,6 +65,13 @@ class GenericJob(
             }
         }
         return newCharacter
+    }
+
+    fun isCrafterMaxLevel(): Boolean {
+        val crafter = accountClient.getCharacter(getPredefinedCharacters().first { it.job == "crafter" }.name).data
+        return crafter.weaponcraftingLevel >= maxLevel
+            && crafter.gearcraftingLevel >= maxLevel
+            && crafter.jewelrycraftingLevel >= maxLevel
     }
 
     fun craftBasicMaterialFromBank(skill: String, subType: String, itemService: ItemService, gatheringService: GatheringService, bankItemSyncService: BankItemSyncService, character: ArtifactsCharacter) : ArtifactsCharacter{

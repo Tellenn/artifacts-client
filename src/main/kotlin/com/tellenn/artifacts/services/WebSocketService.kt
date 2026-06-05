@@ -5,8 +5,10 @@ import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule
 import com.fasterxml.jackson.module.kotlin.jacksonObjectMapper
 import com.fasterxml.jackson.module.kotlin.readValue
 import com.tellenn.artifacts.clients.AccountClient
+import com.tellenn.artifacts.config.CharacterConfig.Companion.getPredefinedCharacters
 import com.tellenn.artifacts.exceptions.MapContentNotFoundException
 import com.tellenn.artifacts.models.Event
+import com.tellenn.artifacts.services.battlesim.BattleSimulatorService
 import okhttp3.*
 import okhttp3.WebSocket
 import org.slf4j.LoggerFactory
@@ -37,7 +39,10 @@ class WebSocketService(
     private val bankService: BankService,
     private val movementService: MovementService,
     private val gatheringService: GatheringService,
-    private val threadService: ThreadService
+    private val threadService: ThreadService,
+    private val battleService: BattleService,
+    private val battleSimulatorService: BattleSimulatorService,
+    private val monsterService: MonsterService
 ) {
     val objectMapper = jacksonObjectMapper().apply {
         registerModule(JavaTimeModule())
@@ -273,9 +278,41 @@ class WebSocketService(
                                             }
                                         }
                                     }
-                                }else if (event.map.interactions?.content?.type == "monster"){
-                                    logger.info("Monster spawned: ${event.map.interactions.content.code}")
-                                    // TODO : Fight if it's interesting or that you can
+                                } else if (event.map.interactions?.content?.type == "monster") {
+                                    val monsterCode = event.map.interactions.content.code
+                                    logger.info("Monster spawned: $monsterCode")
+
+                                    val crafter = accountClient.getCharacter(getPredefinedCharacters().first { it.job == "crafter" }.name).data
+                                    val lowestCraftLevel = minOf(crafter.weaponcraftingLevel, crafter.gearcraftingLevel, crafter.jewelrycraftingLevel) / 5 * 5
+                                    val monster = monsterService.findMonster(monsterCode)
+
+                                    if (monster.level < lowestCraftLevel) {
+                                        logger.info("Monster $monsterCode (level ${monster.level}) is too low — crafter threshold is $lowestCraftLevel, skipping")
+                                    } else {
+                                        val fighterName = getPredefinedCharacters().first { it.job == "fighter" }.name
+                                        val fighter = accountClient.getCharacter(fighterName).data
+                                        val simulation = battleSimulatorService.simulate(monsterCode, fighter)
+
+                                        if (!simulation.win) {
+                                            logger.info("$fighterName cannot win against $monsterCode — skipping")
+                                        } else {
+                                            logger.info("$fighterName can win against $monsterCode (level ${monster.level}) — assigning fight mission")
+                                            threadService.assignMissionAsync(fighterName, MissionPriority.AUTOMATIC) {
+                                                try {
+                                                    var character = accountClient.getCharacter(fighterName).data
+                                                    do {
+                                                        character = movementService.moveToBank(character)
+                                                        character = bankService.emptyInventory(character)
+                                                        character = battleService.battleUntilInvIsFull(character, monsterCode)
+                                                    } while (true)
+                                                } catch (_: MapContentNotFoundException) {
+                                                    logger.info("Monster $monsterCode is no longer available")
+                                                } catch (e: Exception) {
+                                                    logger.error("Uncaught error occurred while fighting event monster $monsterCode", e)
+                                                }
+                                            }
+                                        }
+                                    }
                                 }
                             }
                             "event_removed", "grandexchange_sell", "grandexchange_neworder", "achievement_unlocked" -> {

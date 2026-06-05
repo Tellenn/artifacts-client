@@ -12,16 +12,17 @@ import com.tellenn.artifacts.exceptions.UnknownMapException
 import com.tellenn.artifacts.models.ArtifactsCharacter
 import com.tellenn.artifacts.models.ItemDetails
 import com.tellenn.artifacts.services.BankService
-import com.tellenn.artifacts.services.BossFightService
 import com.tellenn.artifacts.services.CharacterService
 import com.tellenn.artifacts.services.EventService
 import com.tellenn.artifacts.services.GatheringService
 import com.tellenn.artifacts.services.ItemService
 import com.tellenn.artifacts.services.MapService
+import com.tellenn.artifacts.services.AchievementService
 import com.tellenn.artifacts.services.MonsterService
 import com.tellenn.artifacts.services.MovementService
 import com.tellenn.artifacts.services.TaskService
-import com.tellenn.artifacts.services.ThreadService
+import com.tellenn.artifacts.services.UniqueArtifactService
+import com.tellenn.artifacts.AppConfig.maxLevel
 import org.springframework.stereotype.Component
 import java.lang.Thread.sleep
 import kotlin.math.min
@@ -42,8 +43,8 @@ class CrafterJob(
     private val gatheringService: GatheringService,
     private val eventService: EventService,
     private val monsterService: MonsterService,
-    private val bossFightService: BossFightService,
-    private val threadService: ThreadService
+    private val achievementService: AchievementService,
+    private val uniqueArtifactService: UniqueArtifactService,
 ) : GenericJob(mapService, movementService, bankService, characterService, accountClient, taskService) {
 
     lateinit var character: ArtifactsCharacter
@@ -55,6 +56,14 @@ class CrafterJob(
         eventBasedItemCodes = eventService.getAllEventMaterials()
         character = init(characterName)
         do {
+            if (character.weaponcraftingLevel >= maxLevel
+                && character.gearcraftingLevel >= maxLevel
+                && character.jewelrycraftingLevel >= maxLevel
+            ) {
+                character = achievementService.executeAchievement(character, "crafter")
+                continue
+            }
+
             val bankDetails = bankService.getBankDetails()
             if(bankDetails.slots - bankService.getBankSize() < 20 && bankDetails.slots < 200 && bankDetails.gold > bankDetails.nextExpansionCost){
                 log.info("${character.name} is buying a bankSlot for ${bankDetails.nextExpansionCost}")
@@ -66,7 +75,9 @@ class CrafterJob(
             character = cleanUpBank()
             character = claimPendingItems()
 
-            // TODO : Logic to craft unique artifacts
+            for ((artifact, _) in uniqueArtifactService.findArtifactsToGather()) {
+                    character = tryGatherUniqueArtifact(artifact)
+            }
 
             val skillToLevel = getLowestSkillLevel(character)
             val itemsToCraft = getListOfItemToCraftUnderLevel(
@@ -105,8 +116,8 @@ class CrafterJob(
                         character = bankService.emptyInventory(character)
                         saveOrUpdateCraftedItem(itemDetail)
                     }catch (e : UnknownMapException){
-                        // If the item is in one of the monsterEvents or depend on it, skip it
-                        log.warn("Could not craft item ${itemDetail.code} because the map is not found", e)
+                        // Event monsters may not be on the map — this is expected, skip silently
+                        log.info("Skipping ${itemDetail.code}: required monster not found on map (${e.message})")
                         character = accountClient.getCharacter(character.name).data
                     }catch (e: MissingItemException){
                         // This case happens when we try to craft something, but we fail to battle, but still try to craft the item
@@ -170,6 +181,26 @@ class CrafterJob(
         }while (true)
     }
 
+    /**
+     * Attempts to craft one unit of the given unique artifact by gathering its boss-drop ingredients.
+     * Boss fight simulation is handled transparently by [com.tellenn.artifacts.services.BattleService.fightToGetItem].
+     * Returns the updated character after crafting and depositing to bank, or the refreshed character if the attempt fails.
+     */
+    private fun tryGatherUniqueArtifact(artifact: ItemDetails): ArtifactsCharacter {
+        log.info("${character.name} is gathering unique artifact ${artifact.code}")
+        return try {
+            character = gatheringService.craftOrGather(character, artifact.code, 1, allowFight = true, shouldTrain = false)
+            character = movementService.moveToBank(character)
+            bankService.emptyInventory(character)
+        } catch (_: BattleLostException) {
+            log.warn("${character.name} cannot beat the boss required for ${artifact.code} yet")
+            accountClient.getCharacter(character.name).data
+        } catch (e: Exception) {
+            log.warn("${character.name} failed to gather artifact ${artifact.code}: ${e.message}")
+            accountClient.getCharacter(character.name).data
+        }
+    }
+
     private fun getLowestSkillLevel(character: ArtifactsCharacter): String{
         val skills = mapOf(
             "weaponcrafting"  to (character.weaponcraftingLevel  - character.weaponcraftingLevel  % 5),
@@ -191,7 +222,7 @@ class CrafterJob(
         //val alreadyCraftedItem = craftedItemRepository.findAllByQuantityLessThan(3).map { it.code }
 
         // Or based on available bank items ?
-        val availableCraftedItem = bankService.getAllEquipmentsUnderLevel(50).map { it.code }
+        val availableCraftedItem = bankService.getAllEquipmentsUnderLevel(maxLevel).map { it.code }
 
 
         return items
@@ -302,37 +333,5 @@ class CrafterJob(
         character = movementService.moveToBank(character)
         character = bankService.emptyInventory(character)
         return character
-    }
-
-    /**
-     * Attempts to fight a boss if all characters are available and there are less than 10 boss components in bank.
-     * Checks if Kepo, Renoir, and Cloud are available and simulates the fight.
-     *
-     * @param monsterCode The boss monster code to fight
-     */
-    private fun tryBossFight(monsterCode: String, itemCode: String, quantity: Int) {
-        try {
-            // Check if all default characters are available (not on missions)
-            val character1Available = !threadService.isCharacterOnMission(BossFightService.DEFAULT_CHARACTER_1)
-            val character2Available = !threadService.isCharacterOnMission(BossFightService.DEFAULT_CHARACTER_2)
-            val character3Available = !threadService.isCharacterOnMission(BossFightService.DEFAULT_CHARACTER_3)
-
-            if (character1Available && character2Available && character3Available) {
-                log.info("${character.name} is attempting to simulate $monsterCode boss fight")
-                val canWin = bossFightService.simulateBossFight(monsterCode)
-                if (canWin) {
-                    log.info("Simulation successful! Characters can beat $monsterCode")
-                    bossFightService.runBossFights(
-                        monsterCode = monsterCode,
-                        itemCode = itemCode,
-                        quantity = quantity
-                    )
-                } else {
-                    log.info("Simulation shows characters cannot beat $monsterCode yet")
-                }
-            }
-        } catch (e: Exception) {
-            log.warn("Failed to simulate boss fight: ${e.message}")
-        }
     }
 }

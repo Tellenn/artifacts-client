@@ -36,7 +36,8 @@ class MapService(
         character: ArtifactsCharacter,
         contentType: String? = null,
         contentCode: String? = null,
-        checkAchievement: Boolean = false
+        checkAchievement: Boolean = false,
+        excludeMapIds: Set<Int> = emptySet()
     ): MapData {
         logger.debug("Finding closest map to character ${character.name} at position (${character.x}, ${character.y})")
 
@@ -53,7 +54,11 @@ class MapService(
             throw UnknownMapException(contentType, contentCode)
         }
 
-        var filteredMaps = mapsResponse.data
+        var filteredMaps = if (excludeMapIds.isNotEmpty()) {
+            mapsResponse.data.filter { it.mapId !in excludeMapIds }
+        } else {
+            mapsResponse.data
+        }
         if (checkAchievement) {
             val achievements = accountClient.getAccountAchievements(character.account, true).data
             filteredMaps = filteredMaps.filter { mapData ->

@@ -4,9 +4,12 @@ import com.tellenn.artifacts.clients.AccountClient
 import com.tellenn.artifacts.clients.CraftingClient
 import com.tellenn.artifacts.clients.GatheringClient
 import com.tellenn.artifacts.clients.NpcClient
+import com.tellenn.artifacts.exceptions.GENoOrdersException
 import com.tellenn.artifacts.models.ArtifactsCharacter
 import com.tellenn.artifacts.models.ItemDetails
+import com.tellenn.artifacts.models.RecipeIngredient
 import com.tellenn.artifacts.exceptions.CharacterInventoryFullException
+import com.tellenn.artifacts.exceptions.MapContentNotFoundException
 import com.tellenn.artifacts.exceptions.CharacterSkillTooLow
 import com.tellenn.artifacts.exceptions.MissingItemException
 import com.tellenn.artifacts.models.SimpleItem
@@ -31,7 +34,8 @@ class GatheringService(
     private val equipmentService: EquipmentService,
     private val accountClient: AccountClient,
     private val npcClient: NpcClient,
-    private val clientErrorService: ClientErrorService
+    private val clientErrorService: ClientErrorService,
+    private val grandExchangeService: GrandExchangeService
 ) {
     private val log = LogManager.getLogger(GatheringService::class.java)
 
@@ -72,13 +76,18 @@ class GatheringService(
             }
 
             itemDetails.craft == null -> {
-                // If there is no craft, we gather
-                gather(character, itemDetails, quantity)
+                // If there is no craft, check GC before gathering (only for ingredients)
+                if (functionLevel > 0 && grandExchangeService.shouldBuyFromGC(character, itemDetails, quantity))
+                    buyFromGC(character, itemDetails, quantity)
+                else
+                    gather(character, itemDetails, quantity)
             }
 
-            // TODO : Add support for GC, need a value for "time per gold" or complexity
-
             else -> {
+                // Check GC before crafting (only for ingredients)
+                if (functionLevel > 0 && grandExchangeService.shouldBuyFromGC(character, itemDetails, quantity))
+                    return buyFromGC(character, itemDetails, quantity)
+
                 // Otherwise we craft (and call the same function for it)
                 var newCharacter = character
                 val itemsToWithdraw = mutableListOf<SimpleItem>()
@@ -93,8 +102,21 @@ class GatheringService(
                 }
                 newCharacter = movementService.moveToBank(newCharacter)
                 newCharacter = bankService.withdrawMany(itemsToWithdraw as ArrayList<SimpleItem>, newCharacter)
+                // gather() calls emptyInventory() which may have deposited previously obtained ingredients to bank.
+                // Re-withdraw any missing ingredients before crafting.
+                newCharacter = recollectMissingIngredients(newCharacter, itemDetails.craft.items, quantity)
                 craft(newCharacter, itemDetails, quantity)
             }
+        }
+    }
+
+    private fun buyFromGC(character: ArtifactsCharacter, item: ItemDetails, quantity: Int): ArtifactsCharacter {
+        return try {
+            grandExchangeService.buyFromGC(character, item, quantity)
+        } catch (e: GENoOrdersException) {
+            log.warn("Achat GC échoué pour {} — repli sur gather/craft : {}", item.code, e.message)
+            if (item.craft == null) gather(character, item, quantity)
+            else throw e
         }
     }
 
@@ -116,43 +138,69 @@ class GatheringService(
         }
         if(levelToGather > skillLevel){
             throw CharacterSkillTooLow("Insufficient level to gather ${item.code}", item.subtype, skillLevel)
-        }else{
-            var quantityGathered = 0
-            val mapData = mapService.findClosestMap(character = character, contentCode = resourceService.findResourceContaining(item.code, skillLevel).code)
-            var newCharacter = equipmentService.equipBestToolForSkill(character, item.subtype)
-            newCharacter = equipmentService.equipBestAvailableEquipmentForCraftingOrGatheringInBank(newCharacter)
-            newCharacter = movementService.moveToBank(newCharacter)
-            newCharacter = bankService.emptyInventory(newCharacter)
-            newCharacter = movementService.moveCharacterToCell(mapData.mapId, newCharacter)
-            while (quantityToCraft >= quantityGathered) {
-                try{
-                    val gather = gatheringClient.gather(characterName = character.name).data
-                    if(gather.details.items.map { it.code }.contains(item.code)){
-                        quantityGathered++
-                    }
-                    newCharacter = gather.character
-                }catch (e: CharacterInventoryFullException){
-                    clientErrorService.logError(
-                        clientType = "SERVICE",
-                        endpoint = "gatheringService.gather",
-                        requestMethod = "NA",
-                        requestParams = "${item.code} ${quantityToCraft}",
-                        requestBody = "NA",
-                        responseBody = "NA",
-                        errorCode = 0,
-                        errorMessage = "NA",
-                        character = character,
-                        stackTrace = e.stackTraceToString()
-                    )
-                    log.warn("${newCharacter.name} is emptying their inventory", e)
-                    newCharacter = accountClient.getCharacter(newCharacter.name).data
-                    newCharacter = movementService.moveToBank(newCharacter)
-                    newCharacter = bankService.emptyInventory(newCharacter)
-                    newCharacter = movementService.moveCharacterToCell(mapData.mapId, newCharacter)
-                }
-            }
-            return gatheringClient.gather(characterName = character.name).data.character
         }
+
+        var quantityGathered = 0
+        val resourceCode = resourceService.findResourceContaining(item.code, skillLevel).code
+        val excludedMapIds = mutableSetOf<Int>()
+        var mapData = mapService.findClosestMap(character = character, contentCode = resourceCode)
+        var newCharacter = equipmentService.equipBestToolForSkill(character, item.subtype)
+        newCharacter = equipmentService.equipBestAvailableEquipmentForCraftingOrGatheringInBank(newCharacter)
+        newCharacter = movementService.moveToBank(newCharacter)
+        newCharacter = bankService.emptyInventory(newCharacter)
+        newCharacter = movementService.moveCharacterToCell(mapData.mapId, newCharacter)
+        while (quantityGathered < quantityToCraft) {
+            try{
+                val gather = gatheringClient.gather(characterName = newCharacter.name).data
+                if(gather.details.items.any { it.code == item.code }){
+                    quantityGathered++
+                }
+                newCharacter = gather.character
+            }catch (e: CharacterInventoryFullException){
+                clientErrorService.logError(
+                    clientType = "SERVICE",
+                    endpoint = "gatheringService.gather",
+                    requestMethod = "NA",
+                    requestParams = "${item.code} ${quantityToCraft}",
+                    requestBody = "NA",
+                    responseBody = "NA",
+                    errorCode = 0,
+                    errorMessage = "NA",
+                    character = newCharacter,
+                    stackTrace = e.stackTraceToString()
+                )
+                log.warn("${newCharacter.name} is emptying their inventory", e)
+                newCharacter = accountClient.getCharacter(newCharacter.name).data
+                newCharacter = movementService.moveToBank(newCharacter)
+                newCharacter = bankService.emptyInventory(newCharacter)
+                newCharacter = movementService.moveCharacterToCell(mapData.mapId, newCharacter)
+            }catch (_: MapContentNotFoundException){
+                log.warn("{} : ressource {} introuvable sur la map {} — données de map potentiellement obsolètes", newCharacter.name, resourceCode, mapData.mapId)
+                excludedMapIds.add(mapData.mapId)
+                newCharacter = accountClient.getCharacter(newCharacter.name).data
+                mapData = mapService.findClosestMap(character = newCharacter, contentCode = resourceCode, excludeMapIds = excludedMapIds)
+                newCharacter = movementService.moveCharacterToCell(mapData.mapId, newCharacter)
+            }
+        }
+        return newCharacter
+    }
+
+    private fun recollectMissingIngredients(character: ArtifactsCharacter, ingredients: List<RecipeIngredient>, quantity: Int): ArtifactsCharacter {
+        val missingIngredients = ingredients.filter { ingredient ->
+            val inInventory = character.inventory.filter { it.code == ingredient.code }.sumOf { it.quantity }
+            inInventory < ingredient.quantity * quantity
+        }
+        if (missingIngredients.isEmpty()) return character
+        log.debug("Re-collecting {} ingredient(s) from bank deposited during gathering", missingIngredients.size)
+        var newCharacter = movementService.moveToBank(character)
+        missingIngredients.forEach { ingredient ->
+            val inInventory = newCharacter.inventory.filter { it.code == ingredient.code }.sumOf { it.quantity }
+            val needed = ingredient.quantity * quantity - inInventory
+            if (needed > 0) {
+                newCharacter = bankService.withdrawOne(ingredient.code, needed, newCharacter)
+            }
+        }
+        return newCharacter
     }
 
     private fun craft(character: ArtifactsCharacter, item: ItemDetails, quantity: Int) : ArtifactsCharacter {
@@ -174,6 +222,7 @@ class GatheringService(
         require(!(npcItem.currency == "gold" || npcItem.buyPrice == null)) { "Will not buy component with gold currency" }
         var newCharacter = craftOrGather(character, npcItem.currency, npcItem.buyPrice * quantity, functionLevel + 1, allowFight, shouldTrain)
         newCharacter = movementService.moveToBank(newCharacter)
+        newCharacter = bankService.emptyInventory(newCharacter)
         newCharacter = bankService.withdrawOne(npcItem.currency, npcItem.buyPrice * quantity, newCharacter)
         newCharacter = movementService.moveToNpc(newCharacter, npcItem.npc)
         return npcClient.buyItem(newCharacter.name, npcItem.code, quantity).data.character
