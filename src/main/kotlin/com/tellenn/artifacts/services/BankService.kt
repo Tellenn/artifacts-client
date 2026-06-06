@@ -17,6 +17,8 @@ import com.tellenn.artifacts.models.BankDetails
 import com.tellenn.artifacts.services.sync.BankItemSyncService
 import org.apache.logging.log4j.LogManager
 import org.springframework.stereotype.Service
+import java.util.concurrent.ConcurrentHashMap
+import java.util.concurrent.atomic.AtomicInteger
 
 @Service
 class BankService(
@@ -30,6 +32,20 @@ class BankService(
     private val mapService: MapService
 ) {
     private val log = LogManager.getLogger(BankService::class.java)
+    private val reservations = ConcurrentHashMap<String, AtomicInteger>()
+
+    fun reserveInBank(code: String, quantity: Int) {
+        reservations.getOrPut(code) { AtomicInteger(0) }.addAndGet(quantity)
+        log.debug("Réservé {} x{} en banque", code, quantity)
+    }
+
+    fun releaseReservation(code: String, quantity: Int) {
+        reservations.computeIfPresent(code) { _, atomic ->
+            val remaining = atomic.addAndGet(-quantity)
+            if (remaining <= 0) null else atomic
+        }
+        log.debug("Libéré réservation {} x{}", code, quantity)
+    }
 
     fun emptyInventory(character: ArtifactsCharacter) : ArtifactsCharacter{
         var newCharacter = character
@@ -143,11 +159,9 @@ class BankService(
     }
 
     fun isInBank(item: String?, quantityLeft: Int = 1): Boolean {
-        val bankedItem = bankClient.getBankedItems(item).data.firstOrNull()
-        if(bankedItem == null){
-            return false
-        }
-        return bankedItem.quantity >= quantityLeft
+        val bankedItem = bankClient.getBankedItems(item).data.firstOrNull() ?: return false
+        val reserved = reservations[item]?.get() ?: 0
+        return bankedItem.quantity - reserved >= quantityLeft
     }
 
     fun getAllEquipmentsUnderLevel(level: Int) : List<BankItemDocument>{
@@ -171,11 +185,12 @@ class BankService(
         var newCharacter = character
         try {
             newCharacter = bankClient.withdrawItems(newCharacter.name, items).data.character
+            items.forEach { releaseReservation(it.code, it.quantity) }
         }catch (e: BankCorruptedException){
             bankItemSyncService.syncAllItems()
             throw e
         }catch (e: MissingItemException){
-            // This happens because we registered someone wanting to deposit an item, but he haven't done it yet
+            // Peut arriver si un autre agent a retiré l'item entre le isInBank et le retrait effectif
             bankItemSyncService.syncAllItems()
             throw e
         }

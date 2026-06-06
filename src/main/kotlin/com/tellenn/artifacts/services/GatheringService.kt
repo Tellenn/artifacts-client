@@ -34,10 +34,13 @@ class GatheringService(
     private val equipmentService: EquipmentService,
     private val accountClient: AccountClient,
     private val npcClient: NpcClient,
-    private val clientErrorService: ClientErrorService,
     private val grandExchangeService: GrandExchangeService
 ) {
     private val log = LogManager.getLogger(GatheringService::class.java)
+
+    companion object {
+        private const val INVENTORY_SAFE_MARGIN = 5
+    }
 
     /*
      * The goal of this function is to be able to craft any item with any complexity as long as it's possible within a single inventory
@@ -51,9 +54,11 @@ class GatheringService(
         val inventorySizeNeeded = quantity * sizeForOne
         require( quantity >0 && inventorySizeNeeded <= character.inventoryMaxItems){"Cannot craft or gather $quantity item with code $itemCode because the inventory is too small"}
 
-        if(functionLevel > 0 && bankService.isInBank(itemDetails.code, quantity))
-            // It's a sub item and I have it in stock
+        if(functionLevel > 0 && bankService.isInBank(itemDetails.code, quantity)) {
+            // It's a sub item and I have it in stock — reserve it so other agents can't claim it
+            bankService.reserveInBank(itemDetails.code, quantity)
             return character
+        }
         return when {
             itemDetails.subtype == "task" -> {
                 // It's a task reward item, and we don't have it in stock
@@ -101,7 +106,19 @@ class GatheringService(
                     itemsToWithdraw.add(SimpleItem(i.code, i.quantity * quantity))
                 }
                 newCharacter = movementService.moveToBank(newCharacter)
-                newCharacter = bankService.withdrawMany(itemsToWithdraw as ArrayList<SimpleItem>, newCharacter)
+                for (item in itemsToWithdraw) {
+                    newCharacter = try {
+                        bankService.withdrawOne(item.code, item.quantity, newCharacter)
+                    } catch (_: MissingItemException) {
+                        // L'item a été retiré par un autre agent entre la réservation et le retrait effectif
+                        log.warn("{} : ingrédient {} manquant en banque — re-collecte", newCharacter.name, item.code)
+                        bankService.releaseReservation(item.code, item.quantity)
+                        val reGathered = craftOrGather(newCharacter, item.code, item.quantity, 0, allowFight, shouldTrain)
+                        val atBank = movementService.moveToBank(reGathered)
+                        val emptied = bankService.emptyInventory(atBank)
+                        bankService.withdrawOne(item.code, item.quantity, emptied)
+                    }
+                }
                 // gather() calls emptyInventory() which may have deposited previously obtained ingredients to bank.
                 // Re-withdraw any missing ingredients before crafting.
                 newCharacter = recollectMissingIngredients(newCharacter, itemDetails.craft.items, quantity)
@@ -150,26 +167,21 @@ class GatheringService(
         newCharacter = bankService.emptyInventory(newCharacter)
         newCharacter = movementService.moveCharacterToCell(mapData.mapId, newCharacter)
         while (quantityGathered < quantityToCraft) {
+            val inventoryUsed = newCharacter.inventory.sumOf { it.quantity }
+            if (inventoryUsed >= newCharacter.inventoryMaxItems - INVENTORY_SAFE_MARGIN) {
+                log.debug("{} inventaire presque plein ({}/{}) — vidage préventif avant le prochain gather", newCharacter.name, inventoryUsed, newCharacter.inventoryMaxItems)
+                newCharacter = movementService.moveToBank(newCharacter)
+                newCharacter = bankService.emptyInventory(newCharacter)
+                newCharacter = movementService.moveCharacterToCell(mapData.mapId, newCharacter)
+            }
             try{
-                val gather = gatheringClient.gather(characterName = newCharacter.name).data
-                if(gather.details.items.any { it.code == item.code }){
-                    quantityGathered++
-                }
-                newCharacter = gather.character
+                val gatherResult = gatheringClient.gather(characterName = newCharacter.name).data
+                quantityGathered += gatherResult.details.items
+                    .filter { it.code == item.code }
+                    .sumOf { it.quantity }
+                newCharacter = gatherResult.character
             }catch (e: CharacterInventoryFullException){
-                clientErrorService.logError(
-                    clientType = "SERVICE",
-                    endpoint = "gatheringService.gather",
-                    requestMethod = "NA",
-                    requestParams = "${item.code} ${quantityToCraft}",
-                    requestBody = "NA",
-                    responseBody = "NA",
-                    errorCode = 0,
-                    errorMessage = "NA",
-                    character = newCharacter,
-                    stackTrace = e.stackTraceToString()
-                )
-                log.warn("${newCharacter.name} is emptying their inventory", e)
+                log.warn("{} inventaire plein malgré la vérification préventive — vidage", newCharacter.name, e)
                 newCharacter = accountClient.getCharacter(newCharacter.name).data
                 newCharacter = movementService.moveToBank(newCharacter)
                 newCharacter = bankService.emptyInventory(newCharacter)
@@ -220,10 +232,22 @@ class GatheringService(
         // We don't have it, and it's a npc selling it
         val npcItem = npcClient.getNpcByItemCode(item.code).data.first()
         require(!(npcItem.currency == "gold" || npcItem.buyPrice == null)) { "Will not buy component with gold currency" }
-        var newCharacter = craftOrGather(character, npcItem.currency, npcItem.buyPrice * quantity, functionLevel + 1, allowFight, shouldTrain)
+        val currencyCode = npcItem.currency
+        val currencyQty = npcItem.buyPrice * quantity
+        var newCharacter = craftOrGather(character, currencyCode, currencyQty, functionLevel + 1, allowFight, shouldTrain)
         newCharacter = movementService.moveToBank(newCharacter)
         newCharacter = bankService.emptyInventory(newCharacter)
-        newCharacter = bankService.withdrawOne(npcItem.currency, npcItem.buyPrice * quantity, newCharacter)
+        newCharacter = try {
+            bankService.withdrawOne(currencyCode, currencyQty, newCharacter)
+        } catch (_: MissingItemException) {
+            // La devise a été retirée par un autre agent entre la réservation et le retrait effectif
+            log.warn("{} : devise {} volée par un autre agent — re-collecte", newCharacter.name, currencyCode)
+            bankService.releaseReservation(currencyCode, currencyQty)
+            val reGathered = craftOrGather(newCharacter, currencyCode, currencyQty, 0, allowFight, shouldTrain)
+            val atBank = movementService.moveToBank(reGathered)
+            val emptied = bankService.emptyInventory(atBank)
+            bankService.withdrawOne(currencyCode, currencyQty, emptied)
+        }
         newCharacter = movementService.moveToNpc(newCharacter, npcItem.npc)
         return npcClient.buyItem(newCharacter.name, npcItem.code, quantity).data.character
     }
