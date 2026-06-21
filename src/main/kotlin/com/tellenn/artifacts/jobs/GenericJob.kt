@@ -37,10 +37,11 @@ class GenericJob(
      * Initialization for clean re-run, return ever character to the closest bank for an inventory cleanup
      * This is the main entry point for job execution.
      */
-    fun init(characterName : String) : ArtifactsCharacter{
+    fun init(characterName: String): ArtifactsCharacter {
         var tempCharacter = accountClient.getCharacter(characterName).data
-        if(characterName != "Cloud" && tempCharacter.weaponSlot == "wooden_stick"){
-            characterService.unequip(tempCharacter, "weapon_slot", 1)
+        val isFighter = getPredefinedCharacters().any { it.name == characterName && it.job == "fighter" }
+        if (!isFighter && tempCharacter.weaponSlot == "wooden_stick") {
+            characterService.unequip(tempCharacter, "weapon", 1)
         }
         tempCharacter = movementService.moveToBank(tempCharacter)
         tempCharacter = bankService.emptyInventory(tempCharacter)

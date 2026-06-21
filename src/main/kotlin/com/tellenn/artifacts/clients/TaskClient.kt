@@ -7,12 +7,10 @@ import com.tellenn.artifacts.clients.responses.DataResponseBody
 import com.tellenn.artifacts.clients.responses.RewardDataResponseBody
 import com.tellenn.artifacts.clients.responses.TaskDataResponseBody
 import com.tellenn.artifacts.clients.responses.TaskTradeResponseBody
-import lombok.extern.slf4j.Slf4j
 import org.springframework.stereotype.Component
 
-@Slf4j
 @Component
-class TaskClient : BaseArtifactsClient() {
+class TaskClient(deps: BaseClientDependencies) : BaseArtifactsClient(deps) {
 
     fun giveItem(name: String, itemCode: String, quantity: Int = 1): ArtifactsResponseBody<TaskTradeResponseBody> {
         waitForCooldown(name)

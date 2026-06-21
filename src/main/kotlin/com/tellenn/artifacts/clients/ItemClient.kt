@@ -4,12 +4,10 @@ import com.fasterxml.jackson.module.kotlin.readValue
 import com.tellenn.artifacts.models.ItemDetails
 import com.tellenn.artifacts.clients.responses.ArtifactsResponseBody
 import com.tellenn.artifacts.clients.responses.ArtifactsArrayResponseBody
-import lombok.extern.slf4j.Slf4j
 import org.springframework.stereotype.Component
 
-@Slf4j
 @Component
-class ItemClient : BaseArtifactsClient() {
+class ItemClient(deps: BaseClientDependencies) : BaseArtifactsClient(deps) {
 
     fun getItems(name: String? = null, type: String? = null, rarity: String? = null, level: Int? = null, 
                  equippable: Boolean? = null, usable: Boolean? = null, stackable: Boolean? = null,

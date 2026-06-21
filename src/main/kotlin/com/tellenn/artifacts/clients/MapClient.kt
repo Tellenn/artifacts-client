@@ -3,12 +3,10 @@ package com.tellenn.artifacts.clients
 import com.fasterxml.jackson.module.kotlin.readValue
 import com.tellenn.artifacts.models.MapData
 import com.tellenn.artifacts.clients.responses.ArtifactsArrayResponseBody
-import lombok.extern.slf4j.Slf4j
 import org.springframework.stereotype.Component
 
-@Slf4j
 @Component
-class MapClient : BaseArtifactsClient() {
+class MapClient(deps: BaseClientDependencies) : BaseArtifactsClient(deps) {
 
     fun getMaps(name: String? = null, 
                 content_type: String? = null, content_code: String? = null,

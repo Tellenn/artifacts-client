@@ -29,7 +29,8 @@ class BankService(
     private val bankItemSyncService: BankItemSyncService,
     private val accountClient: AccountClient,
     private val movementClient: MovementClient,
-    private val mapService: MapService
+    private val mapService: MapService,
+    private val teleportService: TeleportService
 ) {
     private val log = LogManager.getLogger(BankService::class.java)
     private val reservations = ConcurrentHashMap<String, AtomicInteger>()
@@ -53,14 +54,23 @@ class BankService(
         val items = inventory.filter { it.quantity > 0 }.map { SimpleItem(it.code, it.quantity) }
         newCharacter = deposit(newCharacter, items)
         if(newCharacter.utility1Slot != ""){
-            newCharacter = characterService.unequip(newCharacter, "utility1", newCharacter.utility1SlotQuantity)
-            newCharacter = deposit(character, listOf(SimpleItem(newCharacter.utility1Slot, newCharacter.utility1SlotQuantity)))
+            val utility1Code = newCharacter.utility1Slot
+            val utility1Qty = newCharacter.utility1SlotQuantity
+            newCharacter = characterService.unequip(newCharacter, "utility1", utility1Qty)
+            newCharacter = deposit(newCharacter, listOf(SimpleItem(utility1Code, utility1Qty)))
         }
         if(newCharacter.utility2Slot != ""){
-            newCharacter = characterService.unequip(newCharacter, "utility2", newCharacter.utility2SlotQuantity)
-            newCharacter = deposit(character, listOf(SimpleItem(newCharacter.utility2Slot, newCharacter.utility2SlotQuantity)))
+            val utility2Code = newCharacter.utility2Slot
+            val utility2Qty = newCharacter.utility2SlotQuantity
+            newCharacter = characterService.unequip(newCharacter, "utility2", utility2Qty)
+            newCharacter = deposit(newCharacter, listOf(SimpleItem(utility2Code, utility2Qty)))
         }
-        return depositMoney(newCharacter, newCharacter.gold)
+        newCharacter = depositMoney(newCharacter, newCharacter.gold)
+        teleportService.findBankPotionAvailableInBank(newCharacter)?.let { potion ->
+            log.info("{} prend une potion-banque : {}", newCharacter.name, potion.code)
+            newCharacter = withdrawOne(potion.code, 1, newCharacter)
+        }
+        return newCharacter
     }
 
     fun depositMoney(character: ArtifactsCharacter, amount: Int) : ArtifactsCharacter{
@@ -124,30 +134,21 @@ class BankService(
                 }
             }
 
-        }catch(e: InterruptedException){
+        } catch (e: InterruptedException) {
             throw e
         } catch (e: Exception) {
             log.error("Failed to deposit items to bank: ${e.message}")
 
-            // Rollback database changes
-            newBankItems.forEach { 
-                try {
-                    bankRepository.delete(it)
-                } catch (ex: Exception) {
-                    log.error("Failed to rollback new bank item ${it.code}: ${ex.message}")
-                }
+            newBankItems.forEach {
+                try { bankRepository.delete(it) }
+                catch (ex: Exception) { log.error("Failed to rollback new bank item ${it.code}: ${ex.message}") }
             }
-
             originalBankItems.forEach { (_, originalItem) ->
-                try {
-                    bankRepository.save(originalItem)
-                } catch (ex: Exception) {
-                    log.error("Failed to rollback bank item ${originalItem.code}: ${ex.message}")
-                }
+                try { bankRepository.save(originalItem) }
+                catch (ex: Exception) { log.error("Failed to rollback bank item ${originalItem.code}: ${ex.message}") }
             }
 
-            // Re-throw the exception or handle it as needed
-            // throw e
+            throw e
         }
 
         return newCharacter

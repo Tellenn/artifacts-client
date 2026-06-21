@@ -4,12 +4,10 @@ import com.fasterxml.jackson.module.kotlin.readValue
 import com.tellenn.artifacts.models.SimpleItem
 import com.tellenn.artifacts.clients.responses.ArtifactsResponseBody
 import com.tellenn.artifacts.clients.responses.CraftingResponseBody
-import lombok.extern.slf4j.Slf4j
 import org.springframework.stereotype.Component
 
-@Slf4j
 @Component
-class CraftingClient : BaseArtifactsClient() {
+class CraftingClient(deps: BaseClientDependencies) : BaseArtifactsClient(deps) {
 
     fun craft(characterName: String, itemCode: String, quantity: Int = 1): ArtifactsResponseBody<CraftingResponseBody> {
         waitForCooldown(characterName)

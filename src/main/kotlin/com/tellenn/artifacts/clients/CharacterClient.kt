@@ -9,12 +9,10 @@ import com.tellenn.artifacts.clients.responses.ClaimPendingItemResponseBody
 import com.tellenn.artifacts.clients.responses.EquipmentResponseBody
 import com.tellenn.artifacts.clients.responses.RestResponseBody
 import com.tellenn.artifacts.clients.responses.UseItemResponseBody
-import lombok.extern.slf4j.Slf4j
 import org.springframework.stereotype.Component
 
-@Slf4j
 @Component
-class CharacterClient : BaseArtifactsClient() {
+class CharacterClient(deps: BaseClientDependencies) : BaseArtifactsClient(deps) {
 
     fun rest(characterName: String): ArtifactsResponseBody<RestResponseBody> {
         waitForCooldown(characterName)
@@ -27,7 +25,7 @@ class CharacterClient : BaseArtifactsClient() {
     fun equipItem(characterName: String, itemCode: String, slot: String, quantity: Int): ArtifactsResponseBody<EquipmentResponseBody> {
         waitForCooldown(characterName)
         val request = EquipRequest(itemCode, slot, quantity)
-        val requestBody = objectMapper.writeValueAsString(request)
+        val requestBody = objectMapper.writeValueAsString(listOf(request))
         return sendPostRequest("/my/$characterName/action/equip", requestBody).use { response ->
             val responseBody = response.body!!.string()
             objectMapper.readValue<ArtifactsResponseBody<EquipmentResponseBody>>(responseBody)
@@ -37,7 +35,7 @@ class CharacterClient : BaseArtifactsClient() {
     fun unequipItem(characterName: String, slot: String, quantity: Int): ArtifactsResponseBody<EquipmentResponseBody> {
         waitForCooldown(characterName)
         val request = UnequipRequest(slot, quantity)
-        val requestBody = objectMapper.writeValueAsString(request)
+        val requestBody = objectMapper.writeValueAsString(listOf(request))
         return sendPostRequest("/my/$characterName/action/unequip", requestBody).use { response ->
             val responseBody = response.body!!.string()
             objectMapper.readValue<ArtifactsResponseBody<EquipmentResponseBody>>(responseBody)
@@ -47,7 +45,7 @@ class CharacterClient : BaseArtifactsClient() {
     fun useItem(characterName: String, itemCode: String, quantity: Int = 1): ArtifactsResponseBody<UseItemResponseBody> {
         waitForCooldown(characterName)
         val request = SimpleItem(itemCode, quantity)
-        val requestBody = objectMapper.writeValueAsString(request)
+        val requestBody = objectMapper.writeValueAsString(listOf(request))
         return sendPostRequest("/my/$characterName/action/use", requestBody).use { response ->
             val responseBody = response.body!!.string()
             objectMapper.readValue<ArtifactsResponseBody<UseItemResponseBody>>(responseBody)
@@ -57,7 +55,7 @@ class CharacterClient : BaseArtifactsClient() {
     fun destroy(characterName: String, code: String, quantity: Int) : ArtifactsResponseBody<UseItemResponseBody> {
         waitForCooldown(characterName)
         val request = SimpleItem(code, quantity)
-        val requestBody = objectMapper.writeValueAsString(request)
+        val requestBody = objectMapper.writeValueAsString(listOf(request))
         return sendPostRequest("/my/$characterName/action/delete", requestBody).use { response ->
             val responseBody = response.body!!.string()
             objectMapper.readValue<ArtifactsResponseBody<UseItemResponseBody>>(responseBody)

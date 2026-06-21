@@ -10,13 +10,11 @@ import com.tellenn.artifacts.clients.responses.ArtifactsArrayResponseBody
 import com.tellenn.artifacts.clients.responses.ArtifactsResponseBody
 import com.tellenn.artifacts.models.Achievement
 import com.tellenn.artifacts.models.PendingItem
-import lombok.extern.slf4j.Slf4j
 import org.springframework.stereotype.Service
 
-@Slf4j
 @Service
 @Suppress("unused")
-class AccountClient() : BaseArtifactsClient() {
+class AccountClient(deps: BaseClientDependencies) : BaseArtifactsClient(deps) {
 
     fun getGESellOrders(code: String? = null, page: Int = 1, size: Int = 50): ArtifactsArrayResponseBody<GEOrder> {
         val queryParams = buildQueryParams(
@@ -94,7 +92,7 @@ class AccountClient() : BaseArtifactsClient() {
     }
 
     fun getPendingItems(): ArtifactsArrayResponseBody<PendingItem> {
-        return sendGetRequest("/my/pending-items").use { response ->
+        return sendGetRequest("/my/pending_items").use { response ->
             val responseBody = response.body!!.string()
             objectMapper.readValue<ArtifactsArrayResponseBody<PendingItem>>(responseBody)
         }

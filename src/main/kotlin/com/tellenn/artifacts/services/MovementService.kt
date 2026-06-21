@@ -18,7 +18,8 @@ class MovementService(
     private val movementClient: MovementClient,
     private val accountClient: AccountClient,
     private val mapService: MapService,
-    private val bankService: BankService
+    private val bankService: BankService,
+    private val teleportService: TeleportService
 ) {
     private val log = LoggerFactory.getLogger(MovementService::class.java)
 
@@ -34,6 +35,10 @@ class MovementService(
         if (character.mapId == mapId) {
             log.debug("Character ${character.name} is already at position $mapId, skipping movement call")
             return character
+        }
+        teleportService.findPotionForDestination(character, mapId)?.let { potion ->
+            log.info("{} se téléporte vers {} via {}", character.name, mapId, potion.code)
+            return teleportService.use(character, potion.code)
         }
         val destinationMap = mapService.findByMapId(mapId)
         val originMap = mapService.findByMapId(character.mapId)
@@ -133,6 +138,10 @@ class MovementService(
      * @return The updated character after moving to the bank, or the original character if already at a bank
      */
     fun moveToBank(character: ArtifactsCharacter, checkAchievement: Boolean = true): ArtifactsCharacter {
+        teleportService.findBankPotionInInventory(character)?.let { potion ->
+            log.info("{} se téléporte à la banque via {}", character.name, potion.code)
+            return teleportService.use(character, potion.code)
+        }
         val closestBank = mapService.findClosestMap(character = character, contentCode = "bank", checkAchievement = checkAchievement)
         if (character.mapId == closestBank.mapId) {
             return character

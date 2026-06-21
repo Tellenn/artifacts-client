@@ -22,6 +22,7 @@ import com.tellenn.artifacts.services.MonsterService
 import com.tellenn.artifacts.services.MovementService
 import com.tellenn.artifacts.services.TaskService
 import com.tellenn.artifacts.services.UniqueArtifactService
+import com.tellenn.artifacts.services.CharacterContextService
 import com.tellenn.artifacts.AppConfig.maxLevel
 import org.springframework.stereotype.Component
 import java.lang.Thread.sleep
@@ -45,6 +46,7 @@ class CrafterJob(
     private val monsterService: MonsterService,
     private val achievementService: AchievementService,
     private val uniqueArtifactService: UniqueArtifactService,
+    private val contextService: CharacterContextService,
 ) : GenericJob(mapService, movementService, bankService, characterService, accountClient, taskService) {
 
     lateinit var character: ArtifactsCharacter
@@ -60,6 +62,7 @@ class CrafterJob(
                 && character.gearcraftingLevel >= maxLevel
                 && character.jewelrycraftingLevel >= maxLevel
             ) {
+                contextService.setObjective(character.name, "Exécution des achievements (toutes compétences max)")
                 character = achievementService.executeAchievement(character, "crafter")
                 continue
             }
@@ -67,16 +70,20 @@ class CrafterJob(
             val bankDetails = bankService.getBankDetails()
             if(bankDetails.slots - bankService.getBankSize() < 20 && bankDetails.slots < 200 && bankDetails.gold > bankDetails.nextExpansionCost){
                 log.info("${character.name} is buying a bankSlot for ${bankDetails.nextExpansionCost}")
+                contextService.setObjective(character.name, "Achat d'un slot bancaire (${bankDetails.nextExpansionCost} or)")
                 character = movementService.moveToBank(character)
                 character = bankService.withdrawMoney(character, bankDetails.nextExpansionCost)
                 character = bankService.buyBankSlot(character)
             }
 
+            contextService.setObjective(character.name, "Nettoyage de la banque")
             character = cleanUpBank()
+            contextService.setObjective(character.name, "Réclamation des items en attente")
             character = claimPendingItems()
 
             for ((artifact, _) in uniqueArtifactService.findArtifactsToGather()) {
-                    character = tryGatherUniqueArtifact(artifact)
+                contextService.setObjective(character.name, "Collecte de l'artéfact unique : ${artifact.code}")
+                character = tryGatherUniqueArtifact(artifact)
             }
 
             val skillToLevel = getLowestSkillLevel(character)
@@ -92,6 +99,7 @@ class CrafterJob(
                     if(bankService.canCraftFromBank(itemDetail)){
                         try {
                             log.info("${character.name} is crafting a ${itemDetail.code} from items in bank for use in bank")
+                            contextService.setObjective(character.name, "Craft de ${itemDetail.code} depuis la banque (stock)")
                             character =
                                 gatheringService.craftOrGather(character, itemDetail.code, 1, allowFight = false)
                             character = movementService.moveToBank(character)
@@ -111,6 +119,7 @@ class CrafterJob(
                 for (itemDetail in itemsToCraft) {
                     try{
                         log.info("${character.name} is gathering and crafting a ${itemDetail.code} for use in bank")
+                        contextService.setObjective(character.name, "Collecte et craft de ${itemDetail.code} pour la banque")
                         character = gatheringService.craftOrGather(character, itemDetail.code, 1, allowFight = true, shouldTrain = false)
                         character = movementService.moveToBank(character)
                         character = bankService.emptyInventory(character)
@@ -141,6 +150,7 @@ class CrafterJob(
                 getTopLowestCostingItemForLeveling(character.getLevelOf(skillToLevel), listOf(skillToLevel))
             // TODO : If itemTocraft is empty, it means the crafts are becoming too hard to do and may need to include rare items
             val oldLevel = character.getLevelOf(skillToLevel)
+            contextService.setObjective(character.name, "Craft de ${itemToCraft.code} pour level up $skillToLevel (niv. $oldLevel)")
             while (oldLevel == character.getLevelOf(skillToLevel)) {
                 try {
                     log.info("${character.name} is gathering and crafting a ${itemToCraft.code} for leveling")

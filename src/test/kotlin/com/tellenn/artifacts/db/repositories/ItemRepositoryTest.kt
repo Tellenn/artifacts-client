@@ -23,6 +23,7 @@ class ItemRepositoryTest {
             subtype = "sword",
             level = 1,
             tradeable = true,
+            recyclable = false,
             effects = null,
             craft = null,
             conditions = null
@@ -35,6 +36,7 @@ class ItemRepositoryTest {
             subtype = "potion",
             level = 5,
             tradeable = true,
+            recyclable = false,
             effects = null,
             craft = null,
             conditions = null
@@ -47,6 +49,7 @@ class ItemRepositoryTest {
             subtype = "body",
             level = 10,
             tradeable = false,
+            recyclable = false,
             effects = null,
             craft = null,
             conditions = null

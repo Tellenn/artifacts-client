@@ -209,6 +209,51 @@ class ThreadService(
     }
     
     /**
+     * Reserves a character for a boss fight without interrupting its thread.
+     * Used for the "master" character whose thread IS the boss fight caller.
+     *
+     * @param characterName The name of the character to reserve
+     * @return true if the reservation succeeded, false if the character is already on a mission
+     */
+    fun reserveCharacter(characterName: String): Boolean {
+        val managedThread = getManagedThread(characterName) ?: return false
+        return managedThread.isOnMission.compareAndSet(false, true).also { reserved ->
+            if (reserved) managedThread.currentPriority.set(MissionPriority.HUMAN_ORDER)
+        }
+    }
+
+    /**
+     * Reserves a character for a boss fight, interrupts its thread, and waits for it to stop.
+     * Used for "slave" characters whose threads must be stopped before the boss fight takes over.
+     *
+     * @param characterName The name of the character to reserve and interrupt
+     * @return true if the reservation succeeded, false if the character is already on a mission
+     */
+    fun reserveAndInterruptCharacter(characterName: String): Boolean {
+        val managedThread = getManagedThread(characterName) ?: return false
+        if (!managedThread.isOnMission.compareAndSet(false, true)) return false
+        managedThread.currentPriority.set(MissionPriority.HUMAN_ORDER)
+        managedThread.thread.interrupt()
+        if (managedThread.thread.isAlive) {
+            try { managedThread.thread.join(5000) }
+            catch (_: InterruptedException) { Thread.currentThread().interrupt() }
+        }
+        return true
+    }
+
+    /**
+     * Releases a boss fight reservation for the master character without restarting its thread.
+     * The master's thread continues running after this call.
+     *
+     * @param characterName The name of the character to release
+     */
+    fun releaseCharacter(characterName: String) {
+        val managedThread = getManagedThread(characterName) ?: return
+        managedThread.isOnMission.set(false)
+        managedThread.currentPriority.set(MissionPriority.DEFAULT)
+    }
+
+    /**
      * Interrupts a character thread with priority checking.
      *
      * @param characterName The name of the character whose thread should be interrupted

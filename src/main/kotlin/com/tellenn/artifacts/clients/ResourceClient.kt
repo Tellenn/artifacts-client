@@ -10,7 +10,7 @@ import org.springframework.stereotype.Component
  * Provides methods to fetch resources.
  */
 @Component
-class ResourceClient : BaseArtifactsClient() {
+class ResourceClient(deps: BaseClientDependencies) : BaseArtifactsClient(deps) {
 
     /**
      * Fetches resources from the API with optional filtering and pagination.
@@ -41,9 +41,9 @@ class ResourceClient : BaseArtifactsClient() {
         queryParams["size"] = size.toString()
         
         val queryString = queryParams.entries.joinToString("&") { "${it.key}=${it.value}" }
-        val url = "/resources${if (queryString.isNotEmpty()) "?$queryString" else ""}"
-        
-        return sendGetRequest(url).use { response ->
+        val path = "/resources${if (queryString.isNotEmpty()) "?$queryString" else ""}"
+
+        return sendGetRequest(path).use { response ->
             val responseBody = response.body!!.string()
             objectMapper.readValue<ArtifactsArrayResponseBody<Resource>>(responseBody)
         }

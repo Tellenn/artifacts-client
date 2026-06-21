@@ -99,7 +99,7 @@ class TaskService(
         }
         try {
             while (quantityLeft > 0) {
-                val quantityToCraft = Math.min(quantityLeft, (character.inventoryMaxItems - 10) / sizeToCraft)
+                val quantityToCraft = Math.min(quantityLeft, (newCharacter.inventoryMaxItems - 10) / sizeToCraft)
                 newCharacter = gatheringService.craftOrGather(newCharacter, itemCode, quantityToCraft)
                 newCharacter = movementService.moveCharacterToMaster("items", newCharacter)
                 newCharacter = taskClient.giveItem(newCharacter.name, itemCode, quantityToCraft).data.character

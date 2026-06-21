@@ -58,8 +58,11 @@ class EquipmentService(
                 bis["ring2"] = null
             }
         }
-        bis.forEach { slot,item ->
+        val equippedArtifacts = setOf(character.artifact1Slot, character.artifact2Slot, character.artifact3Slot)
+        bis.forEach { slot, item ->
             if(item?.code != null && character[slot+"_slot"] != item.code) {
+                val isArtifactSlot = slot in setOf("artifact1", "artifact2", "artifact3")
+                if (isArtifactSlot && equippedArtifacts.contains(item.code)) return@forEach
                 // Ring specific case
                 if(bankWithdraw.contains(SimpleItem(item.code, 1))){
                     bankWithdraw.remove(SimpleItem(item.code, 1))
@@ -72,6 +75,8 @@ class EquipmentService(
             newCharacter = bankService.withdrawMany(bankWithdraw, newCharacter)
             bis.forEach { slot,item ->
                 if(item?.code != null && character[slot+"_slot"] != item.code) {
+                    val isArtifactSlot = slot in setOf("artifact1", "artifact2", "artifact3")
+                    if (isArtifactSlot && equippedArtifacts.contains(item.code)) return@forEach
                     newCharacter = characterService.equip(newCharacter, item.code, slot, 1)
                 }
             }
@@ -232,10 +237,10 @@ class EquipmentService(
                     monster,
                     bestWeapon,
                     threatScoreMult)
-            }else if(slot.key == "ring1" || slot.key == "ring2"){
-                item =
-                    getBestScoreForItems(availableEquipment.filter { it.type == "ring" }, monster, bestWeapon,
-                        threatScoreMult)
+            }else if(slot.key == "ring1"){
+                item = getBestScoreForItems(availableEquipment.filter { it.type == "ring" }, monster, bestWeapon, threatScoreMult)
+            }else if(slot.key == "ring2"){
+                item = getBestScoreForItems(availableEquipment.filter { it.type == "ring" && it.code != bis["ring1"]?.code }, monster, bestWeapon, threatScoreMult)
             }else{
                 item =
                     getBestScoreForItems(availableEquipment.filter { it.type == slot.key }, monster, bestWeapon,
@@ -274,8 +279,11 @@ class EquipmentService(
         if(bis.any { it.value != null }) {
             newCharacter = movementService.moveToBank(character)
 
+            val equippedArtifacts = setOf(character.artifact1Slot, character.artifact2Slot, character.artifact3Slot)
             bis.forEach { (slot, item) ->
                 if (item?.code != null && character[slot + "_slot"] != item.code) {
+                    val isArtifactSlot = slot in setOf("artifact1", "artifact2", "artifact3")
+                    if (isArtifactSlot && equippedArtifacts.contains(item.code)) return@forEach
                     // Ring specific case
                     if ((slot == "ring1_slot" || slot == "ring2_slot") && bankWithdraw.contains(SimpleItem(item.code, 1))) {
                         bankWithdraw.remove(SimpleItem(item.code, 1))
@@ -286,8 +294,11 @@ class EquipmentService(
             }
             try {
                 newCharacter = bankService.withdrawMany(bankWithdraw, newCharacter)
+                val equippedArtifacts = setOf(character.artifact1Slot, character.artifact2Slot, character.artifact3Slot)
                 bis.forEach { slot, item ->
                     if (item?.code != null && character[slot + "_slot"] != item.code) {
+                        val isArtifactSlot = slot in setOf("artifact1", "artifact2", "artifact3")
+                        if (isArtifactSlot && equippedArtifacts.contains(item.code)) return@forEach
                         newCharacter = characterService.equip(newCharacter, item.code, slot, 1)
                     }
                 }
@@ -344,9 +355,10 @@ class EquipmentService(
                         .filter { it.type == "artifact" }
                         .filter { it.code != bis["artifact1"]?.code }
                         .filter { it.code != bis["artifact2"]?.code })
-            }else if(slot.key == "ring1" || slot.key == "ring2"){
-                item =
-                    getBestWisdomGear(availableEquipment.filter { it.type == "ring" })
+            }else if(slot.key == "ring1"){
+                item = getBestWisdomGear(availableEquipment.filter { it.type == "ring" })
+            }else if(slot.key == "ring2"){
+                item = getBestWisdomGear(availableEquipment.filter { it.type == "ring" && it.code != bis["ring1"]?.code })
             }else{
                 item =
                     getBestWisdomGear(availableEquipment.filter { it.type == slot.key })
@@ -444,6 +456,7 @@ class EquipmentService(
     private fun getEquippedItems(character: ArtifactsCharacter) : List<ItemDetails>{
         val equippedItems = mutableListOf<String>()
         character.weaponSlot    ?.let { equippedItems.add(it) }
+        character.runeSlot      ?.let { equippedItems.add(it) }
         character.shieldSlot    ?.let { equippedItems.add(it) }
         character.helmetSlot    ?.let { equippedItems.add(it) }
         character.bodyArmorSlot ?.let { equippedItems.add(it) }

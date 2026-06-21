@@ -5,12 +5,10 @@ import com.tellenn.artifacts.clients.requests.SimulationBattleRequest
 import com.tellenn.artifacts.clients.responses.ArtifactsResponseBody
 import com.tellenn.artifacts.clients.responses.SimulationResult
 import com.tellenn.artifacts.models.ArtifactsCharacter
-import lombok.extern.slf4j.Slf4j
 import org.springframework.stereotype.Component
 
-@Slf4j
 @Component
-class SimulateClient : BaseArtifactsClient() {
+class SimulateClient(deps: BaseClientDependencies) : BaseArtifactsClient(deps) {
 
     fun simulate(characters: List<ArtifactsCharacter>, monsterName: String): ArtifactsResponseBody<SimulationResult> {
         val chars = characters.map {
@@ -20,7 +18,7 @@ class SimulateClient : BaseArtifactsClient() {
         }
 
         val req = SimulationBattleRequest(chars, monsterName, 10)
-        return sendPostRequest("/simulation/fight_simulation", objectMapper.writeValueAsString(req)).use { response ->
+        return sendPostRequest("/simulation/fight", objectMapper.writeValueAsString(req)).use { response ->
             val responseBody = response.body!!.string()
             objectMapper.readValue<ArtifactsResponseBody<SimulationResult>>(responseBody)
         }

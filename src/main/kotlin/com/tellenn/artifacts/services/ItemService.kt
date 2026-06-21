@@ -96,7 +96,14 @@ class ItemService(
     fun getPotions(): List<ItemDetails> {
         val alchemyPotions = itemRepository.findByCraftSkillAndLevelLessThanEqualOrderByLevelDesc("alchemy", 100)
         return alchemyPotions.filter { item ->
-            item.subtype == "potion" && item.craft != null && item.craft.skill == "alchemy"}.sortedBy { it.level }
+            item.subtype == "potion" && item.craft != null && item.craft.skill == "alchemy" &&
+            item.effects?.any { it.code == "teleport" } != true
+        }.sortedBy { it.level }
     }
+
+    fun getCraftableTeleportPotions(maxLevel: Int): List<ItemDetails> =
+        itemRepository.findByEffectsCode("teleport")
+            .filter { it.craft != null && it.craft.skill == "alchemy" && it.level <= maxLevel }
+            .sortedBy { it.level }
 
 }

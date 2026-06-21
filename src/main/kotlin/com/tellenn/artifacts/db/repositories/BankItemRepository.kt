@@ -15,4 +15,7 @@ interface BankItemRepository : MongoRepository<BankItemDocument, String> {
     fun findByTypeInAndLevelIsLessThanEqual(type: List<String>, level: Int): List<BankItemDocument>
 
     fun findByCodeContainingIgnoreCase(code: String): List<BankItemDocument>
+
+    @Query("{ 'effects.code': ?0 }")
+    fun findByEffectsCode(code: String): List<BankItemDocument>
 }

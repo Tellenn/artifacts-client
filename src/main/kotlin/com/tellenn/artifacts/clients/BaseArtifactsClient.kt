@@ -10,7 +10,6 @@ import com.tellenn.artifacts.clients.responses.ArtifactsResponseBody
 import com.tellenn.artifacts.exceptions.*
 import com.tellenn.artifacts.services.ClientErrorService
 import com.tellenn.artifacts.services.ws.MessageService
-import lombok.extern.slf4j.Slf4j
 import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.OkHttpClient
 import okhttp3.Request
@@ -19,37 +18,23 @@ import okhttp3.Response
 import okhttp3.ResponseBody.Companion.toResponseBody
 import java.util.concurrent.TimeUnit
 import org.slf4j.LoggerFactory
-import org.springframework.beans.factory.annotation.Autowired
-import org.springframework.beans.factory.annotation.Value
 import org.springframework.stereotype.Component
 import java.io.InterruptedIOException
 import java.lang.Thread.sleep
 import java.time.Instant
 import java.util.concurrent.ConcurrentHashMap
-import kotlin.collections.get
 
-@Slf4j
 @Component
-abstract class BaseArtifactsClient() {
+abstract class BaseArtifactsClient(deps: BaseClientDependencies) {
 
     private val log = LoggerFactory.getLogger(BaseArtifactsClient::class.java)
+    private val clientErrorService: ClientErrorService = deps.clientErrorService
+    private val messageService: MessageService = deps.messageService
+    private val timeUtils: TimeUtils = deps.timeUtils
+    val url: String = deps.url
+    private val key: String = deps.key
 
-    @Autowired
-    private lateinit var clientErrorService: ClientErrorService
-
-    @Autowired
-    private lateinit var messageService : MessageService
-
-    @Autowired
-    private lateinit var timeUtils: TimeUtils
-
-    @Value("\${artifacts.api.url}")
-    lateinit var url: String
-
-    @Value("\${artifacts.api.key}")
-    lateinit var key: String
-
-    val client = OkHttpClient.Builder()
+    private val client = OkHttpClient.Builder()
         .connectTimeout(30, TimeUnit.SECONDS)
         .readTimeout(30, TimeUnit.SECONDS)
         .writeTimeout(30, TimeUnit.SECONDS)
@@ -63,76 +48,41 @@ abstract class BaseArtifactsClient() {
         private val cooldowns = ConcurrentHashMap<String, Instant>()
     }
 
-    /**
-     * Checks if the response contains character information and sends it to the websocket if it does.
-
-     * @param responseBody The response body as a string
-     */
     private fun handleCharacter(responseBody: String) {
         try {
             val response = objectMapper.readValue<Map<String, Any>>(responseBody)
             val data = response["data"] as? Map<*, *> ?: return
             val character = data["character"] as? Map<*, *> ?: return
-            if(character.isEmpty()) return
+            if (character.isEmpty()) return
             messageService.sendCharacterMessage(character.toString())
         } catch (e: Exception) {
             log.warn("Failed to parse character information: ${e.message}")
         }
     }
 
-    /**
-     * Checks if the response contains cooldown information and sleeps the thread if it does.
-     * This handles cooldown information in the data field of successful responses.
-     * 
-     * @param responseBody The response body as a string
-     */
     private fun handleCooldown(responseBody: String) {
         try {
-
             val characterNames = CharacterConfig.getPredefinedCharacters().joinToString("|") { it.name }
-            val characterNamesRegex = characterNames.toRegex()
-            val matchResult = characterNamesRegex.find(responseBody) ?: return
+            val matchResult = characterNames.toRegex().find(responseBody) ?: return
 
-            val cooldownExpirationRegex = """\s*"cooldown_expiration"\s*:\s*"([^"]+)"""".toRegex()
-            val cooldownMatchResult = cooldownExpirationRegex.find(responseBody)
-            val cooldownFromRegex = cooldownMatchResult?.groupValues?.get(1) ?: return
+            val cooldownFromRegex = """\s*"cooldown_expiration"\s*:\s*"([^"]+)"""".toRegex()
+                .find(responseBody)?.groupValues?.get(1) ?: return
 
-            matchResult.groupValues.forEach {
-                cooldowns[it] = Instant.parse(cooldownFromRegex)
-            }
-
+            matchResult.groupValues.forEach { cooldowns[it] = Instant.parse(cooldownFromRegex) }
         } catch (e: Exception) {
             log.error("Failed to parse cooldown information: ${e.message}")
         }
     }
-    
-    /**
-     * For 499 error responses with cooldown information in the error field, see the special handling
-     * in sendGetRequest and sendPostRequest methods.
-     *
-     * @param responseBody The response body as a string
-     */
+
     private fun handle499Cooldown(responseBody: String) {
         try {
-            /*
-            Message looks like 
-            {
-              "error": {
-                "code": 499,
-                "message": "The character is in cooldown: 2.4 seconds remaining."
-              }
-            }
-             */
-            val regex = """(\d+\.\d+|\d+) seconds remaining""".toRegex()
-            val matchResult = regex.find(responseBody)
-            val cooldownSeconds = matchResult?.groupValues?.get(1)?.toDoubleOrNull()
-
+            val cooldownSeconds = """(\d+\.\d+|\d+) seconds remaining""".toRegex()
+                .find(responseBody)?.groupValues?.get(1)?.toDoubleOrNull()
             if (cooldownSeconds != null && cooldownSeconds > 0) {
                 log.debug("Character in cooldown: $cooldownSeconds seconds remaining. Sleeping thread...")
                 sleep((cooldownSeconds * 1000).toLong())
                 log.debug("Thread resumed after cooldown.")
             }
-
         } catch (e: Exception) {
             log.error("Failed to parse cooldown information: ${e.message}")
         }
@@ -150,13 +100,19 @@ abstract class BaseArtifactsClient() {
         }
     }
 
-    /**
-     * Maps a response code to the appropriate exception.
-     * 
-     * @param code The response code
-     * @param message The error message
-     * @return The appropriate exception for the response code
-     */
+    private fun checkRateLimit(response: Response, period: String, retryFn: () -> Response): Response? {
+        if (response.headers["x-ratelimit-remaining-$period"] != "0") return null
+        response.headers["x-ratelimit-reset-$period"]?.toLongOrNull()?.let { resetTimestamp ->
+            val sleepSeconds = resetTimestamp - System.currentTimeMillis() / 1000
+            if (sleepSeconds > 0) {
+                log.error("$period rate limit reached for ${javaClass.simpleName}, sleeping for $sleepSeconds seconds")
+                sleep(sleepSeconds * 1000)
+            }
+        }
+        response.close()
+        return retryFn()
+    }
+
     private fun mapResponseCodeToException(code: Int, message: String): ArtifactsApiException {
         return when (code) {
             // General
@@ -202,7 +158,6 @@ abstract class BaseArtifactsClient() {
             ErrorCodes.CHARACTER_INVENTORY_FULL -> CharacterInventoryFullException(message)
             ErrorCodes.CHARACTER_NOT_FOUND -> CharacterNotFoundException(message)
             ErrorCodes.CHARACTER_IN_COOLDOWN -> CharacterInCooldownException(message)
-
             // Item Error Codes
             ErrorCodes.ITEM_INSUFFICIENT_QUANTITY -> ItemInsufficientQuantityException(message)
             ErrorCodes.ITEM_INVALID_EQUIPMENT -> ItemInvalidEquipmentException(message)
@@ -235,215 +190,98 @@ abstract class BaseArtifactsClient() {
             ErrorCodes.NPC_NOT_FOR_SALE -> NPCNotForSaleException(message)
             ErrorCodes.NPC_NOT_FOR_BUY -> NPCNotForBuyException(message)
 
-            // Default
             else -> ArtifactsApiException(code, message)
         }
     }
 
-    /**
-     * Sends a GET request to the specified path.
-     * 
-     * This method handles 499 (CHARACTER_IN_COOLDOWN) errors by:
-     * 1. Parsing the error response to extract the cooldown time
-     * 2. Sleeping for the remaining cooldown time
-     * 3. Automatically retrying the request after the cooldown period
-     * 
-     * @param path The path to send the request to
-     * @return The response from the server
-     */
-    fun sendGetRequest(path : String) : Response {
-        val getRequest = Request.Builder()
-            .url(url+path)
+    fun sendGetRequest(path: String, retried: Boolean = false): Response {
+        val request = Request.Builder()
+            .url(url + path)
             .header("Authorization", "Bearer $key")
             .build()
-
-        val clientType = this.javaClass.simpleName
-        val requestMethod = "GET"
-        val requestParams = path
-        val requestBody = null
+        val clientType = javaClass.simpleName
 
         try {
-            val response = client.newCall(getRequest).execute()
-            if(response.headers["x-ratelimit-remaining-hour"] == "0"){
+            val response = client.newCall(request).execute()
+            checkRateLimit(response, "hour") { sendGetRequest(path) }?.let { return it }
+            checkRateLimit(response, "minute") { sendGetRequest(path) }?.let { return it }
+            checkRateLimit(response, "second") { sendGetRequest(path) }?.let { return it }
 
-                response.headers["x-ratelimit-reset-hour"]?.toLongOrNull()?.let { resetTimestamp ->
-                    val now = System.currentTimeMillis() /1000
-                    val sleepMillis = resetTimestamp - now
-                    if (sleepMillis > 0) {
-                        log.error("Hourly rate limit reached for $clientType, sleeping for $sleepMillis seconds")
-                        sleep(sleepMillis * 1000)
-                    }
-                }
-                response.close()
-                return sendGetRequest(path)
-            }
-            if(response.headers["x-ratelimit-remaining-minute"] == "0"){
-                response.headers["x-ratelimit-reset-minute"]?.toLongOrNull()?.let { resetTimestamp ->
-                    val now = System.currentTimeMillis() /1000
-                    val sleepMillis = resetTimestamp - now
-                    if (sleepMillis > 0) {
-                        log.error("Minutle rate limit reached for $clientType, sleeping for $sleepMillis seconds")
-                        sleep(sleepMillis * 1000)
-                    }
-                }
-                response.close()
-                return sendGetRequest(path)
-            }
-            if(response.headers["x-ratelimit-remaining-second"] == "0"){
-                response.headers["x-ratelimit-reset-second"]?.toLongOrNull()?.let { resetTimestamp ->
-                    val now = System.currentTimeMillis() /1000
-                    val sleepMillis = resetTimestamp - now
-                    if (sleepMillis > 0) {
-                        log.error("Second rate limit reached for $clientType, sleeping for $sleepMillis seconds")
-                        sleep(sleepMillis * 1000)
-                    }
-                }
-                response.close()
-                return sendGetRequest(path)
-            }
             if (!response.isSuccessful) {
-                // Get the response body as a string for error logging
                 val responseBodyString = response.body?.string() ?: ""
-
-                // Check if this is a 499 cooldown error
                 if (response.code == ErrorCodes.CHARACTER_IN_COOLDOWN) {
                     handle499Cooldown(responseBodyString)
                     log.debug("Thread resumed after cooldown. Retrying request...")
                     return sendGetRequest(path)
                 }
-                logAndThrowError(response, clientType, path, requestMethod, requestParams, requestBody, responseBodyString)
+                if (response.code == 502 && !retried) {
+                    response.close()
+                    log.warn("502 Bad Gateway on GET $path, retrying once...")
+                    return sendGetRequest(path, retried = true)
+                }
+                logAndThrowError(response, clientType, path, "GET", path, null, responseBodyString)
             }
 
-            // Get the response body as a string
             val responseBodyString = response.body?.string() ?: ""
-
-            // Check for cooldown in the response
             handleCooldown(responseBodyString)
             handleCharacter(responseBodyString)
 
-            // Create a new response with the same body since we've consumed it
             val mediaType = "application/json; charset=utf-8".toMediaType()
             val responseBody = responseBodyString.toByteArray().toResponseBody(mediaType)
-
-            return response.newBuilder()
-                .body(responseBody)
-                .build()
-        }catch (e: Exception) {
-            // Log any other exceptions that might occur
-            if (e !is ArtifactsApiException) {  // Only log if not already logged as an API exception
-                logAndThrowError(null, clientType, path, requestMethod, requestParams, requestBody, "")
+            return response.newBuilder().body(responseBody).build()
+        } catch (e: Exception) {
+            if (e !is ArtifactsApiException) {
+                logAndThrowError(null, clientType, path, "GET", path, null, "")
             }
             throw e
         }
     }
 
-    /**
-     * Sends a POST request to the specified path with the given body.
-     * 
-     * This method handles 499 (CHARACTER_IN_COOLDOWN) errors by:
-     * 1. Parsing the error response to extract the cooldown time
-     * 2. Sleeping for the remaining cooldown time
-     * 3. Automatically retrying the request after the cooldown period
-     * 
-     * @param path The path to send the request to
-     * @param body The request body as a JSON string
-     * @return The response from the server
-     */
-    fun sendPostRequest(path: String, body: String): Response {
-        val postBody = body.trimIndent()
+    fun sendPostRequest(path: String, body: String, retried: Boolean = false): Response {
         val mediaType = "application/json; charset=utf-8".toMediaType()
-        val requestBody = postBody.toRequestBody(mediaType)
-
-        val postRequest = Request.Builder()
-            .url(url+path)
+        val requestBody = body.trimIndent().toRequestBody(mediaType)
+        val request = Request.Builder()
+            .url(url + path)
             .post(requestBody)
             .header("Authorization", "Bearer $key")
             .build()
-
-        val clientType = this.javaClass.simpleName
-        val requestMethod = "POST"
-        val requestParams = path
+        val clientType = javaClass.simpleName
 
         try {
-            val response = client.newCall(postRequest).execute()
-            if(response.headers["x-ratelimit-remaining-hour"] == "0"){
-                response.headers["x-ratelimit-reset-hour"]?.toLongOrNull()?.let { resetTimestamp ->
-                    val now = System.currentTimeMillis() /1000
-                    val sleepMillis = resetTimestamp - now
-                    if (sleepMillis > 0) {
-                        log.error("Hourly rate limit reached for $clientType, sleeping for $sleepMillis seconds")
-                        sleep(sleepMillis * 1000)
-                    }
-                }
-                response.close()
-                return sendPostRequest(path, body)
-            }
-            if(response.headers["x-ratelimit-remaining-minute"] == "0"){
-                response.headers["x-ratelimit-reset-minute"]?.toLongOrNull()?.let { resetTimestamp ->
-                    val now = System.currentTimeMillis() /1000
-                    val sleepMillis = resetTimestamp - now
-                    if (sleepMillis > 0) {
-                        log.error("Minutle rate limit reached for $clientType, sleeping for $sleepMillis seconds")
-                        sleep(sleepMillis * 1000)
-                    }
-                }
-                response.close()
-                return sendPostRequest(path, body)
-            }
-            if(response.headers["x-ratelimit-remaining-second"] == "0"){
-                response.headers["x-ratelimit-reset-second"]?.toLongOrNull()?.let { resetTimestamp ->
-                    val now = System.currentTimeMillis() /1000
-                    val sleepMillis = resetTimestamp - now
-                    if (sleepMillis > 0) {
-                        log.error("Second rate limit reached for $clientType, sleeping for $sleepMillis seconds")
-                        sleep(sleepMillis * 1000)
-                    }
-                }
-                response.close()
-                return sendPostRequest(path, body)
-            }
-            if (!response.isSuccessful) {
-                // Get the response body as a string for error logging
-                val responseBodyString = response.body?.string() ?: ""
+            val response = client.newCall(request).execute()
+            checkRateLimit(response, "hour") { sendPostRequest(path, body) }?.let { return it }
+            checkRateLimit(response, "minute") { sendPostRequest(path, body) }?.let { return it }
+            checkRateLimit(response, "second") { sendPostRequest(path, body) }?.let { return it }
 
-                // Check if this is a 499 cooldown error
+            if (!response.isSuccessful) {
+                val responseBodyString = response.body?.string() ?: ""
                 if (response.code == ErrorCodes.CHARACTER_IN_COOLDOWN) {
                     handle499Cooldown(responseBodyString)
                     log.debug("Thread resumed after cooldown. Retrying request...")
                     return sendPostRequest(path, body)
                 }
-                try{
-
-                    throw mapResponseCodeToException(response.code, "Request failed with status code ${response.code}")
-                }catch (_: ArtifactsApiException){
-                    // Log the error to the database
-                    logAndThrowError(response, clientType, path, requestMethod, body, null, responseBodyString)
+                if (response.code == 502 && !retried) {
+                    response.close()
+                    log.warn("502 Bad Gateway on POST $path, retrying once...")
+                    return sendPostRequest(path, body, retried = true)
                 }
-
-
-
+                try {
+                    throw mapResponseCodeToException(response.code, "Request failed with status code ${response.code}")
+                } catch (_: ArtifactsApiException) {
+                    logAndThrowError(response, clientType, path, "POST", body, null, responseBodyString)
+                }
             }
 
-            // Get the response body as a string
             val responseBodyString = response.body?.string() ?: ""
-
-            // Check for cooldown in the response
             handleCooldown(responseBodyString)
             handleCharacter(responseBodyString)
-
-            // Log the response
             log.debug("Réponse POST: $responseBodyString")
 
-            // Create a new response with the same body since we've consumed it
             val responseBody = responseBodyString.toByteArray().toResponseBody(mediaType)
-
-            return response.newBuilder()
-                .body(responseBody)
-                .build()
+            return response.newBuilder().body(responseBody).build()
         } catch (e: Exception) {
-            // Log any other exceptions that might occur
-            if (e !is ArtifactsApiException && e !is InterruptedIOException && e !is InterruptedException) {  // Only log if not already logged as an API exception
-                logAndThrowError(null, clientType, path, requestMethod, requestParams, null, "")
+            if (e !is ArtifactsApiException && e !is InterruptedIOException && e !is InterruptedException) {
+                logAndThrowError(null, clientType, path, "POST", path, null, "")
             }
             throw e
         }
@@ -459,21 +297,15 @@ abstract class BaseArtifactsClient() {
         responseBodyString: String
     ): Nothing {
         try {
-            throw mapResponseCodeToException(response?.code ?: 999, "Request failed with status code ${response?.code ?: 999}")
+            throw mapResponseCodeToException(
+                response?.code ?: 999,
+                "Request failed with status code ${response?.code ?: 999}"
+            )
         } catch (e: ArtifactsApiException) {
             log.error("We have an issue with the request at $path", e)
-            var character: ArtifactsCharacter? = null
-            if(path.contains("Kepo")){
-                character = getCharacterForError("Kepo").data
-            } else if(path.contains("Renoir")){
-                character = getCharacterForError("Renoir").data
-            }else if(path.contains("Gustave")){
-                character = getCharacterForError("Gustave").data
-            }else if(path.contains("Cloud")){
-                character = getCharacterForError("Cloud").data
-            }else if(path.contains("Aerith")){
-                character = getCharacterForError("Aerith").data
-            }
+            val character: ArtifactsCharacter? = CharacterConfig.getPredefinedCharacters()
+                .firstOrNull { path.contains(it.name) }
+                ?.let { getCharacterForError(it.name).data }
             clientErrorService.logError(
                 clientType = clientType,
                 endpoint = path,

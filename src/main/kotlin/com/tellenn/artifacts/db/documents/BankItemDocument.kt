@@ -17,6 +17,7 @@ data class BankItemDocument(
     val subtype: String,
     val level: Int,
     val tradeable: Boolean,
+    val recyclable: Boolean,
     val effects: List<Effect>?,
     val craft: ItemCraft?,
     val conditions: List<ItemCondition>? = null,
@@ -24,7 +25,7 @@ data class BankItemDocument(
 ) {
     companion object {
         fun fromItemDetails(itemDetails: ItemDetails?, quantity: Int): BankItemDocument {
-            if(itemDetails == null) return BankItemDocument("", "", "", "", "", 0, false, null, null, null, 0)
+            if(itemDetails == null) return BankItemDocument("", "", "", "", "", 0, false, false, null, null, null, 0)
             return BankItemDocument(
                 code = itemDetails.code,
                 name = itemDetails.name,
@@ -33,6 +34,7 @@ data class BankItemDocument(
                 subtype = itemDetails.subtype,
                 level = itemDetails.level,
                 tradeable = itemDetails.tradeable,
+                recyclable = itemDetails.recyclable,
                 effects = itemDetails.effects?.toList(),
                 craft = itemDetails.craft,
                 quantity = quantity
@@ -49,6 +51,7 @@ data class BankItemDocument(
                 subtype = itemDocument.subtype,
                 level = itemDocument.level,
                 tradeable = itemDocument.tradeable,
+                recyclable = itemDocument.recyclable,
                 effects = itemDocument.effects?.toList(),
                 craft = itemDocument.craft,
                 conditions = itemDocument.conditions?.toList()

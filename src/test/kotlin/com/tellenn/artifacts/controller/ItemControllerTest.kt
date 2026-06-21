@@ -41,6 +41,7 @@ class ItemControllerTest {
             subtype = "SWORD",
             level = 1,
             tradeable = true,
+            recyclable = false,
             effects = null,
             craft = null,
             conditions = null
@@ -53,6 +54,7 @@ class ItemControllerTest {
             subtype = "HELMET",
             level = 2,
             tradeable = false,
+            recyclable = false,
             effects = null,
             craft = null,
             conditions = null
