@@ -21,7 +21,7 @@ class Raid(
     @param:JsonProperty("latest_instance") val latestInstance: RaidInstance? = null,
 )
 
-class RaidSchedule(
+data class RaidSchedule(
     @param:JsonProperty("weekdays") val weekdays: List<String>,
     @param:JsonProperty("start_hour_utc") val startHourUtc: Int,
     @param:JsonProperty("start_minute_utc") val startMinuteUtc: Int,
