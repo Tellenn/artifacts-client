@@ -88,29 +88,121 @@ class BossFightService(
         character3Name: String,
         monsterCode: String
     ): Boolean {
-        // Fetch the monster data
         val monster = monsterService.findMonster(monsterCode)
-
-        // Check that the monster type is boss
         if (monster.type != "boss") {
             throw IllegalArgumentException("Monster $monsterCode is not a boss (type: ${monster.type})")
         }
+        return simulateParty(character1Name, character2Name, character3Name, monsterCode)
+    }
 
-        // Fetch current character data
-        val character1 = accountClient.getCharacter(character1Name).data
-        val character2 = accountClient.getCharacter(character2Name).data
-        val character3 = accountClient.getCharacter(character3Name).data
+    /**
+     * Atomically reserves the three-character party: reserve the master, then
+     * interrupt-reserve the two slaves. Rolls back on partial failure.
+     * @return true iff all three were reserved.
+     */
+    fun reserveParty(character1Name: String, character2Name: String, character3Name: String): Boolean {
+        if (!threadService.reserveCharacter(character1Name)) {
+            log.info("Party reservation failed: $character1Name is already on a mission")
+            return false
+        }
+        if (!threadService.reserveAndInterruptCharacter(character2Name)) {
+            log.info("Party reservation failed: $character2Name is already on a mission")
+            threadService.releaseCharacter(character1Name)
+            return false
+        }
+        if (!threadService.reserveAndInterruptCharacter(character3Name)) {
+            log.info("Party reservation failed: $character3Name is already on a mission")
+            threadService.releaseCharacter(character1Name)
+            threadService.restartCharacterThread(character2Name)
+            return false
+        }
+        return true
+    }
 
-        // Get best gear for each character
-        val character1WithBestGear = getBestGearForCharacter(character1, monsterCode)
-        val character2WithBestGear = getBestGearForCharacter(character2, monsterCode)
-        val character3WithBestGear = getBestGearForCharacter(character3, monsterCode)
+    /** Releases the master and restarts the two slave threads. */
+    fun releaseParty(character1Name: String, character2Name: String, character3Name: String) {
+        threadService.releaseCharacter(character1Name)
+        threadService.restartCharacterThread(character2Name)
+        threadService.restartCharacterThread(character3Name)
+    }
 
-        // Run the fight simulation
-        return runFightSimulation(
-            listOf(character1WithBestGear, character2WithBestGear, character3WithBestGear),
-            monster
+    /**
+     * Moves the party to the bank, equips best gear for [monsterCode]
+     * (char1 tank with high threat, char2 pure DPS, char3 DPS forced to a healing rune),
+     * then moves all three to the monster's map cell. Returns the positioned characters.
+     */
+    fun prepareParty(
+        character1Name: String,
+        character2Name: String,
+        character3Name: String,
+        monsterCode: String,
+    ): Triple<ArtifactsCharacter, ArtifactsCharacter, ArtifactsCharacter> {
+        var char1 = accountClient.getCharacter(character1Name).data
+        var char2 = accountClient.getCharacter(character2Name).data
+        var char3 = accountClient.getCharacter(character3Name).data
+
+        char1 = movementService.moveToBank(char1)
+        char2 = movementService.moveToBank(char2)
+        char3 = movementService.moveToBank(char3)
+
+        // Treat char1 as a Tank: maximize threat
+        char1 = equipmentService.equipBestAvailableEquipmentForMonsterInBank(
+            character = char1,
+            monsterCode = monsterCode,
+            threatScoreMult = 10,
         )
+        char2 = equipmentService.equipBestAvailableEquipmentForMonsterInBank(char2, monsterCode)
+        char3 = equipmentService.equipBestAvailableEquipmentForMonsterInBank(char3, monsterCode)
+        char3 = ensureHealingRune(char3)
+
+        val map = mapService.findClosestMap(char1, contentCode = monsterCode)
+        char1 = movementService.moveCharacterToCell(map.mapId, char1)
+        char2 = movementService.moveCharacterToCell(map.mapId, char2)
+        char3 = movementService.moveCharacterToCell(map.mapId, char3)
+
+        return Triple(char1, char2, char3)
+    }
+
+    /** Forces a healing_aura_rune on the given character (from bank, or bought if affordable). */
+    private fun ensureHealingRune(character: ArtifactsCharacter): ArtifactsCharacter {
+        var char3 = character
+        if (char3.runeSlot != "healing_aura_rune") {
+            if (bankService.isInBank("healing_aura_rune", 1)) {
+                val oldRune = char3.runeSlot
+                char3 = bankService.withdrawOne("healing_aura_rune", 1, char3)
+                char3 = characterService.equip(char3, "healing_aura_rune", "rune", 1)
+                if (oldRune != null) {
+                    char3 = bankService.deposit(char3, listOf(SimpleItem(oldRune, 1)))
+                }
+            } else if (bankService.getBankDetails().gold > 25000) {
+                char3 = merchantService.buy("healing_aura_rune", char3)
+                val oldRune = char3.runeSlot
+                char3 = characterService.equip(char3, "healing_aura_rune", "rune", 1)
+                if (oldRune != null) {
+                    char3 = movementService.moveToBank(char3)
+                    char3 = bankService.deposit(char3, listOf(SimpleItem(oldRune, 1)))
+                }
+            }
+        }
+        return char3
+    }
+
+    /**
+     * Gears the three characters and simulates the fight against [monsterCode].
+     * Unlike [simulateBossFight], this does NOT require the monster to be a boss type,
+     * so it can be used for raid monsters.
+     */
+    fun simulateParty(
+        character1Name: String,
+        character2Name: String,
+        character3Name: String,
+        monsterCode: String,
+    ): Boolean {
+        val monster = monsterService.findMonster(monsterCode)
+        val character1 = getBestGearForCharacter(accountClient.getCharacter(character1Name).data, monsterCode)
+        val character2 = getBestGearForCharacter(accountClient.getCharacter(character2Name).data, monsterCode)
+        val character3 = getBestGearForCharacter(accountClient.getCharacter(character3Name).data, monsterCode)
+        return runFightSimulation(listOf(character1, character2, character3), monster)
     }
 
 
@@ -133,64 +225,13 @@ class BossFightService(
         character2Name: String = DEFAULT_CHARACTER_2,
         character3Name: String = DEFAULT_CHARACTER_3,
     ): ArtifactsCharacter {
-        // Atomically reserve all 3 characters — WebSocket cannot interfere once reserved
-        if (!threadService.reserveCharacter(character1Name)) {
-            log.info("Boss fight for $monsterCode skipped: $character1Name is already on a mission")
-            throw BattleLostException(monsterCode)
-        }
-        if (!threadService.reserveAndInterruptCharacter(character2Name)) {
-            log.info("Boss fight for $monsterCode skipped: $character2Name is already on a mission")
-            threadService.releaseCharacter(character1Name)
-            throw BattleLostException(monsterCode)
-        }
-        if (!threadService.reserveAndInterruptCharacter(character3Name)) {
-            log.info("Boss fight for $monsterCode skipped: $character3Name is already on a mission")
-            threadService.releaseCharacter(character1Name)
-            threadService.restartCharacterThread(character2Name)
+        if (!reserveParty(character1Name, character2Name, character3Name)) {
+            log.info("Boss fight for $monsterCode skipped: party not available")
             throw BattleLostException(monsterCode)
         }
 
         try {
-            var char1 = accountClient.getCharacter(character1Name).data
-            var char2 = accountClient.getCharacter(character2Name).data
-            var char3 = accountClient.getCharacter(character3Name).data
-
-            char1 = movementService.moveToBank(char1)
-            char2 = movementService.moveToBank(char2)
-            char3 = movementService.moveToBank(char3)
-            // Treat the char1 as a Tank, so we want him to maximize his threat
-            char1 = equipmentService.equipBestAvailableEquipmentForMonsterInBank(
-                character = char1,
-                monsterCode = monsterCode,
-                threatScoreMult = 10
-            )
-            // Char 2 is a pure dps
-            char2 = equipmentService.equipBestAvailableEquipmentForMonsterInBank(char2, monsterCode)
-            // Char 3 is a dps as well, but we'll force a healing rune to heal up the tank
-            char3 = equipmentService.equipBestAvailableEquipmentForMonsterInBank(char3, monsterCode)
-            if (char3.runeSlot != "healing_aura_rune") {
-                if (bankService.isInBank("healing_aura_rune", 1)) {
-                    val oldRune = char3.runeSlot
-                    char3 = bankService.withdrawOne("healing_aura_rune", 1, char3)
-                    char3 = characterService.equip(char3, "healing_aura_rune", "rune", 1)
-                    if (oldRune != null) {
-                        char3 = bankService.deposit(char3, listOf(SimpleItem(oldRune, 1)))
-                    }
-                } else if (bankService.getBankDetails().gold > 25000) {
-                    char3 = merchantService.buy("healing_aura_rune", char3)
-                    val oldRune = char3.runeSlot
-                    char3 = characterService.equip(char3, "healing_aura_rune", "rune", 1)
-                    if (oldRune != null) {
-                        char3 = movementService.moveToBank(char3)
-                        char3 = bankService.deposit(char3, listOf(SimpleItem(oldRune, 1)))
-                    }
-                }
-            }
-            val map = mapService.findClosestMap(char1, contentCode = monsterCode)
-
-            char1 = movementService.moveCharacterToCell(map.mapId, char1)
-            char2 = movementService.moveCharacterToCell(map.mapId, char2)
-            char3 = movementService.moveCharacterToCell(map.mapId, char3)
+            var (char1, char2, char3) = prepareParty(character1Name, character2Name, character3Name, monsterCode)
             var done = 0
             do {
                 char1 = characterService.rest(char1)
@@ -215,9 +256,7 @@ class BossFightService(
         } catch (e: Exception) {
             log.error("Error running boss fights", e)
         } finally {
-            threadService.releaseCharacter(character1Name)
-            threadService.restartCharacterThread(character2Name)
-            threadService.restartCharacterThread(character3Name)
+            releaseParty(character1Name, character2Name, character3Name)
         }
 
         return accountClient.getCharacter(character1Name).data
