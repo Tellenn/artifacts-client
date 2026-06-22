@@ -85,8 +85,9 @@ class RaidFightServiceTest {
         `when`(raidService.getCachedRaid("god_of_the_sun")).thenReturn(raid())
         `when`(bossFightService.simulateParty(anyString(), anyString(), anyString(), anyString())).thenReturn(true)
         `when`(bossFightService.reserveParty(anyString(), anyString(), anyString())).thenReturn(true)
+        val char = anyChar()
         `when`(bossFightService.prepareParty(anyString(), anyString(), anyString(), anyString()))
-            .thenReturn(Triple(anyChar(), anyChar(), anyChar()))
+            .thenReturn(Triple(char, char, char))
         // no active instance at all -> boss not available / already dead
         `when`(raidService.getLiveRaid("god_of_the_sun", true)).thenReturn(null)
 
