@@ -47,4 +47,19 @@ class RaidSchedulerTest {
         // reschedule path recomputes the next start
         verify(raidService).computeNextStart(raid().schedule, timeUtils.now())
     }
+
+    @Test
+    fun `onRaidWindow still reschedules when the raid attempt throws`() {
+        `when`(raidService.getCachedRaid("god_of_the_sun")).thenReturn(raid())
+        `when`(raidService.computeNextStart(raid().schedule, timeUtils.now()))
+            .thenReturn(Instant.parse("2026-06-29T21:00:00Z"))
+        `when`(raidFightService.attemptRaid("god_of_the_sun"))
+            .thenThrow(RuntimeException("boom"))
+
+        // must not propagate — the scheduler thread survives a failing attempt
+        scheduler.onRaidWindow("god_of_the_sun")
+
+        // finally-block reschedule ran despite the exception
+        verify(raidService).computeNextStart(raid().schedule, timeUtils.now())
+    }
 }

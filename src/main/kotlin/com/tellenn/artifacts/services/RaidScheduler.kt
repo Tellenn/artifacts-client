@@ -39,7 +39,10 @@ class RaidScheduler(
     }
 
     private fun scheduleNext(raidCode: String) {
-        val raid = raidService.getCachedRaid(raidCode) ?: return
+        val raid = raidService.getCachedRaid(raidCode) ?: run {
+            logger.warn("Raid {} not found in cache, will not reschedule", raidCode)
+            return
+        }
         val nextStart = raidService.computeNextStart(raid.schedule, timeUtils.now())
         val fireAt = nextStart.minus(Duration.ofMinutes(LEAD_TIME_MINUTES))
         val delayMs = maxOf(0L, Duration.between(timeUtils.now(), fireAt).toMillis())
