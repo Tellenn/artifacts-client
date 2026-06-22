@@ -92,7 +92,7 @@ class BossFightService(
         if (monster.type != "boss") {
             throw IllegalArgumentException("Monster $monsterCode is not a boss (type: ${monster.type})")
         }
-        return simulateParty(character1Name, character2Name, character3Name, monsterCode)
+        return simulateParty(character1Name, character2Name, character3Name, monster)
     }
 
     /**
@@ -198,13 +198,20 @@ class BossFightService(
         character3Name: String,
         monsterCode: String,
     ): Boolean {
-        val monster = monsterService.findMonster(monsterCode)
-        val character1 = getBestGearForCharacter(accountClient.getCharacter(character1Name).data, monsterCode)
-        val character2 = getBestGearForCharacter(accountClient.getCharacter(character2Name).data, monsterCode)
-        val character3 = getBestGearForCharacter(accountClient.getCharacter(character3Name).data, monsterCode)
-        return runFightSimulation(listOf(character1, character2, character3), monster)
+        return simulateParty(character1Name, character2Name, character3Name, monsterService.findMonster(monsterCode))
     }
 
+    private fun simulateParty(
+        character1Name: String,
+        character2Name: String,
+        character3Name: String,
+        monster: MonsterData,
+    ): Boolean {
+        val character1 = getBestGearForCharacter(accountClient.getCharacter(character1Name).data, monster.code)
+        val character2 = getBestGearForCharacter(accountClient.getCharacter(character2Name).data, monster.code)
+        val character3 = getBestGearForCharacter(accountClient.getCharacter(character3Name).data, monster.code)
+        return runFightSimulation(listOf(character1, character2, character3), monster)
+    }
 
 
     /**
