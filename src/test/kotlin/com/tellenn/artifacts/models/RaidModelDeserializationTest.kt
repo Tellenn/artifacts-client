@@ -1,4 +1,3 @@
-// src/test/kotlin/com/tellenn/artifacts/models/RaidModelDeserializationTest.kt
 package com.tellenn.artifacts.models
 
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule

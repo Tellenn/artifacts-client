@@ -1,4 +1,3 @@
-// src/test/kotlin/com/tellenn/artifacts/db/documents/RaidDocumentTest.kt
 package com.tellenn.artifacts.db.documents
 
 import com.tellenn.artifacts.models.Raid
