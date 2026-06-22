@@ -10,6 +10,7 @@ import com.tellenn.artifacts.services.sync.CharacterSyncService
 import com.tellenn.artifacts.services.sync.ItemSyncService
 import com.tellenn.artifacts.services.sync.MapSyncService
 import com.tellenn.artifacts.services.sync.MonsterSyncService
+import com.tellenn.artifacts.services.sync.RaidSyncService
 import com.tellenn.artifacts.services.sync.ResourceSyncService
 import com.tellenn.artifacts.services.sync.ServerVersionService
 import com.tellenn.artifacts.services.WebSocketService
@@ -36,6 +37,7 @@ class MainRuntime(
     private val webSocketService: WebSocketService,
     private val bankItemSyncService: BankItemSyncService,
     private val resourceSyncService: ResourceSyncService,
+    private val raidSyncService: RaidSyncService,
     private val serverVersionService: ServerVersionService,
     private val transitionMapperSyncService: TransitionMapperSyncService,
     private val threadService: ThreadService
@@ -84,7 +86,12 @@ class MainRuntime(
             val syncedResourceCount = resourceSyncService.syncAllResources()
             log.info("Resources synchronized with server. Total resources: $syncedResourceCount")
             sleep(1000)
-            
+
+            // Synchronize raids from the server
+            val syncedRaidCount = raidSyncService.syncAllRaids()
+            log.info("Raids synchronized with server. Total raids: $syncedRaidCount")
+            sleep(1000)
+
             // Update the server version after all syncs are completed
             serverVersionService.updateServerVersion(serverStatus)
             log.info("Server version updated after all syncs completed")
