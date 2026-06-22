@@ -2,6 +2,7 @@ package com.tellenn.artifacts.clients
 
 import com.fasterxml.jackson.module.kotlin.readValue
 import com.tellenn.artifacts.clients.responses.ArtifactsArrayResponseBody
+import com.tellenn.artifacts.clients.responses.ArtifactsResponseBody
 import com.tellenn.artifacts.models.Raid
 import org.springframework.stereotype.Component
 
@@ -31,4 +32,9 @@ class RaidClient(deps: BaseClientDependencies) : BaseArtifactsClient(deps) {
             objectMapper.readValue<ArtifactsArrayResponseBody<Raid>>(responseBody)
         }
     }
+
+    fun getRaid(code: String): ArtifactsResponseBody<Raid> =
+        sendGetRequest("/raids/$code").use { response ->
+            objectMapper.readValue<ArtifactsResponseBody<Raid>>(response.body!!.string())
+        }
 }

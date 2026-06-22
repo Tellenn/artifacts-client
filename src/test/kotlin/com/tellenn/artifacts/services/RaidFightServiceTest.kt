@@ -89,7 +89,7 @@ class RaidFightServiceTest {
         `when`(bossFightService.prepareParty(anyString(), anyString(), anyString(), anyString()))
             .thenReturn(Triple(char, char, char))
         // no active instance at all -> boss not available / already dead
-        `when`(raidService.getLiveRaid("god_of_the_sun", true)).thenReturn(null)
+        `when`(raidService.getLiveRaid("god_of_the_sun")).thenReturn(null)
 
         service.attemptRaid("god_of_the_sun")
 
@@ -109,7 +109,7 @@ class RaidFightServiceTest {
             .thenReturn(Triple(char, char, char))
         `when`(characterService.rest(char)).thenReturn(char)
         // wait-for-active sees it alive; first loop pass alive; second pass dead
-        `when`(raidService.getLiveRaid("god_of_the_sun", true))
+        `when`(raidService.getLiveRaid("god_of_the_sun"))
             .thenReturn(liveRaid(remainingHp = 500000))
             .thenReturn(liveRaid(remainingHp = 250000))
             .thenReturn(liveRaid(remainingHp = 0))

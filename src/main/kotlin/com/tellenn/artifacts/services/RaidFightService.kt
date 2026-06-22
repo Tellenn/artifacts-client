@@ -77,7 +77,7 @@ class RaidFightService(
         var c2 = char2
         var c3 = char3
         while (true) {
-            val instance = raidService.getLiveRaid(raidCode, active = true)?.activeInstance
+            val instance = raidService.getLiveRaid(raidCode)?.activeInstance
             if (instance == null || instance.remainingHp <= 0 || instance.isFinished()) {
                 logger.info("Raid {} finished (boss dead or instance over)", raidCode)
                 break
@@ -100,7 +100,7 @@ class RaidFightService(
     private fun waitForActiveInstance(raidCode: String): Boolean {
         val deadline = timeUtils.now().plus(Duration.ofMinutes(maxWaitMinutes))
         while (timeUtils.now().isBefore(deadline)) {
-            val instance = raidService.getLiveRaid(raidCode, active = true)?.activeInstance
+            val instance = raidService.getLiveRaid(raidCode)?.activeInstance
             if (instance != null && instance.remainingHp > 0 && !instance.isFinished()) {
                 return true
             }

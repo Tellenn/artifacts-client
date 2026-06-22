@@ -3,6 +3,7 @@ package com.tellenn.artifacts.services
 import com.tellenn.artifacts.clients.RaidClient
 import com.tellenn.artifacts.db.documents.RaidDocument
 import com.tellenn.artifacts.db.repositories.RaidRepository
+import com.tellenn.artifacts.exceptions.NotFoundException
 import com.tellenn.artifacts.models.Raid
 import com.tellenn.artifacts.models.RaidSchedule
 import org.slf4j.LoggerFactory
@@ -28,11 +29,16 @@ class RaidService(
         raidRepository.findById(code).map { RaidDocument.toRaid(it) }.orElse(null)
 
     /**
-     * Fetches the live state of a raid from the API, matched by code.
-     * @param active when true, only raids with an active instance are returned by the API.
+     * Fetches the live state of a raid from the API by its code, including the
+     * active instance when one is running. Returns null when the code is unknown.
      */
-    fun getLiveRaid(code: String, active: Boolean? = null): Raid? =
-        raidClient.getRaids(active = active).data.firstOrNull { it.code == code }
+    fun getLiveRaid(code: String): Raid? =
+        try {
+            raidClient.getRaid(code).data
+        } catch (e: NotFoundException) {
+            logger.warn("Raid {} not found via API", code)
+            null
+        }
 
     /**
      * Computes the next UTC start instant strictly after [now] for the given schedule,

@@ -1,13 +1,18 @@
 package com.tellenn.artifacts.services
 
 import com.tellenn.artifacts.clients.RaidClient
+import com.tellenn.artifacts.clients.responses.ArtifactsResponseBody
 import com.tellenn.artifacts.db.repositories.RaidRepository
+import com.tellenn.artifacts.exceptions.NotFoundException
+import com.tellenn.artifacts.models.Raid
 import com.tellenn.artifacts.models.RaidSchedule
 import org.junit.jupiter.api.Assertions.assertEquals
+import org.junit.jupiter.api.Assertions.assertNull
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.assertThrows
 import org.mockito.Mockito.mock
+import org.mockito.Mockito.`when`
 import java.time.Instant
 
 class RaidServiceTest {
@@ -69,5 +74,27 @@ class RaidServiceTest {
     fun `computeNextStart rejects an empty weekday list`() {
         val now = Instant.parse("2026-06-22T10:00:00Z")
         assertThrows<IllegalArgumentException> { service.computeNextStart(schedule(), now) }
+    }
+
+    private fun liveRaid(code: String) = Raid(
+        code = code, name = code, description = null, monster = "m_$code",
+        schedule = schedule("monday"), rewards = null,
+    )
+
+    @Test
+    fun `getLiveRaid returns the raid fetched by code`() {
+        `when`(raidClient.getRaid("god_of_the_sun"))
+            .thenReturn(ArtifactsResponseBody(liveRaid("god_of_the_sun")))
+
+        val result = service.getLiveRaid("god_of_the_sun")
+
+        assertEquals("god_of_the_sun", result?.code)
+    }
+
+    @Test
+    fun `getLiveRaid returns null when the raid code is unknown`() {
+        `when`(raidClient.getRaid("god_of_the_sun")).thenThrow(NotFoundException("not found"))
+
+        assertNull(service.getLiveRaid("god_of_the_sun"))
     }
 }
