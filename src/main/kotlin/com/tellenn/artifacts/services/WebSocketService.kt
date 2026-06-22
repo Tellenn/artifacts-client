@@ -309,6 +309,7 @@ class WebSocketService(
                                                     do {
                                                         character = movementService.moveToBank(character)
                                                         character = bankService.emptyInventory(character)
+                                                        character = movementService.moveCharacterToCell(event.map.mapId, character)
                                                         character = battleService.battleUntilInvIsFull(character, monsterCode)
                                                     } while (true)
                                                 } catch (_: MapContentNotFoundException) {
