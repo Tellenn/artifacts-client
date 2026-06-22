@@ -9,8 +9,8 @@ import com.tellenn.artifacts.models.RaidSchedule
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
+import org.mockito.ArgumentCaptor
 import org.mockito.ArgumentMatchers.anyInt
-import org.mockito.ArgumentMatchers.anyList
 import org.mockito.ArgumentMatchers.isNull
 import org.mockito.Mockito.mock
 import org.mockito.Mockito.verify
@@ -43,6 +43,9 @@ class RaidSyncServiceTest {
 
         assertEquals(2, count)
         verify(raidRepository).deleteAll()
-        verify(raidRepository).saveAll(anyList<RaidDocument>())
+        @Suppress("UNCHECKED_CAST")
+        val captor = ArgumentCaptor.forClass(List::class.java) as ArgumentCaptor<List<RaidDocument>>
+        verify(raidRepository).saveAll(captor.capture())
+        assertEquals(2, captor.value.size)
     }
 }
