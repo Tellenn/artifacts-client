@@ -40,6 +40,8 @@ class GatheringService(
 
     companion object {
         private const val INVENTORY_SAFE_MARGIN = 5
+        private const val ENHANCED_RECYCLE_MIN_LEVEL = 20
+        private const val ENHANCED_RECYCLE_MIN_BANK_GOLD = 20000
     }
 
     /*
@@ -138,10 +140,41 @@ class GatheringService(
     }
 
     fun recycle(character: ArtifactsCharacter, item: ItemDetails, i: Int): ArtifactsCharacter {
-        val mapData = mapService.findClosestMap(character = character, contentCode = item.craft?.skill)
-        val newCharacter = movementService.moveCharacterToCell(mapData.mapId, character)
-        return craftingClient.recycle(newCharacter.name, item.code, i).data.character
+        var newCharacter = character
+        val enhancedCost = enhancedRecycleCostOrNull(item, i)
+        if (enhancedCost != null) {
+            log.info("{} recycle {} (x{}) en mode enhanced pour {} or", newCharacter.name, item.code, i, enhancedCost)
+            newCharacter = movementService.moveToBank(newCharacter)
+            newCharacter = bankService.withdrawMoney(newCharacter, enhancedCost)
+        }
+        val mapData = mapService.findClosestMap(character = newCharacter, contentCode = item.craft?.skill)
+        newCharacter = movementService.moveCharacterToCell(mapData.mapId, newCharacter)
+        return craftingClient.recycle(newCharacter.name, item.code, i, enhanced = enhancedCost != null).data.character
+    }
 
+    /**
+     * Renvoie le coût en or d'un recyclage « enhanced » lorsque les conditions sont réunies
+     * (équipement de niveau 20+, au moins 20 000 or en banque et de quoi couvrir le coût),
+     * sinon `null` pour un recyclage normal.
+     *
+     * Coût = somme des quantités d'ingrédients de la recette × quantité recyclée × tarif par ingrédient.
+     */
+    private fun enhancedRecycleCostOrNull(item: ItemDetails, quantity: Int): Int? {
+        val craft = item.craft ?: return null
+        if (item.level < ENHANCED_RECYCLE_MIN_LEVEL) return null
+        val bankGold = bankService.getBankDetails().gold
+        if (bankGold < ENHANCED_RECYCLE_MIN_BANK_GOLD) return null
+        val totalIngredients = craft.items.sumOf { it.quantity }
+        val cost = totalIngredients * quantity * goldPerIngredient(item.level)
+        return if (bankGold >= cost) cost else null
+    }
+
+    private fun goldPerIngredient(itemLevel: Int): Int = when {
+        itemLevel <= 20 -> 5
+        itemLevel <= 30 -> 10
+        itemLevel <= 40 -> 15
+        itemLevel <= 45 -> 20
+        else -> 25
     }
 
     private fun gather(character: ArtifactsCharacter, item: ItemDetails, quantityToCraft: Int) : ArtifactsCharacter{

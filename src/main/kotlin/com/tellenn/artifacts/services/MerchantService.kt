@@ -26,14 +26,13 @@ class MerchantService (
      * is worthwhile before interrupting a character's thread.
      */
     fun findSellableItems(npcName: String): List<NpcItem> {
-        logger.info("!!!!!!!! Getting the npcItems for the event $npcName")
         val items = npcClient.getNpcItems(npcName).data
             .filter { it.sellPrice != null
                     && it.sellPrice > MIN_SELL_PRICE
                     && itemService.getItem(it.code).craft == null
                     && npcClient.getItemsBoughtWith(it.code).total == 0
                     && bankService.isInBank(it.code, 1) }
-        logger.info("!!!!!!!! Found ${items.size} sellable npcItems for the event $npcName")
+        logger.info("Found ${items.size} sellable npcItems for the event $npcName")
         return items
     }
 

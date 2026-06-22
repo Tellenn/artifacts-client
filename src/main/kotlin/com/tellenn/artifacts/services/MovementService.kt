@@ -8,6 +8,7 @@ import com.tellenn.artifacts.models.ArtifactsCharacter
 import com.tellenn.artifacts.models.MapData
 import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Service
+import kotlin.math.abs
 
 /**
  * Service for handling character movement.
@@ -36,20 +37,55 @@ class MovementService(
             log.debug("Character ${character.name} is already at position $mapId, skipping movement call")
             return character
         }
-        teleportService.findPotionForDestination(character, mapId)?.let { potion ->
-            log.info("{} se téléporte vers {} via {}", character.name, mapId, potion.code)
-            return teleportService.use(character, potion.code)
-        }
+
+        val teleported = tryTeleportTowards(character, mapId)
+            ?: return walkToCell(mapId, character)
+
+        // Une potion peut nous déposer dans la bonne région sans atteindre la
+        // case exacte : on termine alors le trajet à pied.
+        return if (teleported.mapId == mapId) teleported else walkToCell(mapId, teleported)
+    }
+
+    /**
+     * Tente de se rapprocher de [mapId] via une potion de téléport.
+     * Retourne `null` (téléportation non effectuée) si aucune potion adaptée
+     * n'existe ou si la destination est assez proche pour s'y rendre à pied.
+     */
+    private fun tryTeleportTowards(character: ArtifactsCharacter, mapId: Int): ArtifactsCharacter? {
+        val destinationMap = mapService.findByMapId(mapId) ?: return null
+        if (isWithinWalkingRange(character, destinationMap)) return null
+
+        val potion = teleportService.findPotionForDestination(character, mapId) ?: return null
+        log.info("{} se téléporte vers {} via {}", character.name, mapId, potion.code)
+        return teleportService.use(character, potion.code)
+    }
+
+    /**
+     * Vrai si la destination est dans la même région et à portée de marche
+     * (≤ [TELEPORT_MIN_CELLS] cases) : inutile de gâcher une potion.
+     */
+    private fun isWithinWalkingRange(character: ArtifactsCharacter, destination: MapData): Boolean {
+        val originMap = mapService.findByMapId(character.mapId)
+        if (originMap?.region != destination.region) return false
+        val cells = abs(character.x - destination.x) + abs(character.y - destination.y)
+        return cells <= TELEPORT_MIN_CELLS
+    }
+
+    /**
+     * Déplacement classique (à pied) vers [mapId], sans recours aux potions —
+     * intra-région via l'API de mouvement, inter-région via les transitions.
+     */
+    private fun walkToCell(mapId: Int, character: ArtifactsCharacter): ArtifactsCharacter {
         val destinationMap = mapService.findByMapId(mapId)
         val originMap = mapService.findByMapId(character.mapId)
-        if(destinationMap?.region != originMap?.region){
+        if (destinationMap?.region != originMap?.region) {
             return transitionsFromRegions(character, originMap!!, destinationMap!!)
         }
-        try {
-            return movementClient.move(character.name, destinationMap!!.mapId).data.character
-        }catch (e: CharacterAlreadyMapException){
-                log.debug("Tried to move while the character was already here",e)
-                return accountClient.getCharacter(character.name).data
+        return try {
+            movementClient.move(character.name, destinationMap!!.mapId).data.character
+        } catch (e: CharacterAlreadyMapException) {
+            log.debug("Tried to move while the character was already here", e)
+            accountClient.getCharacter(character.name).data
         }
     }
 
@@ -138,19 +174,23 @@ class MovementService(
      * @return The updated character after moving to the bank, or the original character if already at a bank
      */
     fun moveToBank(character: ArtifactsCharacter, checkAchievement: Boolean = true): ArtifactsCharacter {
-        teleportService.findBankPotionInInventory(character)?.let { potion ->
-            log.info("{} se téléporte à la banque via {}", character.name, potion.code)
-            return teleportService.use(character, potion.code)
-        }
         val closestBank = mapService.findClosestMap(character = character, contentCode = "bank", checkAchievement = checkAchievement)
+        // Déjà à la banque : ne rien faire (surtout pas gâcher une potion).
         if (character.mapId == closestBank.mapId) {
             return character
         }
+        // moveCharacterToCell applique la logique de téléport (distance + garde-fou
+        // « rapprochement ») : la potion n'est utilisée que si elle aide réellement.
         return moveCharacterToCell(closestBank.mapId, character)
     }
 
     fun moveToGrandExchange(character: ArtifactsCharacter): ArtifactsCharacter {
         val geMap = mapService.findClosestMap(character = character, contentCode = "grandexchange")
         return moveCharacterToCell(geMap.mapId, character)
+    }
+
+    companion object {
+        /** Au-delà de cette distance (en cases, même région), la potion devient rentable. */
+        private const val TELEPORT_MIN_CELLS = 3
     }
 }

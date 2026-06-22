@@ -14,6 +14,8 @@ class CraftingResponseBody(
 
 @Suppress("unused")
 class Details (
-    @param:JsonProperty("xp") val xp: Int,
+    @param:JsonProperty("xp") val xp: Int?,
+    @param:JsonProperty("enhanced") val enhanced: Boolean?,
+    @param:JsonProperty("gold") val gold: Int?,
     @param:JsonProperty("items") val items: List<SimpleItem>,
 )

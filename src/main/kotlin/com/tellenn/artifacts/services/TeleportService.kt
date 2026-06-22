@@ -7,8 +7,10 @@ import com.tellenn.artifacts.db.repositories.BankItemRepository
 import com.tellenn.artifacts.db.repositories.ItemRepository
 import com.tellenn.artifacts.models.ArtifactsCharacter
 import com.tellenn.artifacts.models.ItemDetails
+import com.tellenn.artifacts.models.MapData
 import org.apache.logging.log4j.LogManager
 import org.springframework.stereotype.Service
+import kotlin.math.abs
 
 /**
  * Centralise toute la logique liée aux potions de téléportation :
@@ -50,9 +52,9 @@ class TeleportService(
     }
 
     /**
-     * Meilleure potion pour rejoindre [destinationMapId] :
-     * match exact sur le mapId, sinon une potion dont la destination est
-     * dans la même région que la cible. Le match exact est préféré.
+     * Potion la plus appropriée en inventaire pour rejoindre [destinationMapId] :
+     * match exact sur le mapId en priorité, sinon, parmi les potions de la même
+     * région qui nous rapprochent, celle qui atterrit au plus près de la cible.
      */
     fun findPotionForDestination(character: ArtifactsCharacter, destinationMapId: Int): ItemDetails? {
         val usable = findUsableTeleportPotionsInInventory(character)
@@ -60,38 +62,47 @@ class TeleportService(
 
         usable.find { (_, mapId) -> mapId == destinationMapId }?.first?.let { return it }
 
-        val destinationRegion = mapMongoClient.getMapById(destinationMapId)?.region ?: return null
-        return usable.find { (_, mapId) ->
-            mapMongoClient.getMapById(mapId)?.region == destinationRegion
-        }?.first
-    }
-
-    /**
-     * Potion en inventaire dont la destination est une map contenant une banque.
-     */
-    fun findBankPotionInInventory(character: ArtifactsCharacter): ItemDetails? {
-        val bankMapIds = bankMapIds()
-        return findUsableTeleportPotionsInInventory(character)
-            .find { (_, mapId) -> mapId in bankMapIds }
+        val destination = mapMongoClient.getMapById(destinationMapId) ?: return null
+        val destinationRegion = destination.region ?: return null
+        return usable
+            .filter { (_, mapId) -> mapMongoClient.getMapById(mapId)?.region == destinationRegion }
+            .filter { (_, landingMapId) -> bringsCloser(character, landingMapId, destination) }
+            .minByOrNull { (_, landingMapId) -> landingDistance(landingMapId, destination) }
             ?.first
     }
 
     /**
-     * Potion disponible en banque (pas en inventaire) dont la destination est
-     * une banque et dont les conditions d'utilisation sont remplies.
+     * Garde-fou : vrai si atterrir sur [landingMapId] rapproche réellement de
+     * [destination]. Si le personnage est déjà dans la région cible, la potion
+     * n'est retenue que si le point d'arrivée est plus proche que sa position
+     * actuelle ; en cas de changement de région, rejoindre la bonne région est
+     * toujours un gain.
      */
-    fun findBankPotionAvailableInBank(character: ArtifactsCharacter): ItemDetails? {
-        val bankMapIds = bankMapIds()
-        return bankItemRepository.findByEffectsCode(TELEPORT_EFFECT)
-            .filter { it.quantity > 0 }
-            .mapNotNull { bankDoc ->
-                val item = itemRepository.findByCode(bankDoc.code)
-                val destMapId = item.effects?.find { it.code == TELEPORT_EFFECT }?.value
-                if (destMapId != null && destMapId in bankMapIds && canUse(character, item)) item
-                else null
-            }
-            .firstOrNull()
+    private fun bringsCloser(character: ArtifactsCharacter, landingMapId: Int, destination: MapData): Boolean {
+        val characterRegion = mapMongoClient.getMapById(character.mapId)?.region
+        if (characterRegion != destination.region) return true
+
+        val currentDistance = abs(character.x - destination.x) + abs(character.y - destination.y)
+        return landingDistance(landingMapId, destination) < currentDistance
     }
+
+    /** Distance (en cases) entre le point d'arrivée [landingMapId] et [destination]. */
+    private fun landingDistance(landingMapId: Int, destination: MapData): Int {
+        val landing = mapMongoClient.getMapById(landingMapId) ?: return Int.MAX_VALUE
+        return abs(landing.x - destination.x) + abs(landing.y - destination.y)
+    }
+
+    /**
+     * Toutes les potions de téléport disponibles en banque (une entrée par code),
+     * dont les conditions d'utilisation sont remplies. Permet de retirer un
+     * assortiment et de choisir ensuite la plus adaptée à chaque déplacement.
+     */
+    fun findUsableTeleportPotionsInBank(character: ArtifactsCharacter): List<ItemDetails> =
+        bankItemRepository.findByEffectsCode(TELEPORT_EFFECT)
+            .filter { it.quantity > 0 }
+            .map { itemRepository.findByCode(it.code) }
+            .filter { item -> item.effects?.any { it.code == TELEPORT_EFFECT } == true && canUse(character, item) }
+            .distinctBy { it.code }
 
     /**
      * Utilise une potion depuis l'inventaire et retourne le personnage mis à jour
@@ -123,9 +134,6 @@ class TeleportService(
                 else -> false
             }
         } ?: true
-
-    private fun bankMapIds(): Set<Int> =
-        mapMongoClient.getMaps(content_code = "bank").data.map { it.mapId }.toSet()
 
     companion object {
         private const val TELEPORT_EFFECT = "teleport"

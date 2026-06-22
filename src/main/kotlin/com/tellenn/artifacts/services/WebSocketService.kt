@@ -231,12 +231,12 @@ class WebSocketService(
                                 val event = objectMapper.readValue<Event>(jsonNode.get("data").toString())
                                 if (event.map.interactions?.content?.type == "npc"){
                                     val npcCode = event.map.interactions.content.code
-                                    logger.info("!!!!!!!! Merchant spawned: $npcCode")
+                                    logger.info("Merchant spawned: $npcCode")
 
                                     // Only interrupt Aerith if there is actually something to sell.
                                     // The eligibility check is read-only and needs no character thread.
                                     if (merchantService.findSellableItems(npcCode).isEmpty()) {
-                                        logger.info("!!!!!!!! Nothing to sell to $npcCode, leaving Aerith on her current task")
+                                        logger.info("Nothing to sell to $npcCode, leaving Aerith on her current task")
                                     } else {
                                         // Execute synchronously in the WebSocket thread with AUTOMATIC priority
                                         // Will not interrupt human-ordered tasks

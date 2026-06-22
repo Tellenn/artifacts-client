@@ -80,14 +80,6 @@ class TeleportServiceTest {
             craft = null, conditions = null, quantity = quantity,
         )
 
-    private fun bankMap(mapId: Int = 545): MapData =
-        MapData(name = "Bank", skin = "bank", x = 0, y = 0, mapId = mapId,
-            layer = "main", access = null,
-            interactions = Interactions(content = MapContent(type = "bank", code = "bank"), transition = null),
-            region = 1)
-
-    // ── canUse ─────────────────────────────────────────────────────────────
-
     @Test
     fun `canUse returns true when item has no conditions`() {
         val potion = buildPotion("tp_potion", 545)
@@ -207,6 +199,77 @@ class TeleportServiceTest {
     }
 
     @Test
+    fun `findPotionForDestination picks the regional potion landing closest to the target`() {
+        val character = buildCharacter(mapId = 1, inventory = arrayOf(
+            InventorySlot(1, "tp_far", 1),
+            InventorySlot(2, "tp_near", 1),
+        ))
+        `when`(itemRepository.findByCodeIn(listOf("tp_far", "tp_near")))
+            .thenReturn(listOf(buildPotion("tp_far", 700), buildPotion("tp_near", 545)))
+        // Personnage hors région cible : les deux potions rapprochent, on prend la plus proche.
+        `when`(mapMongoClient.getMapById(1)).thenReturn(
+            MapData("Origin", "skin", 0, 0, 1, "main", null,
+                Interactions(MapContent("resource", "iron"), null), region = 2))
+        `when`(mapMongoClient.getMapById(600)).thenReturn(
+            MapData("Target", "skin", 10, 0, 600, "main", null,
+                Interactions(MapContent("resource", "iron"), null), region = 1))
+        `when`(mapMongoClient.getMapById(700)).thenReturn(
+            MapData("Far", "skin", 0, 0, 700, "main", null,
+                Interactions(MapContent("resource", "coal"), null), region = 1))
+        `when`(mapMongoClient.getMapById(545)).thenReturn(
+            MapData("Near", "skin", 9, 0, 545, "main", null,
+                Interactions(MapContent("resource", "coal"), null), region = 1))
+
+        val result = service.findPotionForDestination(character, 600)
+
+        assertEquals("tp_near", result?.code)
+    }
+
+    @Test
+    fun `findPotionForDestination uses regional potion when it lands closer to the target`() {
+        val character = buildCharacter(mapId = 1, inventory = arrayOf(InventorySlot(1, "tp_potion", 1)))
+        val potion = buildPotion("tp_potion", 545)
+        `when`(itemRepository.findByCodeIn(listOf("tp_potion"))).thenReturn(listOf(potion))
+        // Personnage déjà dans la région cible, loin de la cible (0,0)->(20,0).
+        `when`(mapMongoClient.getMapById(1)).thenReturn(
+            MapData("Origin", "skin", 0, 0, 1, "main", null,
+                Interactions(MapContent("resource", "iron"), null), region = 1))
+        `when`(mapMongoClient.getMapById(600)).thenReturn(
+            MapData("Target", "skin", 20, 0, 600, "main", null,
+                Interactions(MapContent("resource", "iron"), null), region = 1))
+        // La potion atterrit en (18,0) : plus proche que la position actuelle.
+        `when`(mapMongoClient.getMapById(545)).thenReturn(
+            MapData("Near", "skin", 18, 0, 545, "main", null,
+                Interactions(MapContent("resource", "coal"), null), region = 1))
+
+        val result = service.findPotionForDestination(character, 600)
+
+        assertEquals("tp_potion", result?.code)
+    }
+
+    @Test
+    fun `findPotionForDestination ignores regional potion that would land further from the target`() {
+        val character = buildCharacter(mapId = 1, inventory = arrayOf(InventorySlot(1, "tp_potion", 1)))
+        val potion = buildPotion("tp_potion", 545)
+        `when`(itemRepository.findByCodeIn(listOf("tp_potion"))).thenReturn(listOf(potion))
+        // Personnage déjà dans la région cible, proche de la cible (0,0)->(2,0).
+        `when`(mapMongoClient.getMapById(1)).thenReturn(
+            MapData("Origin", "skin", 0, 0, 1, "main", null,
+                Interactions(MapContent("resource", "iron"), null), region = 1))
+        `when`(mapMongoClient.getMapById(600)).thenReturn(
+            MapData("Target", "skin", 2, 0, 600, "main", null,
+                Interactions(MapContent("resource", "iron"), null), region = 1))
+        // La potion atterrit en (50,0) : bien plus loin -> ne pas l'utiliser.
+        `when`(mapMongoClient.getMapById(545)).thenReturn(
+            MapData("Far", "skin", 50, 0, 545, "main", null,
+                Interactions(MapContent("resource", "coal"), null), region = 1))
+
+        val result = service.findPotionForDestination(character, 600)
+
+        assertNull(result)
+    }
+
+    @Test
     fun `findPotionForDestination returns null when no match`() {
         val character = buildCharacter(inventory = arrayOf(InventorySlot(1, "tp_potion", 1)))
         val potion = buildPotion("tp_potion", 545)
@@ -225,61 +288,45 @@ class TeleportServiceTest {
         assertNull(result)
     }
 
-    // ── findBankPotionInInventory ──────────────────────────────────────────
+    // ── findUsableTeleportPotionsInBank ────────────────────────────────────
 
     @Test
-    fun `findBankPotionInInventory returns potion whose destination is a bank map`() {
-        val character = buildCharacter(inventory = arrayOf(InventorySlot(1, "tp_bank", 1)))
-        val potion = buildPotion("tp_bank", 545)
-        `when`(itemRepository.findByCodeIn(listOf("tp_bank"))).thenReturn(listOf(potion))
-        `when`(mapMongoClient.getMaps(content_code = "bank"))
-            .thenReturn(ArtifactsArrayResponseBody(listOf(bankMap(545)), 1, 1, 50, 1))
-
-        val result = service.findBankPotionInInventory(character)
-
-        assertEquals("tp_bank", result?.code)
-    }
-
-    @Test
-    fun `findBankPotionInInventory returns null when no bank potion in inventory`() {
-        val character = buildCharacter(inventory = arrayOf(InventorySlot(1, "tp_other", 1)))
-        val potion = buildPotion("tp_other", 999)
-        `when`(itemRepository.findByCodeIn(listOf("tp_other"))).thenReturn(listOf(potion))
-        `when`(mapMongoClient.getMaps(content_code = "bank"))
-            .thenReturn(ArtifactsArrayResponseBody(listOf(bankMap(545)), 1, 1, 50, 1))
-
-        val result = service.findBankPotionInInventory(character)
-
-        assertNull(result)
-    }
-
-    // ── findBankPotionAvailableInBank ──────────────────────────────────────
-
-    @Test
-    fun `findBankPotionAvailableInBank returns potion when available in bank and conditions met`() {
+    fun `findUsableTeleportPotionsInBank returns every distinct usable teleport potion`() {
         val character = buildCharacter()
-        val bankDoc = buildBankDoc("tp_bank", quantity = 3)
-        val potion = buildPotion("tp_bank", 545)
-        `when`(bankItemRepository.findByEffectsCode("teleport")).thenReturn(listOf(bankDoc))
-        `when`(itemRepository.findByCode("tp_bank")).thenReturn(potion)
-        `when`(mapMongoClient.getMaps(content_code = "bank"))
-            .thenReturn(ArtifactsArrayResponseBody(listOf(bankMap(545)), 1, 1, 50, 1))
+        val recallDoc = buildBankDoc("recall_potion", quantity = 4)
+        val regionDoc = buildBankDoc("region_potion", quantity = 2)
+        `when`(bankItemRepository.findByEffectsCode("teleport")).thenReturn(listOf(recallDoc, regionDoc))
+        `when`(itemRepository.findByCode("recall_potion")).thenReturn(buildPotion("recall_potion", 271))
+        `when`(itemRepository.findByCode("region_potion")).thenReturn(buildPotion("region_potion", 600))
 
-        val result = service.findBankPotionAvailableInBank(character)
+        val result = service.findUsableTeleportPotionsInBank(character)
 
-        assertEquals("tp_bank", result?.code)
+        assertEquals(setOf("recall_potion", "region_potion"), result.map { it.code }.toSet())
     }
 
     @Test
-    fun `findBankPotionAvailableInBank returns null when bank has no teleport potions`() {
+    fun `findUsableTeleportPotionsInBank excludes potions whose conditions are not met`() {
+        val character = buildCharacter(level = 10)
+        val usableDoc = buildBankDoc("recall_potion", quantity = 1)
+        val lockedDoc = buildBankDoc("elite_potion", quantity = 1)
+        `when`(bankItemRepository.findByEffectsCode("teleport")).thenReturn(listOf(usableDoc, lockedDoc))
+        `when`(itemRepository.findByCode("recall_potion")).thenReturn(buildPotion("recall_potion", 271))
+        `when`(itemRepository.findByCode("elite_potion")).thenReturn(
+            buildPotion("elite_potion", 600, conditions = listOf(ItemCondition("level", "gt", 50))))
+
+        val result = service.findUsableTeleportPotionsInBank(character)
+
+        assertEquals(listOf("recall_potion"), result.map { it.code })
+    }
+
+    @Test
+    fun `findUsableTeleportPotionsInBank returns empty when bank has no teleport potions`() {
         val character = buildCharacter()
         `when`(bankItemRepository.findByEffectsCode("teleport")).thenReturn(emptyList())
-        `when`(mapMongoClient.getMaps(content_code = "bank"))
-            .thenReturn(ArtifactsArrayResponseBody(listOf(bankMap(545)), 1, 1, 50, 1))
 
-        val result = service.findBankPotionAvailableInBank(character)
+        val result = service.findUsableTeleportPotionsInBank(character)
 
-        assertNull(result)
+        assertTrue(result.isEmpty())
     }
 
     // ── use ───────────────────────────────────────────────────────────────

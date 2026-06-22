@@ -54,7 +54,9 @@ class AlchemistJob(
             character = catchBackCrafter(character)
             contextService.setObjective(characterName, "Cuisson des ressources disponibles en banque")
             cookEasyItemsInBank()
+
             if (restockTeleportPotions(characterName)) continue
+
             if(character.alchemyLevel == maxLevel && character.cookingLevel == maxLevel){
                 // If level max, should craft potions for stock before doing tasks.
                 var craftedPotions = false
@@ -191,7 +193,7 @@ class AlchemistJob(
         var stock = bankService.getOne(potion.code).quantity
         var craftedAny = false
         while (stock < TELEPORT_STOCK_TARGET) {
-            character = gatheringService.craftOrGather(character, potion.code, perTrip, allowFight = true)
+            character = gatheringService.craftOrGather(character, potion.code, perTrip, allowFight = false)
             character = movementService.moveToBank(character)
             character = bankService.emptyInventory(character)
             val newStock = bankService.getOne(potion.code).quantity

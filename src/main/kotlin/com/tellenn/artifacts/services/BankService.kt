@@ -50,8 +50,21 @@ class BankService(
 
     fun emptyInventory(character: ArtifactsCharacter) : ArtifactsCharacter{
         var newCharacter = character
+
+        // Potions de téléport déjà en inventaire : on en garde une de chaque type
+        // (inutile de les déposer pour les reprendre juste après).
+        val heldPotionCodes = teleportService.findUsableTeleportPotionsInInventory(character)
+            .map { it.first.code }
+            .toSet()
+
         val inventory = character.inventory
-        val items = inventory.filter { it.quantity > 0 }.map { SimpleItem(it.code, it.quantity) }
+        val items = inventory
+            .filter { it.quantity > 0 }
+            .map { slot ->
+                val kept = if (slot.code in heldPotionCodes) 1 else 0
+                SimpleItem(slot.code, slot.quantity - kept)
+            }
+            .filter { it.quantity > 0 }
         newCharacter = deposit(newCharacter, items)
         if(newCharacter.utility1Slot != ""){
             val utility1Code = newCharacter.utility1Slot
@@ -66,9 +79,16 @@ class BankService(
             newCharacter = deposit(newCharacter, listOf(SimpleItem(utility2Code, utility2Qty)))
         }
         newCharacter = depositMoney(newCharacter, newCharacter.gold)
-        teleportService.findBankPotionAvailableInBank(newCharacter)?.let { potion ->
-            log.info("{} prend une potion-banque : {}", newCharacter.name, potion.code)
-            newCharacter = withdrawOne(potion.code, 1, newCharacter)
+
+        // On complète avec une potion de chaque type encore disponible en banque,
+        // pour pouvoir choisir la plus adaptée à chaque déplacement.
+        val potionsToWithdraw = teleportService.findUsableTeleportPotionsInBank(newCharacter)
+            .filter { it.code !in heldPotionCodes }
+            .map { SimpleItem(it.code, 1) }
+        if (potionsToWithdraw.isNotEmpty()) {
+            log.info("{} complète ses potions de téléport : {}", newCharacter.name,
+                potionsToWithdraw.joinToString { it.code })
+            newCharacter = withdrawMany(ArrayList(potionsToWithdraw), newCharacter)
         }
         return newCharacter
     }

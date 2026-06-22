@@ -4,7 +4,6 @@ import com.tellenn.artifacts.clients.AccountClient
 import com.tellenn.artifacts.clients.BankClient
 import com.tellenn.artifacts.clients.MovementClient
 import com.tellenn.artifacts.clients.responses.*
-import com.tellenn.artifacts.db.documents.BankItemDocument
 import com.tellenn.artifacts.db.repositories.BankItemRepository
 import com.tellenn.artifacts.db.repositories.ItemRepository
 import com.tellenn.artifacts.models.*
@@ -52,10 +51,10 @@ class BankServiceTeleportTest {
         bankItemSyncService, accountClient, movementClient, mapService, teleportService
     )
 
-    private fun buildCharacter(mapId: Int = 545): ArtifactsCharacter = ArtifactsCharacter(
+    private fun buildCharacter(mapId: Int = 545, inventory: Array<InventorySlot> = emptyArray()): ArtifactsCharacter = ArtifactsCharacter(
         name = "Renoir", account = "tellenn", level = 30, gold = 0,
         hp = 100, maxHp = 100, x = 0, y = 0, mapId = mapId, layer = "main",
-        inventory = emptyArray(), cooldown = 0, skin = null, task = null,
+        inventory = inventory, cooldown = 0, skin = null, task = null,
         initiative = 0, threat = 0, dmg = 0, wisdom = 0, prospecting = 0,
         criticalStrike = 0, speed = 0, haste = 0, xp = 0, maxXp = 0,
         taskType = null, taskTotal = 0, taskProgress = 0,
@@ -80,16 +79,17 @@ class BankServiceTeleportTest {
         bagSlot = null, cooldownExpiration = null,
     )
 
-    @Test
-    fun `emptyInventory withdraws bank teleport potion when available`() {
-        val character = buildCharacter()
-        val potion = ItemDetails("tp_bank", "TP Bank", "", "consumable", "potion", 1,
-            true, false, null, listOf(Effect("teleport", 545, null)), null)
-        `when`(teleportService.findBankPotionAvailableInBank(character)).thenReturn(potion)
+    private fun potion(code: String, destinationMapId: Int): ItemDetails =
+        ItemDetails(code, code, "", "consumable", "potion", 1,
+            true, false, null, listOf(Effect("teleport", destinationMapId, null)), null)
 
-        val bankDoc = mock(BankItemDocument::class.java)
-        `when`(bankDoc.quantity).thenReturn(3)
-        `when`(bankRepository.findByCode("tp_bank")).thenReturn(bankDoc)
+    @Test
+    fun `emptyInventory withdraws one of each available teleport potion when none held`() {
+        val character = buildCharacter()
+        `when`(teleportService.findUsableTeleportPotionsInInventory(character)).thenReturn(emptyList())
+        `when`(teleportService.findUsableTeleportPotionsInBank(anyObject()))
+            .thenReturn(listOf(potion("recall_potion", 271), potion("region_potion", 600)))
+        `when`(bankRepository.findByCode(anyObject())).thenReturn(null)
 
         @Suppress("UNCHECKED_CAST")
         val withdrawResp = mock(ArtifactsResponseBody::class.java) as ArtifactsResponseBody<BankItemTransaction>
@@ -101,17 +101,65 @@ class BankServiceTeleportTest {
         service.emptyInventory(character)
 
         verify(bankClient).withdrawItems(eqObject("Renoir"), argMatchItems { items ->
-            items.any { it.code == "tp_bank" && it.quantity == 1 }
+            items.any { it.code == "recall_potion" && it.quantity == 1 } &&
+                items.any { it.code == "region_potion" && it.quantity == 1 }
         })
     }
 
     @Test
-    fun `emptyInventory proceeds normally when no bank teleport potion available`() {
+    fun `emptyInventory withdraws nothing when no teleport potion is available`() {
         val character = buildCharacter()
-        `when`(teleportService.findBankPotionAvailableInBank(character)).thenReturn(null)
+        `when`(teleportService.findUsableTeleportPotionsInInventory(character)).thenReturn(emptyList())
+        `when`(teleportService.findUsableTeleportPotionsInBank(anyObject())).thenReturn(emptyList())
 
         service.emptyInventory(character)
 
         verify(bankClient, never()).withdrawItems(anyObject(), anyObject())
+    }
+
+    @Test
+    fun `emptyInventory keeps held potion types and only withdraws the missing ones`() {
+        val character = buildCharacter(inventory = arrayOf(
+            InventorySlot(1, "tp_held", 2),
+            InventorySlot(2, "iron", 5),
+        ))
+        // On détient déjà le type tp_held.
+        `when`(teleportService.findUsableTeleportPotionsInInventory(character))
+            .thenReturn(listOf(potion("tp_held", 545) to 545))
+        // La banque propose tp_held (déjà détenu) et tp_other (manquant).
+        `when`(teleportService.findUsableTeleportPotionsInBank(anyObject()))
+            .thenReturn(listOf(potion("tp_held", 545), potion("tp_other", 600)))
+
+        `when`(itemRepository.findByCode("tp_held")).thenReturn(potion("tp_held", 545))
+        `when`(itemRepository.findByCode("iron")).thenReturn(
+            ItemDetails("iron", "Iron", "", "resource", "mining", 1, true, true, null, null, null))
+        `when`(bankRepository.findByCode(anyObject())).thenReturn(null)
+
+        @Suppress("UNCHECKED_CAST")
+        val depositResp = mock(ArtifactsResponseBody::class.java) as ArtifactsResponseBody<BankItemTransaction>
+        val depositBody = mock(BankItemTransaction::class.java)
+        `when`(depositBody.character).thenReturn(character)
+        `when`(depositResp.data).thenReturn(depositBody)
+        `when`(bankClient.depositItems(eqObject("Renoir"), anyObject())).thenReturn(depositResp)
+
+        @Suppress("UNCHECKED_CAST")
+        val withdrawResp = mock(ArtifactsResponseBody::class.java) as ArtifactsResponseBody<BankItemTransaction>
+        val withdrawBody = mock(BankItemTransaction::class.java)
+        `when`(withdrawBody.character).thenReturn(character)
+        `when`(withdrawResp.data).thenReturn(withdrawBody)
+        `when`(bankClient.withdrawItems(eqObject("Renoir"), anyObject())).thenReturn(withdrawResp)
+
+        service.emptyInventory(character)
+
+        // On garde une potion tp_held (déposé en quantité 1), iron déposé en entier.
+        verify(bankClient).depositItems(eqObject("Renoir"), argMatchItems { items ->
+            items.any { it.code == "tp_held" && it.quantity == 1 } &&
+                items.any { it.code == "iron" && it.quantity == 5 }
+        })
+        // On ne retire que le type manquant, jamais celui déjà détenu.
+        verify(bankClient).withdrawItems(eqObject("Renoir"), argMatchItems { items ->
+            items.any { it.code == "tp_other" && it.quantity == 1 } &&
+                items.none { it.code == "tp_held" }
+        })
     }
 }
