@@ -45,7 +45,7 @@ class CharacterClient(deps: BaseClientDependencies) : BaseArtifactsClient(deps) 
     fun useItem(characterName: String, itemCode: String, quantity: Int = 1): ArtifactsResponseBody<UseItemResponseBody> {
         waitForCooldown(characterName)
         val request = SimpleItem(itemCode, quantity)
-        val requestBody = objectMapper.writeValueAsString(listOf(request))
+        val requestBody = objectMapper.writeValueAsString(request)
         return sendPostRequest("/my/$characterName/action/use", requestBody).use { response ->
             val responseBody = response.body!!.string()
             objectMapper.readValue<ArtifactsResponseBody<UseItemResponseBody>>(responseBody)
