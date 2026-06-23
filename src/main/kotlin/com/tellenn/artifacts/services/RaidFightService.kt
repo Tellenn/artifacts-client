@@ -54,7 +54,7 @@ class RaidFightService(
         try {
             val (char1, char2, char3) = bossFightService.prepareParty(character1, character2, character3, monsterCode)
             runRaidLoop(raidCode, char1, char2, char3)
-        } catch (e: MapContentNotFoundException) {
+        } catch (_: MapContentNotFoundException) {
             logger.info("Raid monster {} is no longer available", monsterCode)
         } catch (e: Exception) {
             logger.error("Uncaught error while running raid {}", raidCode, e)
@@ -85,7 +85,16 @@ class RaidFightService(
             c1 = characterService.rest(c1)
             c2 = characterService.rest(c2)
             c3 = characterService.rest(c3)
-            battleClient.fightBoss(c1.name, c2.name, c3.name)
+            // Refresh the party from the fight result: the next rest() must see the
+            // post-fight HP, otherwise it reads stale full HP, skips resting, and the
+            // party fights on until it dies.
+            battleClient.fightBoss(c1.name, c2.name, c3.name).data.characters.forEach {
+                when (it.name) {
+                    c1.name -> c1 = it
+                    c2.name -> c2 = it
+                    c3.name -> c3 = it
+                }
+            }
         }
     }
 

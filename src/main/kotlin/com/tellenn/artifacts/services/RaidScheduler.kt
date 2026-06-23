@@ -1,5 +1,6 @@
 package com.tellenn.artifacts.services
 
+import com.tellenn.artifacts.models.Raid
 import com.tellenn.artifacts.utils.TimeUtils
 import jakarta.annotation.PreDestroy
 import org.slf4j.LoggerFactory
@@ -7,6 +8,7 @@ import org.springframework.boot.context.event.ApplicationReadyEvent
 import org.springframework.context.event.EventListener
 import org.springframework.stereotype.Component
 import java.time.Duration
+import java.time.Instant
 import java.util.concurrent.Executors
 import java.util.concurrent.TimeUnit
 
@@ -43,11 +45,22 @@ class RaidScheduler(
             logger.warn("Raid {} not found in cache, will not reschedule", raidCode)
             return
         }
-        val nextStart = raidService.computeNextStart(raid.schedule, timeUtils.now())
-        val fireAt = nextStart.minus(Duration.ofMinutes(LEAD_TIME_MINUTES))
-        val delayMs = maxOf(0L, Duration.between(timeUtils.now(), fireAt).toMillis())
+        val delayMs = nextDelayMs(raid, timeUtils.now())
         scheduler.schedule({ onRaidWindow(raidCode) }, delayMs, TimeUnit.MILLISECONDS)
-        logger.info("Raid {} scheduled in {} ms (next start {})", raidCode, delayMs, nextStart)
+        logger.info("Raid {} scheduled in {} ms", raidCode, delayMs)
+    }
+
+    /**
+     * Millisecond delay from [now] until the lead-time check of [raid]'s next occurrence.
+     */
+    internal fun nextDelayMs(raid: Raid, now: Instant): Long {
+        // Reference the next start from now + lead time: an occurrence whose start is
+        // already within the lead window (e.g. the one we just handled when rescheduling
+        // at start − lead) is skipped to the following occurrence, instead of producing a
+        // zero delay that refires immediately and hammers the API until the start passes.
+        val nextStart = raidService.computeNextStart(raid.schedule, now.plus(Duration.ofMinutes(LEAD_TIME_MINUTES)))
+        val fireAt = nextStart.minus(Duration.ofMinutes(LEAD_TIME_MINUTES))
+        return maxOf(0L, Duration.between(now, fireAt).toMillis())
     }
 
     /** Runs one raid window: attempt the raid, then reschedule the following occurrence. */

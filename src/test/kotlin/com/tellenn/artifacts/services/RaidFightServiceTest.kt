@@ -1,6 +1,8 @@
 package com.tellenn.artifacts.services
 
 import com.tellenn.artifacts.clients.BattleClient
+import com.tellenn.artifacts.clients.responses.ArtifactsResponseBody
+import com.tellenn.artifacts.clients.responses.CombatResponseBody
 import com.tellenn.artifacts.models.ArtifactsCharacter
 import com.tellenn.artifacts.models.Raid
 import com.tellenn.artifacts.models.RaidInstance
@@ -53,6 +55,52 @@ class RaidFightServiceTest {
     }
 
     private fun anyChar() = mock(ArtifactsCharacter::class.java)
+
+    private fun namedChar(name: String): ArtifactsCharacter {
+        val character = mock(ArtifactsCharacter::class.java)
+        `when`(character.name).thenReturn(name)
+        return character
+    }
+
+    private fun combatResult(vararg characters: ArtifactsCharacter): ArtifactsResponseBody<CombatResponseBody> {
+        val body = mock(CombatResponseBody::class.java)
+        `when`(body.characters).thenReturn(characters.toList())
+        return ArtifactsResponseBody(body)
+    }
+
+    @Test
+    fun `refreshes the party from each fight result so it keeps resting between attacks`() {
+        val service = RaidFightService(raidService, bossFightService, characterService, battleClient, timeUtils, 1L, 1L)
+
+        val preparedRenoir = namedChar("Renoir")
+        val preparedCloud = namedChar("Cloud")
+        val preparedKepo = namedChar("Kepo")
+        val foughtRenoir = namedChar("Renoir")
+        val foughtCloud = namedChar("Cloud")
+        val foughtKepo = namedChar("Kepo")
+
+        `when`(raidService.getCachedRaid("god_of_the_sun")).thenReturn(raid())
+        `when`(bossFightService.simulateParty(anyString(), anyString(), anyString(), anyString())).thenReturn(true)
+        `when`(bossFightService.reserveParty(anyString(), anyString(), anyString())).thenReturn(true)
+        `when`(bossFightService.prepareParty(anyString(), anyString(), anyString(), anyString()))
+            .thenReturn(Triple(preparedRenoir, preparedCloud, preparedKepo))
+        listOf(preparedRenoir, preparedCloud, preparedKepo, foughtRenoir, foughtCloud, foughtKepo)
+            .forEach { `when`(characterService.rest(it)).thenReturn(it) }
+        val fightResult = combatResult(foughtRenoir, foughtCloud, foughtKepo)
+        `when`(battleClient.fightBoss(anyString(), anyString(), anyString())).thenReturn(fightResult)
+        // wait-active alive, two alive loop passes, then dead
+        `when`(raidService.getLiveRaid("god_of_the_sun"))
+            .thenReturn(liveRaid(remainingHp = 500000))
+            .thenReturn(liveRaid(remainingHp = 400000))
+            .thenReturn(liveRaid(remainingHp = 300000))
+            .thenReturn(liveRaid(remainingHp = 0))
+
+        service.attemptRaid("god_of_the_sun")
+
+        // The second attack must rest the character returned by the first fight,
+        // not the stale prepared instance (otherwise the party never heals and dies).
+        verify(characterService).rest(foughtRenoir)
+    }
 
     @Test
     fun `skips with no reservation when the party cannot win`() {
