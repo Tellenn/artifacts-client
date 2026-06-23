@@ -2,6 +2,7 @@ package com.tellenn.artifacts.services
 
 import com.tellenn.artifacts.models.Raid
 import com.tellenn.artifacts.utils.TimeUtils
+import com.tellenn.artifacts.utils.toHumanReadable
 import jakarta.annotation.PreDestroy
 import org.slf4j.LoggerFactory
 import org.springframework.boot.context.event.ApplicationReadyEvent
@@ -47,7 +48,7 @@ class RaidScheduler(
         }
         val delayMs = nextDelayMs(raid, timeUtils.now())
         scheduler.schedule({ onRaidWindow(raidCode) }, delayMs, TimeUnit.MILLISECONDS)
-        logger.info("Raid {} scheduled in {} ms", raidCode, delayMs)
+        logger.info("Raid {} scheduled in {}", raidCode, Duration.ofMillis(delayMs).toHumanReadable())
     }
 
     /**

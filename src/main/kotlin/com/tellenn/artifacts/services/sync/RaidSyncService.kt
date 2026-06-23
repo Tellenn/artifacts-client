@@ -15,6 +15,21 @@ class RaidSyncService(
 ) {
     private val logger = LoggerFactory.getLogger(RaidSyncService::class.java)
 
+    /**
+     * Backfills the raids cache when it is empty, regardless of server version.
+     * Covers installs where the raids collection was introduced after the stored
+     * server version, so the version-gated full sync never populated it.
+     * Returns the number of raids synced, or 0 when the cache is already populated.
+     */
+    fun syncRaidsIfEmpty(): Int {
+        if (raidRepository.count() > 0) {
+            logger.debug("Raids cache already populated, skipping backfill")
+            return 0
+        }
+        logger.info("Raids cache empty, backfilling from server")
+        return syncAllRaids()
+    }
+
     @Transactional
     fun syncAllRaids(pageSize: Int = PaginatedSyncUtils.DEFAULT_PAGE_SIZE): Int =
         PaginatedSyncUtils.syncAll(

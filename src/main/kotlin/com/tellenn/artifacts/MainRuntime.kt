@@ -97,6 +97,12 @@ class MainRuntime(
             log.info("Server version updated after all syncs completed")
         } else {
             log.info("Server version unchanged, skipping syncs (except bank)")
+            // A collection added after the version was last stored is never backfilled
+            // by the version gate — sync raids on their own if the cache is still empty.
+            val backfilledRaidCount = raidSyncService.syncRaidsIfEmpty()
+            if (backfilledRaidCount > 0) {
+                log.info("Raids backfilled (cache was empty). Total raids: $backfilledRaidCount")
+            }
         }
 
 

@@ -11,8 +11,10 @@ import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 import org.mockito.ArgumentCaptor
 import org.mockito.ArgumentMatchers.anyInt
+import org.mockito.ArgumentMatchers.anyList
 import org.mockito.ArgumentMatchers.isNull
 import org.mockito.Mockito.mock
+import org.mockito.Mockito.never
 import org.mockito.Mockito.verify
 import org.mockito.Mockito.`when`
 
@@ -47,5 +49,28 @@ class RaidSyncServiceTest {
         val captor = ArgumentCaptor.forClass(List::class.java) as ArgumentCaptor<List<RaidDocument>>
         verify(raidRepository).saveAll(captor.capture())
         assertEquals(2, captor.value.size)
+    }
+
+    @Test
+    fun `syncRaidsIfEmpty backfills the cache when it is empty`() {
+        `when`(raidRepository.count()).thenReturn(0L)
+        `when`(raidClient.getRaids(name = isNull(), active = isNull(), page = anyInt(), size = anyInt()))
+            .thenReturn(ArtifactsArrayResponseBody(listOf(raid("a"), raid("b")), total = 2, page = 1, size = 50, pages = 1))
+
+        val count = service.syncRaidsIfEmpty()
+
+        assertEquals(2, count)
+        verify(raidRepository).saveAll(anyList())
+    }
+
+    @Test
+    fun `syncRaidsIfEmpty does nothing when the cache already has raids`() {
+        `when`(raidRepository.count()).thenReturn(3L)
+
+        val count = service.syncRaidsIfEmpty()
+
+        assertEquals(0, count)
+        verify(raidRepository, never()).deleteAll()
+        verify(raidRepository, never()).saveAll(anyList())
     }
 }
