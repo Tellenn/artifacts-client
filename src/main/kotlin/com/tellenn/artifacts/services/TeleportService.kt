@@ -109,7 +109,6 @@ class TeleportService(
      * (déjà téléporté à destination).
      */
     fun use(character: ArtifactsCharacter, itemCode: String): ArtifactsCharacter {
-        log.info("{} utilise la potion de téléport : {}", character.name, itemCode)
         return characterClient.useItem(character.name, itemCode, 1).data.character
     }
 

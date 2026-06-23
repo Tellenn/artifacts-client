@@ -86,7 +86,7 @@ class BankService(
             .filter { it.code !in heldPotionCodes }
             .map { SimpleItem(it.code, 1) }
         if (potionsToWithdraw.isNotEmpty()) {
-            log.info("{} complète ses potions de téléport : {}", newCharacter.name,
+            log.info("{} restocks teleport potions: {}", newCharacter.name,
                 potionsToWithdraw.joinToString { it.code })
             newCharacter = withdrawMany(ArrayList(potionsToWithdraw), newCharacter)
         }

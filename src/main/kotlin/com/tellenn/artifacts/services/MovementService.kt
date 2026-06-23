@@ -56,7 +56,7 @@ class MovementService(
         if (isWithinWalkingRange(character, destinationMap)) return null
 
         val potion = teleportService.findPotionForDestination(character, mapId) ?: return null
-        log.info("{} se téléporte vers {} via {}", character.name, mapId, potion.code)
+        log.info("{} teleports to {} via {}", character.name, mapId, potion.code)
         return teleportService.use(character, potion.code)
     }
 

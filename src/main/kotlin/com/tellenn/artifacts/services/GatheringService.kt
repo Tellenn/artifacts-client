@@ -143,7 +143,7 @@ class GatheringService(
         var newCharacter = character
         val enhancedCost = enhancedRecycleCostOrNull(item, i)
         if (enhancedCost != null) {
-            log.info("{} recycle {} (x{}) en mode enhanced pour {} or", newCharacter.name, item.code, i, enhancedCost)
+            log.info("{} recycles {} (x{}) in enhanced mode for {} gold", newCharacter.name, item.code, i, enhancedCost)
             newCharacter = movementService.moveToBank(newCharacter)
             newCharacter = bankService.withdrawMoney(newCharacter, enhancedCost)
         }
