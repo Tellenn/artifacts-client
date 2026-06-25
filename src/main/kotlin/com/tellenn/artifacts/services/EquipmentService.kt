@@ -18,6 +18,12 @@ import com.tellenn.artifacts.services.sync.BankItemSyncService
 import org.springframework.stereotype.Service
 import kotlin.math.min
 
+/** Role a character plays in a boss fight, driving which potions are selected. */
+enum class BossRole { TANK, DPS }
+
+/** The two utility potions to equip for a boss fight (null = leave the slot empty). */
+data class BossPotionLoadout(val utility1: String?, val utility2: String?)
+
 /**
  * Service for managing gathering operations.
  * Provides functionality for gathering resources with inventory management.
@@ -35,7 +41,7 @@ class EquipmentService(
     private val accountClient: AccountClient,
     private val merchantService: MerchantService
 ) {
-    fun equipBestAvailableEquipmentForMonsterInBank(character: ArtifactsCharacter, monsterCode: String, threatScoreMult:Int = 1) : ArtifactsCharacter{
+    fun equipBestAvailableEquipmentForMonsterInBank(character: ArtifactsCharacter, monsterCode: String, threatScoreMult:Int = 1, equipPotions: Boolean = true) : ArtifactsCharacter{
         val bis = findBestEquipmentForMonsterInBank(character, monsterCode, threatScoreMult)
         var newCharacter = movementService.moveToBank(character)
         newCharacter = bankService.emptyInventory(newCharacter)
@@ -91,26 +97,29 @@ class EquipmentService(
         }
         }catch (_: NotFoundException){
             newCharacter = accountClient.getCharacter(newCharacter.name).data
-            return equipBestAvailableEquipmentForMonsterInBank(newCharacter, monsterCode)
+            return equipBestAvailableEquipmentForMonsterInBank(newCharacter, monsterCode, threatScoreMult, equipPotions)
         }catch (_: CharacterInventoryFullException){
             newCharacter = accountClient.getCharacter(newCharacter.name).data
             newCharacter = bankService.emptyInventory(newCharacter)
-            return equipBestAvailableEquipmentForMonsterInBank(newCharacter, monsterCode)
+            return equipBestAvailableEquipmentForMonsterInBank(newCharacter, monsterCode, threatScoreMult, equipPotions)
         }catch (_: MapContentNotFoundException){
             // This means we have a desync and the character isn't where we think it is
             var newCharacter = accountClient.getCharacter(newCharacter.name).data
             newCharacter = movementService.moveToBank(newCharacter)
-            return equipBestAvailableEquipmentForMonsterInBank(newCharacter, monsterCode)
+            return equipBestAvailableEquipmentForMonsterInBank(newCharacter, monsterCode, threatScoreMult, equipPotions)
         }catch (_: BankCorruptedException){
             // This means we have a desync and the character isn't where we think it is
             val newCharacter = accountClient.getCharacter(newCharacter.name).data
-            return equipBestAvailableEquipmentForMonsterInBank(newCharacter, monsterCode)
+            return equipBestAvailableEquipmentForMonsterInBank(newCharacter, monsterCode, threatScoreMult, equipPotions)
         }
         newCharacter = movementService.moveToBank(newCharacter)
         newCharacter = bankService.emptyInventory(newCharacter)
 
-        // Fetch healing potions if there are any interesting
-        newCharacter = equipBestPotionsForFight(newCharacter, monsterCode)
+        // Fetch healing potions if there are any interesting.
+        // Boss fights skip this generic path and apply role-based potions themselves.
+        if (equipPotions) {
+            newCharacter = equipBestPotionsForFight(newCharacter, monsterCode)
+        }
 
         // Fetch healing outside of combat items if there are any interesting
         val healingItemInBank = itemService.getHealingItems(bankService.getAll())
@@ -202,6 +211,83 @@ class EquipmentService(
         }
         return character
     }
+
+    /**
+     * Selects the two boss-fight potions for [character] against [monster] given its [role].
+     * Read-only: inspects the bank but withdraws and mutates nothing.
+     *
+     * - TANK utility1: best resistance potion on the boss's strongest attack element.
+     * - DPS  utility1: best damage potion on the character's strongest weapon attack element.
+     * - utility2 (both roles): strongest usable healing potion.
+     *
+     * Returns `null` for a slot when no suitable potion is available in the bank.
+     */
+    fun selectBossPotions(character: ArtifactsCharacter, monster: MonsterData, role: BossRole): BossPotionLoadout {
+        val usablePotions = bankService.getCombatPotions().filter { it.level <= character.level }
+        val utility1 = when (role) {
+            BossRole.TANK -> bestPotionForEffect(usablePotions, RES_BOOST_PREFIX + strongestAttackElement(monster))
+            BossRole.DPS -> strongestWeaponAttackElement(character)
+                ?.let { bestPotionForEffect(usablePotions, DMG_BOOST_PREFIX + it) }
+        }
+        val utility2 = bestPotionForEffect(usablePotions, RESTORE_EFFECT)
+        return BossPotionLoadout(utility1, utility2)
+    }
+
+    /** Withdraws and equips the role-based potions returned by [selectBossPotions]. */
+    fun equipBossPotions(character: ArtifactsCharacter, monster: MonsterData, role: BossRole): ArtifactsCharacter {
+        val loadout = selectBossPotions(character, monster, role)
+        var newCharacter = equipPotionInSlot(character, loadout.utility1, "utility1")
+        newCharacter = equipPotionInSlot(newCharacter, loadout.utility2, "utility2")
+        return newCharacter
+    }
+
+    private fun equipPotionInSlot(character: ArtifactsCharacter, potionCode: String?, slot: String): ArtifactsCharacter {
+        if (potionCode == null) {
+            return character
+        }
+        val available = bankService.getOne(potionCode).quantity
+        if (available <= 0) {
+            return character
+        }
+        val quantity = min(100, available)
+        val newCharacter = bankService.withdrawOne(potionCode, quantity, character)
+        return characterService.equip(newCharacter, potionCode, slot, quantity)
+    }
+
+    /** Highest-value potion carrying [effectCode], or null if none qualifies. */
+    private fun bestPotionForEffect(potions: List<ItemDetails>, effectCode: String): String? {
+        return potions
+            .mapNotNull { potion -> potion.effects?.find { it.code == effectCode }?.let { potion.code to it.value } }
+            .maxByOrNull { it.second }
+            ?.first
+    }
+
+    private fun strongestAttackElement(monster: MonsterData): String {
+        return mapOf(
+            "fire" to monster.attackFire,
+            "earth" to monster.attackEarth,
+            "water" to monster.attackWater,
+            "air" to monster.attackAir,
+        ).maxBy { it.value }.key
+    }
+
+    private fun strongestWeaponAttackElement(character: ArtifactsCharacter): String? {
+        val weaponCode = character.weaponSlot
+        if (weaponCode.isNullOrEmpty()) {
+            return null
+        }
+        val weapon = itemRepository.findByCode(weaponCode)
+        val strongest = mapOf(
+            "fire" to weaponAttackValue(weapon, "attack_fire"),
+            "earth" to weaponAttackValue(weapon, "attack_earth"),
+            "water" to weaponAttackValue(weapon, "attack_water"),
+            "air" to weaponAttackValue(weapon, "attack_air"),
+        ).maxBy { it.value }
+        return if (strongest.value > 0) strongest.key else null
+    }
+
+    private fun weaponAttackValue(weapon: ItemDetails, effectCode: String): Int =
+        weapon.effects?.find { it.code == effectCode }?.value ?: 0
 
     fun findBestEquipmentForMonsterInBank(character: ArtifactsCharacter, monsterCode: String, threatScoreMult:Int = 1) : MutableMap<String, ItemDetails?>{
         val storedEquipment = bankService.getAllEquipmentsUnderLevel(character.level)
@@ -524,5 +610,14 @@ class EquipmentService(
             return bankService.deposit(newCharacter, listOf(SimpleItem(character.weaponSlot ?: "", 1)))
         }
         return character
+    }
+
+    companion object {
+        /** Threat multiplier applied to the tank so it holds the boss's aggro. */
+        const val TANK_THREAT_MULT = 10
+
+        private const val RES_BOOST_PREFIX = "boost_res_"
+        private const val DMG_BOOST_PREFIX = "boost_dmg_"
+        private const val RESTORE_EFFECT = "restore"
     }
 }

@@ -314,6 +314,15 @@ class BankService(
         return bankRepository.findByCodeContainingIgnoreCase("health").map { itemRepository.findByCode(it.code) }
     }
 
+    /**
+     * Returns every combat potion (subtype "potion") currently stored in the bank.
+     * Effect-based categorization (heal / damage / resistance) is left to [EquipmentService].
+     */
+    fun getCombatPotions() : List<ItemDetails> {
+        val bankCodes = getAll().map { it.code }
+        return itemRepository.findByCodeIn(bankCodes).filter { it.subtype == "potion" }
+    }
+
     fun withdrawGold(amount: Int, newCharacter: ArtifactsCharacter) : ArtifactsCharacter{
         return bankClient.withdrawGold(newCharacter.name, amount).data.character
     }

@@ -76,7 +76,26 @@ class CraftLevelingService(
         return itemService
             .getCrafterItemsBetweenLevel(lowestXpLevel - 1, skillLevel + 1, listOf(skill))
             .filter { it.level in lowestXpLevel..skillLevel }
+            .filterNot { requiresLimitedStarterWeapon(it) }
     }
+
+    /**
+     * Vrai si la recette dépend, directement ou via un sous-craft, de [LIMITED_STARTER_WEAPON].
+     *
+     * Cette arme de départ (ex. `wooden_stick` requise par `wooden_staff`) n'est ni craftable ni
+     * récoltable : elle est distribuée en quantité limitée en début de partie (une par personnage).
+     * La consommer pour monter une compétence épuiserait définitivement la réserve — et déclencherait
+     * en aval le déséquipement de l'arme réelle du crafter pour la « récolter ». On exclut donc toute
+     * recette qui en dépend de la sélection de leveling.
+     */
+    private fun requiresLimitedStarterWeapon(item: ItemDetails): Boolean =
+        item.craft?.items?.any { ingredient ->
+            ingredient.code == LIMITED_STARTER_WEAPON ||
+                // Les matériaux rares sont des feuilles protégées : jamais l'arme de départ ni
+                // composées d'elle — inutile (et impossible) de descendre dedans.
+                (!props.isRare(ingredient.code) &&
+                    requiresLimitedStarterWeapon(itemService.getItem(ingredient.code)))
+        } ?: false
 
     private fun eventMaterials(): Set<String> = eventService.getAllEventMaterials().toSet()
 
@@ -104,5 +123,8 @@ class CraftLevelingService(
     companion object {
         /** Crafter un item 10 niveaux ou plus sous le personnage donne 0 XP : fenêtre = `niveau-9 .. niveau`. */
         private const val XP_WINDOW = 9
+
+        /** Arme de départ non craftable/récoltable, distribuée en quantité limitée (une par personnage). */
+        private const val LIMITED_STARTER_WEAPON = "wooden_stick"
     }
 }

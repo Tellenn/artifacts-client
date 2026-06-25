@@ -145,14 +145,23 @@ class BossFightService(
         char2 = movementService.moveToBank(char2)
         char3 = movementService.moveToBank(char3)
 
-        // Treat char1 as a Tank: maximize threat
+        val monster = monsterService.getMonster(monsterCode)
+
+        // Treat char1 as a Tank: maximize threat, then resistance + healing potions.
         char1 = equipmentService.equipBestAvailableEquipmentForMonsterInBank(
             character = char1,
             monsterCode = monsterCode,
-            threatScoreMult = 10,
+            threatScoreMult = EquipmentService.TANK_THREAT_MULT,
+            equipPotions = false,
         )
-        char2 = equipmentService.equipBestAvailableEquipmentForMonsterInBank(char2, monsterCode)
-        char3 = equipmentService.equipBestAvailableEquipmentForMonsterInBank(char3, monsterCode)
+        char1 = equipmentService.equipBossPotions(char1, monster, BossRole.TANK)
+
+        // char2/char3 are DPS: damage boost + healing potions.
+        char2 = equipmentService.equipBestAvailableEquipmentForMonsterInBank(char2, monsterCode, equipPotions = false)
+        char2 = equipmentService.equipBossPotions(char2, monster, BossRole.DPS)
+
+        char3 = equipmentService.equipBestAvailableEquipmentForMonsterInBank(char3, monsterCode, equipPotions = false)
+        char3 = equipmentService.equipBossPotions(char3, monster, BossRole.DPS)
         char3 = ensureHealingRune(char3)
 
         val map = mapService.findClosestMap(char1, contentCode = monsterCode)
@@ -207,10 +216,29 @@ class BossFightService(
         character3Name: String,
         monster: MonsterData,
     ): Boolean {
-        val character1 = getBestGearForCharacter(accountClient.getCharacter(character1Name).data, monster.code)
-        val character2 = getBestGearForCharacter(accountClient.getCharacter(character2Name).data, monster.code)
-        val character3 = getBestGearForCharacter(accountClient.getCharacter(character3Name).data, monster.code)
+        val character1 = prepareSimulatedCharacter(character1Name, monster, BossRole.TANK, EquipmentService.TANK_THREAT_MULT)
+        val character2 = prepareSimulatedCharacter(character2Name, monster, BossRole.DPS, 1)
+        val character3 = prepareSimulatedCharacter(character3Name, monster, BossRole.DPS, 1)
+
         return runFightSimulation(listOf(character1, character2, character3), monster)
+    }
+
+    /**
+     * Gears a character for simulation with the same role-based logic as the real fight:
+     * tank threat for char1, DPS for the others, plus the boss potions posted on the
+     * utility slots — without any bank withdrawal, so the simulation matches reality.
+     */
+    private fun prepareSimulatedCharacter(
+        characterName: String,
+        monster: MonsterData,
+        role: BossRole,
+        threatScoreMult: Int,
+    ): ArtifactsCharacter {
+        val character = getBestGearForCharacter(accountClient.getCharacter(characterName).data, monster.code, threatScoreMult)
+        val loadout = equipmentService.selectBossPotions(character, monster, role)
+        character.utility1Slot = loadout.utility1 ?: ""
+        character.utility2Slot = loadout.utility2 ?: ""
+        return character
     }
 
 
@@ -273,8 +301,8 @@ class BossFightService(
      * Finds the best gear available in the bank for a character.
      * Currently a placeholder that returns the character as-is.
      */
-    private fun getBestGearForCharacter(character: ArtifactsCharacter, monster: String): ArtifactsCharacter {
-        val bis = equipmentService.findBestEquipmentForMonsterInBank(character, monster)
+    private fun getBestGearForCharacter(character: ArtifactsCharacter, monster: String, threatScoreMult: Int = 1): ArtifactsCharacter {
+        val bis = equipmentService.findBestEquipmentForMonsterInBank(character, monster, threatScoreMult)
         bis.forEach { slot, item ->
             if(item != null){
                 character["${slot}_slot"] = item.code

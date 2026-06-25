@@ -12,6 +12,7 @@ import com.tellenn.artifacts.models.MonsterData
 import com.tellenn.artifacts.models.RecipeIngredient
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertInstanceOf
+import org.junit.jupiter.api.Assertions.assertNotEquals
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
@@ -156,6 +157,34 @@ class CraftLevelingServiceTest {
         val choice = service().selectLevelingCraft(character("jewelrycrafting" to 40), "jewelrycrafting")
         assertInstanceOf(LevelingChoice.Craft::class.java, choice)
         assertEquals("mithril_ring", (choice as LevelingChoice.Craft).item.code)
+    }
+
+    @Test
+    fun `weaponcrafting niveau 1 ne sélectionne jamais wooden_staff, l'arme de tutoriel limitée`() {
+        // wooden_staff (recette weaponcrafting niveau 1) requiert wooden_stick : une arme de départ
+        // non craftable distribuée en quantité limitée. On ne doit jamais l'épuiser pour du leveling.
+        `when`(bankService.isInBank(anyString(), anyInt())).thenReturn(false)
+        val choice = service().selectLevelingCraft(character("weaponcrafting" to 1), "weaponcrafting")
+        assertInstanceOf(LevelingChoice.Craft::class.java, choice)
+        assertNotEquals("wooden_staff", (choice as LevelingChoice.Craft).item.code)
+    }
+
+    @Test
+    fun `une recette dépendant de l'arme de tutoriel limitée n'est jamais jouable pour le leveling`() {
+        val woodenStaff = ItemDetails(
+            code = "wooden_staff", name = "wooden_staff", description = "", type = "weapon", subtype = "",
+            level = 1, tradeable = true,
+            craft = ItemCraft(
+                "weaponcrafting", 1,
+                listOf(RecipeIngredient("wooden_stick", 1), RecipeIngredient("ash_wood", 4)), 1
+            ),
+            effects = emptyList(), conditions = emptyList()
+        )
+        val svc = service(mockItemServiceReturning("weaponcrafting", woodenStaff))
+
+        val choice = svc.selectLevelingCraft(character("weaponcrafting" to 1), "weaponcrafting")
+
+        assertEquals(LevelingChoice.NoViableRecipe, choice)
     }
 
     @Test
