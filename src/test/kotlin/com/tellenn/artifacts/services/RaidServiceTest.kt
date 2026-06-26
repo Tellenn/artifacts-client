@@ -2,12 +2,18 @@ package com.tellenn.artifacts.services
 
 import com.tellenn.artifacts.clients.RaidClient
 import com.tellenn.artifacts.clients.responses.ArtifactsResponseBody
+import com.tellenn.artifacts.db.documents.RaidDocument
 import com.tellenn.artifacts.db.repositories.RaidRepository
 import com.tellenn.artifacts.exceptions.NotFoundException
 import com.tellenn.artifacts.models.Raid
+import com.tellenn.artifacts.models.RaidDamageReward
+import com.tellenn.artifacts.models.RaidLeaderboardReward
+import com.tellenn.artifacts.models.RaidRewardItem
+import com.tellenn.artifacts.models.RaidRewards
 import com.tellenn.artifacts.models.RaidSchedule
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertNull
+import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.assertThrows
@@ -96,5 +102,30 @@ class RaidServiceTest {
         `when`(raidClient.getRaid("god_of_the_sun")).thenThrow(NotFoundException("not found"))
 
         assertNull(service.getLiveRaid("god_of_the_sun"))
+    }
+
+    private fun raidDocument(code: String, rewards: RaidRewards?) = RaidDocument(
+        code = code, name = code, description = null, monster = "m_$code",
+        schedule = schedule("monday"), rewards = rewards,
+    )
+
+    @Test
+    fun `getAllRaidRewardItemCodes collects damage and leaderboard reward items across raids`() {
+        val rewards = RaidRewards(
+            damageRewards = listOf(RaidDamageReward(1000, 5, listOf(RaidRewardItem("sun_shard", 1)))),
+            leaderboard = listOf(RaidLeaderboardReward(1, 3, listOf(RaidRewardItem("sun_crown", 1)))),
+        )
+        `when`(raidRepository.findAll()).thenReturn(listOf(raidDocument("god_of_the_sun", rewards)))
+
+        val codes = service.getAllRaidRewardItemCodes()
+
+        assertEquals(setOf("sun_shard", "sun_crown"), codes)
+    }
+
+    @Test
+    fun `getAllRaidRewardItemCodes ignores raids without rewards`() {
+        `when`(raidRepository.findAll()).thenReturn(listOf(raidDocument("god_of_the_sun", null)))
+
+        assertTrue(service.getAllRaidRewardItemCodes().isEmpty())
     }
 }

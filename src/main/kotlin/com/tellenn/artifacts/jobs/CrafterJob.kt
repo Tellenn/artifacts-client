@@ -22,6 +22,7 @@ import com.tellenn.artifacts.services.MapService
 import com.tellenn.artifacts.services.AchievementService
 import com.tellenn.artifacts.services.MonsterService
 import com.tellenn.artifacts.services.MovementService
+import com.tellenn.artifacts.services.RaidService
 import com.tellenn.artifacts.services.TaskService
 import com.tellenn.artifacts.services.UniqueArtifactService
 import com.tellenn.artifacts.services.CharacterContextService
@@ -46,6 +47,7 @@ class CrafterJob(
     private val gatheringService: GatheringService,
     private val eventService: EventService,
     private val monsterService: MonsterService,
+    private val raidService: RaidService,
     private val achievementService: AchievementService,
     private val uniqueArtifactService: UniqueArtifactService,
     private val contextService: CharacterContextService,
@@ -55,10 +57,12 @@ class CrafterJob(
     lateinit var character: ArtifactsCharacter
     val rareItemCode = listOf("magical_cure", "jasper_crystal", "astralyte_crystal", "enchanted_fabric", "ruby", "sapphire", "emerald", "topaz", "diamond")
     var eventBasedItemCodes = listOf<String>()
+    var raidRewardItemCodes = setOf<String>()
 
     fun run(characterName: String) {
         sleep(1000)
         eventBasedItemCodes = eventService.getAllEventMaterials()
+        raidRewardItemCodes = raidService.getAllRaidRewardItemCodes()
         character = init(characterName)
         do {
             if (character.weaponcraftingLevel >= maxLevel
@@ -261,6 +265,15 @@ class CrafterJob(
                 item.craft?.items?.none { ingredient ->
                     val monster = monsterService.findMonsterThatDrop(ingredient.code)
                     if(monster?.type == "boss"){
+                        !bankService.isInBank(ingredient.code, ingredient.quantity)
+                    }else{ false }
+                } ?: true
+            }
+            .filter { item ->
+                // Filter out items requiring a raid-only reward component not in bank: raids run on a
+                // schedule and cannot be triggered by the bot, so such a craft would stay blocked.
+                item.craft?.items?.none { ingredient ->
+                    if(raidRewardItemCodes.contains(ingredient.code)){
                         !bankService.isInBank(ingredient.code, ingredient.quantity)
                     }else{ false }
                 } ?: true

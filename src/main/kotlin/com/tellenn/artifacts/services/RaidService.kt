@@ -5,6 +5,7 @@ import com.tellenn.artifacts.db.documents.RaidDocument
 import com.tellenn.artifacts.db.repositories.RaidRepository
 import com.tellenn.artifacts.exceptions.NotFoundException
 import com.tellenn.artifacts.models.Raid
+import com.tellenn.artifacts.models.RaidRewards
 import com.tellenn.artifacts.models.RaidSchedule
 import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Service
@@ -29,13 +30,28 @@ class RaidService(
         raidRepository.findById(code).map { RaidDocument.toRaid(it) }.orElse(null)
 
     /**
+     * Tous les codes d'items obtenables uniquement via les récompenses de raid (damage + leaderboard).
+     * Les raids étant déclenchés par planning et non par le bot, ces composants ne peuvent pas être
+     * récoltés à la demande : un craft qui en dépend est bloqué tant que l'item n'est pas en banque.
+     */
+    fun getAllRaidRewardItemCodes(): Set<String> =
+        getAllCachedRaids()
+            .mapNotNull { it.rewards }
+            .flatMap { rewardItemCodes(it) }
+            .toSet()
+
+    private fun rewardItemCodes(rewards: RaidRewards): List<String> =
+        (rewards.damageRewards.flatMap { it.items } + rewards.leaderboard.flatMap { it.items })
+            .map { it.code }
+
+    /**
      * Fetches the live state of a raid from the API by its code, including the
      * active instance when one is running. Returns null when the code is unknown.
      */
     fun getLiveRaid(code: String): Raid? =
         try {
             raidClient.getRaid(code).data
-        } catch (e: NotFoundException) {
+        } catch (_: NotFoundException) {
             logger.warn("Raid {} not found via API", code)
             null
         }
