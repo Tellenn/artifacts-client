@@ -2,7 +2,9 @@ package com.tellenn.artifacts
 
 import com.fasterxml.jackson.databind.ObjectMapper
 import com.tellenn.artifacts.clients.ServerStatusClient
+import com.tellenn.artifacts.exceptions.ArtifactsApiException
 import com.tellenn.artifacts.models.ArtifactsCharacter
+import com.tellenn.artifacts.models.ServerStatus
 import com.tellenn.artifacts.config.CharacterConfig
 import com.tellenn.artifacts.services.ThreadService
 import com.tellenn.artifacts.services.sync.BankItemSyncService
@@ -23,6 +25,7 @@ import org.springframework.boot.ApplicationRunner
 import org.springframework.stereotype.Component
 import jakarta.annotation.PreDestroy
 import java.lang.Thread.sleep
+import java.util.concurrent.TimeUnit
 
 @Slf4j
 @Component
@@ -45,9 +48,14 @@ class MainRuntime(
 
     private val log = LogManager.getLogger(MainRuntime::class.java)
 
+    companion object {
+        private const val SERVER_UNAVAILABLE_CODE = 502
+        private val SERVER_RETRY_DELAY_MS = TimeUnit.MINUTES.toMillis(1)
+    }
+
     override fun run(args: ApplicationArguments?) {
         // Call the server to get the information
-        val serverStatus = serverStatusClient.getServerStatus().data
+        val serverStatus = fetchServerStatusUntilAvailable()
         timeSync.syncWithServerTime(serverStatus.serverTime)
         log.info("Time synchronized with server. Offset: ${timeSync.currentOffset}")
 
@@ -124,6 +132,22 @@ class MainRuntime(
         // Start threads for existing characters
         startCharacterThreads(characterSyncService.syncPredefinedCharacters())
 
+    }
+
+    /**
+     * Fetches the server status on startup, retrying after a one-minute wait while the
+     * server is unavailable (HTTP 502). Any other API error is rethrown immediately.
+     */
+    private fun fetchServerStatusUntilAvailable(): ServerStatus {
+        while (true) {
+            try {
+                return serverStatusClient.getServerStatus().data
+            } catch (e: ArtifactsApiException) {
+                if (e.code != SERVER_UNAVAILABLE_CODE) throw e
+                log.warn("Server unavailable (502) on startup, retrying in 1 minute...")
+                sleep(SERVER_RETRY_DELAY_MS)
+            }
+        }
     }
 
     /**
