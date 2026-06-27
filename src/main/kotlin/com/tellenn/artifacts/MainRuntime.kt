@@ -1,5 +1,6 @@
 package com.tellenn.artifacts
 
+import com.fasterxml.jackson.core.JsonParseException
 import com.fasterxml.jackson.databind.ObjectMapper
 import com.tellenn.artifacts.clients.ServerStatusClient
 import com.tellenn.artifacts.exceptions.ArtifactsApiException
@@ -145,6 +146,9 @@ class MainRuntime(
             } catch (e: ArtifactsApiException) {
                 if (e.code != SERVER_UNAVAILABLE_CODE) throw e
                 log.warn("Server unavailable (502) on startup, retrying in 1 minute...")
+                sleep(SERVER_RETRY_DELAY_MS)
+            } catch (e: JsonParseException){
+                log.warn("Server up but returned html (probably a maintenance page)")
                 sleep(SERVER_RETRY_DELAY_MS)
             }
         }
