@@ -3,3 +3,7 @@
 /.claude/*
 /docs/*
 .CLAUDE.md
+/CLAUDE.md
+/.mvn/wrapper/maven-wrapper.properties
+/.mvn/wrapper/maven-wrapper.jar
+/logs/*
