@@ -6,6 +6,7 @@ import com.tellenn.artifacts.db.repositories.CraftedItemRepository
 import com.tellenn.artifacts.models.ArtifactsCharacter
 import com.tellenn.artifacts.models.ItemCraft
 import com.tellenn.artifacts.models.ItemDetails
+import com.tellenn.artifacts.models.SimpleItem
 import com.tellenn.artifacts.services.AchievementService
 import com.tellenn.artifacts.services.BankService
 import com.tellenn.artifacts.services.CharacterContextService
@@ -81,10 +82,10 @@ class CrafterJobCleanUpBankTest {
     }
 
     @Test
-    fun `only craftable equipment is recycled, non-craftable bank items are left untouched`() {
-        // given — the bank equipment under the crafter threshold: only the two wooden
-        // weapons are craftable (craft != null); the rest mirror the itemDetails data
-        // where no craft recipe exists, so they must never enter itemsToRecycle.
+    fun `wooden_stick is destroyed, craftable equipment is recycled in full, non-craftable items are untouched`() {
+        // given — the bank equipment under the crafter threshold. wooden_stick is the tutorial
+        // weapon (destroyed, never recycled); wooden_staff is craftable (recycled in full);
+        // the rest have no craft recipe, mirroring the itemDetails data, so they stay untouched.
         val bankItems = listOf(
             equipment("wooden_stick", "weapon", level = 1, craft = recipe("weaponcrafting")),
             equipment("wooden_staff", "weapon", level = 1, craft = recipe("weaponcrafting")),
@@ -97,18 +98,26 @@ class CrafterJobCleanUpBankTest {
         `when`(movementService.moveToBank(anyObject(), anyBoolean())).thenReturn(job.character)
         `when`(bankService.emptyInventory(anyObject())).thenReturn(job.character)
         `when`(bankService.withdrawAllOfOne(anyObject(), anyString())).thenReturn(job.character)
-        `when`(characterService.destroyAllOfOne(anyObject(), anyString())).thenReturn(job.character)
-        val recycledCodes = mutableListOf<String>()
+        // 3 wooden_staff in the bank → the whole stock must be recycled, not a single unit.
+        `when`(bankService.getOne("wooden_staff")).thenReturn(SimpleItem("wooden_staff", 3))
+
+        val destroyedCodes = mutableListOf<String>()
+        `when`(characterService.destroyAllOfOne(anyObject(), anyString())).thenAnswer { invocation ->
+            destroyedCodes.add(invocation.getArgument(1) as String)
+            job.character
+        }
+        val recycled = mutableListOf<Pair<String, Int>>()
         `when`(gatheringService.recycle(anyObject(), anyObject(), anyInt())).thenAnswer { invocation ->
-            recycledCodes.add((invocation.getArgument(1) as ItemDetails).code)
+            recycled.add((invocation.getArgument(1) as ItemDetails).code to (invocation.getArgument(2) as Int))
             job.character
         }
 
         // when
         job.cleanUpBank()
 
-        // then — exactly the two craftable items are recycled, nothing else
-        assertEquals(listOf("wooden_stick", "wooden_staff"), recycledCodes)
+        // then — wooden_stick destroyed, wooden_staff recycled in full (qty 3), nothing else
+        assertEquals(listOf("wooden_stick"), destroyedCodes)
+        assertEquals(listOf("wooden_staff" to 3), recycled)
     }
 
     private fun recipe(skill: String) = ItemCraft(skill = skill, level = 1, items = emptyList(), quantity = 1)

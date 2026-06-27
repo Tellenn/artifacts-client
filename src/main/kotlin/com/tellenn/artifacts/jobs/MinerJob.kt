@@ -2,6 +2,7 @@ package com.tellenn.artifacts.jobs
 
 import com.tellenn.artifacts.AppConfig.maxLevel
 import com.tellenn.artifacts.clients.AccountClient
+import com.tellenn.artifacts.exceptions.NoCraftableItemException
 import com.tellenn.artifacts.models.ArtifactsCharacter
 import com.tellenn.artifacts.models.SimpleItem
 import com.tellenn.artifacts.services.BankService
@@ -83,7 +84,7 @@ class MinerJob(
                     itemService.getAllCraftableItemsBySkillAndSubtypeAndMaxLevel(skill, "bar", character.miningLevel)
                         .filter { it.code != "strangold_bar" }
                 if (items.isEmpty()) {
-                    throw Exception("No craftable item found")
+                    throw NoCraftableItemException(skill, character.miningLevel)
                 }
                 val item = items.first()
                 contextService.setObjective(characterName, "Level up minage → craft de ${item.code} (niv. ${character.miningLevel})")

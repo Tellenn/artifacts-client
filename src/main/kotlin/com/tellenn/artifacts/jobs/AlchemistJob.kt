@@ -4,6 +4,7 @@ import com.tellenn.artifacts.AppConfig.maxLevel
 import com.tellenn.artifacts.clients.AccountClient
 import com.tellenn.artifacts.db.repositories.ItemRepository
 import com.tellenn.artifacts.exceptions.MapContentNotFoundException
+import com.tellenn.artifacts.exceptions.NoCraftableItemException
 import com.tellenn.artifacts.models.ArtifactsCharacter
 import com.tellenn.artifacts.models.ItemDetails
 import com.tellenn.artifacts.models.SimpleItem
@@ -118,7 +119,7 @@ class AlchemistJob(
                             skill,
                             "potion",
                             character.alchemyLevel
-                        ) ?: throw Exception("No craftable item found")
+                        ) ?: throw NoCraftableItemException(skill, character.alchemyLevel)
 
                     log.info("${character.name} is crafting ${item.code} to level up their alchemy")
                     contextService.setObjective(characterName, "Level up alchimie → craft de ${item.code} (niv. ${character.alchemyLevel})")

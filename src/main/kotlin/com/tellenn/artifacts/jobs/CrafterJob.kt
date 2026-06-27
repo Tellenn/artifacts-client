@@ -248,7 +248,7 @@ class CrafterJob(
                     if(rareItemCode.contains(item.code)){
                         !bankService.isInBank(item.code, item.quantity)
                         || ( it.level > 30 && bankService.isInBank(
-                            "tasks_coins",
+                            "tasks_coin",
                             40
                         ))
                     }else{ false } } ?: false }
@@ -261,22 +261,24 @@ class CrafterJob(
                     }
                 }else{ false } } ?: false }
             .filter { item ->
-                // Filter out items that require boss monster components not in bank
+                // Filter out items that require boss monster components not in bank.
+                // A non-craftable item (craft == null) is never a valid craft target → excluded.
                 item.craft?.items?.none { ingredient ->
                     val monster = monsterService.findMonsterThatDrop(ingredient.code)
                     if(monster?.type == "boss"){
                         !bankService.isInBank(ingredient.code, ingredient.quantity)
                     }else{ false }
-                } ?: true
+                } ?: false
             }
             .filter { item ->
                 // Filter out items requiring a raid-only reward component not in bank: raids run on a
                 // schedule and cannot be triggered by the bot, so such a craft would stay blocked.
+                // A non-craftable item (craft == null) is never a valid craft target → excluded.
                 item.craft?.items?.none { ingredient ->
                     if(raidRewardItemCodes.contains(ingredient.code)){
                         !bankService.isInBank(ingredient.code, ingredient.quantity)
                     }else{ false }
-                } ?: true
+                } ?: false
             }
             .sortedBy { it.level }
     }
@@ -297,29 +299,29 @@ class CrafterJob(
     fun cleanUpBank(): ArtifactsCharacter {
         character = movementService.moveToBank(character)
         character = bankService.emptyInventory(character)
-        var nbItems = 10
-        val itemsToRecycle = arrayListOf<ItemDetails>().toMutableList()
-        val minCrafterLevel = min(character.weaponcraftingLevel, min( character.gearcraftingLevel, character.jewelrycraftingLevel)) -10
+        val itemsToRecycle = mutableListOf<Pair<ItemDetails, Int>>()
+        val minCrafterLevel = min(character.weaponcraftingLevel, min(character.gearcraftingLevel, character.jewelrycraftingLevel)) - 10
         bankService.getAllEquipmentsUnderLevel(minCrafterLevel)
-            .map { BankItemDocument.toItemDetails(it) }
-            .forEach {
-                // If it's not the tutorial weapon and it's a craftable item, recycle it
-                if(it != null && it.craft != null){
-                    character = bankService.withdrawAllOfOne(character, it.code)
-
-                    itemsToRecycle.add(it)
-                    nbItems--
+            .mapNotNull { BankItemDocument.toItemDetails(it) }
+            .forEach { item ->
+                when {
+                    // Tutorial weapon: destroyed rather than recycled.
+                    item.code == "wooden_stick" -> {
+                        character = characterService.destroyAllOfOne(character, item.code)
+                    }
+                    // Craftable equipment: withdraw the whole stock so it can be recycled in full.
+                    item.craft != null -> {
+                        val quantity = bankService.getOne(item.code).quantity
+                        if (quantity > 0) {
+                            character = bankService.withdrawAllOfOne(character, item.code)
+                            itemsToRecycle.add(item to quantity)
+                        }
+                    }
+                    // Otherwise a dropped, non-craftable item: handled when an event happens.
                 }
-                // If it's the tutorial item, destroy it
-                if(it != null && it.code == "wooden_stick"){
-                    character = characterService.destroyAllOfOne(character, it.code)
-                }
-            // If it's a dropped item, it'll be taken care of when an event happens
             }
-        if(itemsToRecycle.isNotEmpty()){
-            itemsToRecycle.forEach {
-                character = gatheringService.recycle(character, it, 1)
-            }
+        itemsToRecycle.forEach { (item, quantity) ->
+            character = gatheringService.recycle(character, item, quantity)
         }
         character = movementService.moveToBank(character)
         return bankService.emptyInventory(character)

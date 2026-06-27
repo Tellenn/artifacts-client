@@ -117,7 +117,8 @@ class MovementService(
     fun transitionsFromRegions(character: ArtifactsCharacter, originMap: MapData, destinationMap: MapData): ArtifactsCharacter {
         val path = mapService.findTransitionPath(originMap.region!!, destinationMap.region!!)
         if (path.isEmpty()) {
-            throw Exception("No transition path found from region ${originMap.region} to ${destinationMap.region}")
+            log.warn("No transition path found from region ${originMap.region} to ${destinationMap.region}")
+            throw UnreachableMapException(destinationMap, character.name)
         }
         var canUsePath = true
         path.forEach { transitionMapper ->

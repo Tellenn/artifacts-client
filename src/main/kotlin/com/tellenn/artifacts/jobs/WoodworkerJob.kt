@@ -4,6 +4,7 @@ import com.tellenn.artifacts.AppConfig.maxLevel
 import com.tellenn.artifacts.clients.AccountClient
 import com.tellenn.artifacts.exceptions.MapContentNotFoundException
 import com.tellenn.artifacts.exceptions.MissingItemException
+import com.tellenn.artifacts.exceptions.NoCraftableItemException
 import com.tellenn.artifacts.models.ArtifactsCharacter
 import com.tellenn.artifacts.models.SimpleItem
 import com.tellenn.artifacts.services.BankService
@@ -82,9 +83,8 @@ class WoodworkerJob(
                 }catch (e: MissingItemException){
                     character = accountClient.getCharacter(character.name).data
                     log.error("Tried to craft while not having enought items ... it's a bother",e)
-                }finally {
-                    continue
                 }
+                continue
                 // Otherwise levelup
             }else if(character.woodcuttingLevel < maxLevel){
                 log.info("${character.name} is leveling his woodcutting skill")
@@ -92,7 +92,7 @@ class WoodworkerJob(
                     itemService.getAllCraftableItemsBySkillAndSubtypeAndMaxLevel(skill, "plank", character.woodcuttingLevel)
                         .filter { it.code != "cursed_plank" && it.code != "magical_plank" }
                 if (items.isEmpty()) {
-                    throw Exception("No craftable item found")
+                    throw NoCraftableItemException(skill, character.woodcuttingLevel)
                 }
                 val item = items.first()
                 contextService.setObjective(characterName, "Level up bûcheronnage → craft de ${item.code} (niv. ${character.woodcuttingLevel})")
