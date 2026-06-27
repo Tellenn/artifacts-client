@@ -99,11 +99,13 @@ class MovementService(
     }
 
     fun moveToNpc(character: ArtifactsCharacter, npcName: String): ArtifactsCharacter {
-        val map = mapService.findClosestMap(
+        // Les PNJ sont souvent liés à des événements : leur position stockée en base
+        // peut être périmée, on interroge donc l'API en direct pour la localiser.
+        val map = mapService.findClosestMapFromApi(
             character = character,
             contentType = "npc",
             contentCode = npcName
-        ) // TODO Use the api instead, it's usually event based
+        )
 
         return moveCharacterToCell(map.mapId, character)
     }

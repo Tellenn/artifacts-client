@@ -1,6 +1,7 @@
 package com.tellenn.artifacts.services
 
 import com.tellenn.artifacts.clients.AccountClient
+import com.tellenn.artifacts.clients.MapClient
 import com.tellenn.artifacts.models.ArtifactsCharacter
 import com.tellenn.artifacts.models.MapData
 import com.tellenn.artifacts.db.clients.MapMongoClient
@@ -20,7 +21,8 @@ import kotlin.math.sqrt
 class MapService(
     private val mapMongoClient: MapMongoClient,
     private val transitionMapperRepository: TransitionMapperRepository,
-    private val accountClient: AccountClient
+    private val accountClient: AccountClient,
+    private val mapClient: MapClient
 ) {
     private val logger = LoggerFactory.getLogger(MapService::class.java)
 
@@ -41,7 +43,7 @@ class MapService(
     ): MapData {
         logger.debug("Finding closest map to character ${character.name} at position (${character.x}, ${character.y})")
 
-        // Fetch maps from the database
+        // Fetch maps from the local database cache
         val mapsResponse = mapMongoClient.getMaps(
             page = 1,
             size = 100, // Fetch a reasonable number of maps to compare
@@ -49,15 +51,54 @@ class MapService(
             content_code = contentCode.takeIf { !it.isNullOrBlank() && it != "null" }
         )
 
-        if (mapsResponse.data.isEmpty()) {
+        return selectClosestMap(character, mapsResponse.data, contentType, contentCode, checkAchievement, excludeMapIds)
+    }
+
+    /**
+     * Variante de [findClosestMap] qui interroge l'API en direct plutôt que le cache
+     * local. À privilégier pour les contenus volatils (PNJ liés à des événements),
+     * dont la position stockée en base peut être périmée.
+     */
+    fun findClosestMapFromApi(
+        character: ArtifactsCharacter,
+        contentType: String? = null,
+        contentCode: String? = null,
+        checkAchievement: Boolean = false,
+        excludeMapIds: Set<Int> = emptySet()
+    ): MapData {
+        logger.debug("Finding closest map (live API) to character ${character.name} at position (${character.x}, ${character.y})")
+
+        val mapsResponse = mapClient.getMaps(
+            page = 1,
+            size = 100,
+            content_type = contentType.takeIf { !it.isNullOrBlank() && it != "null" },
+            content_code = contentCode.takeIf { !it.isNullOrBlank() && it != "null" }
+        )
+
+        return selectClosestMap(character, mapsResponse.data, contentType, contentCode, checkAchievement, excludeMapIds)
+    }
+
+    /**
+     * Filtre une liste de maps (exclusions + accès par achievement) puis retourne
+     * la plus proche du personnage. Logique commune au cache local et à l'API.
+     */
+    private fun selectClosestMap(
+        character: ArtifactsCharacter,
+        maps: List<MapData>,
+        contentType: String?,
+        contentCode: String?,
+        checkAchievement: Boolean,
+        excludeMapIds: Set<Int>
+    ): MapData {
+        if (maps.isEmpty()) {
             logger.warn("No maps found with the specified criteria")
             throw UnknownMapException(contentType, contentCode)
         }
 
         var filteredMaps = if (excludeMapIds.isNotEmpty()) {
-            mapsResponse.data.filter { it.mapId !in excludeMapIds }
+            maps.filter { it.mapId !in excludeMapIds }
         } else {
-            mapsResponse.data
+            maps
         }
         if (checkAchievement) {
             val achievements = accountClient.getAccountAchievements(character.account, true).data
@@ -77,10 +118,7 @@ class MapService(
             throw UnknownMapException(contentType, contentCode)
         }
 
-        // Find the closest map
         val closestMap = findClosestMapToCharacter(character, filteredMaps)
-
-
         logger.debug("Closest map to character ${character.name} is at position (${closestMap.x}, ${closestMap.y})")
         return closestMap
     }

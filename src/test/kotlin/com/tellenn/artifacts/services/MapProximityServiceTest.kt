@@ -1,6 +1,7 @@
 package com.tellenn.artifacts.services
 
 import com.tellenn.artifacts.clients.AccountClient
+import com.tellenn.artifacts.clients.MapClient
 import com.tellenn.artifacts.models.*
 import com.tellenn.artifacts.clients.responses.ArtifactsArrayResponseBody
 import com.tellenn.artifacts.db.clients.MapMongoClient
@@ -18,6 +19,7 @@ class MapProximityServiceTest {
     private lateinit var transitionMapperRepository: TransitionMapperRepository
     private lateinit var mapMongoClient: MapMongoClient
     private lateinit var accountClient: AccountClient
+    private lateinit var mapClient: MapClient
     private lateinit var mapService: MapService
 
     @BeforeEach
@@ -25,7 +27,8 @@ class MapProximityServiceTest {
         mapMongoClient = mock(MapMongoClient::class.java)
         transitionMapperRepository = mock(TransitionMapperRepository::class.java)
         accountClient = mock(AccountClient::class.java)
-        mapService = MapService(mapMongoClient, transitionMapperRepository, accountClient)
+        mapClient = mock(MapClient::class.java)
+        mapService = MapService(mapMongoClient, transitionMapperRepository, accountClient, mapClient)
     }
 
     @Test
@@ -192,6 +195,42 @@ class MapProximityServiceTest {
         // Then
         // map2 is closer and unlocked
         assertEquals(map2, result)
+    }
+
+    @Test
+    fun `findClosestMapFromApi should query the live API instead of the local cache`() {
+        // Given — an event-based NPC whose closest live location is map2
+        val character = createTestCharacter(x = 5, y = 5)
+        val contentType = "npc"
+        val contentCode = "santa_claus"
+
+        val maps = listOf(
+            createTestMapData(x = 12, y = 12, contentType = contentType, contentCode = contentCode),
+            createTestMapData(x = 4, y = 4, contentType = contentType, contentCode = contentCode) // closest
+        )
+        val response = ArtifactsArrayResponseBody(
+            data = maps, total = maps.size, page = 1, size = maps.size, pages = 1
+        )
+        `when`(mapClient.getMaps(
+            name = null,
+            content_type = contentType,
+            content_code = contentCode,
+            page = 1,
+            size = 100
+        )).thenReturn(response)
+
+        // When
+        val result = mapService.findClosestMapFromApi(character, contentType, contentCode)
+
+        // Then — the live API is queried and the closest live location is returned
+        assertEquals(maps[1], result)
+        verify(mapClient).getMaps(
+            name = null,
+            content_type = contentType,
+            content_code = contentCode,
+            page = 1,
+            size = 100
+        )
     }
 
     // Helper methods to create test objects
