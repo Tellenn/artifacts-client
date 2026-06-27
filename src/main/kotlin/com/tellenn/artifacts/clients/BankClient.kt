@@ -10,12 +10,10 @@ import com.tellenn.artifacts.clients.responses.BankItemTransaction
 import com.tellenn.artifacts.exceptions.BankCorruptedException
 import com.tellenn.artifacts.exceptions.NotFoundException
 import com.tellenn.artifacts.models.BankDetails
-import lombok.extern.slf4j.Slf4j
 import org.springframework.stereotype.Component
 
-@Slf4j
 @Component
-class BankClient : BaseArtifactsClient() {
+class BankClient(deps: BaseClientDependencies) : BaseArtifactsClient(deps) {
 
 
     fun getBankedItems(itemCode: String? = null, page: Int = 1): ArtifactsArrayResponseBody<SimpleItem> {

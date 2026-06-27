@@ -357,6 +357,7 @@ class BattleSimulatorServiceTest {
             subtype = "special",
             level = 1,
             tradeable = true,
+            recyclable = false,
             effects = listOf(
                 Effect(
                     code = "lifesteal",

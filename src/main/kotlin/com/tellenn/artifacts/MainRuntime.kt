@@ -2,7 +2,9 @@ package com.tellenn.artifacts
 
 import com.fasterxml.jackson.databind.ObjectMapper
 import com.tellenn.artifacts.clients.ServerStatusClient
+import com.tellenn.artifacts.exceptions.ArtifactsApiException
 import com.tellenn.artifacts.models.ArtifactsCharacter
+import com.tellenn.artifacts.models.ServerStatus
 import com.tellenn.artifacts.config.CharacterConfig
 import com.tellenn.artifacts.services.ThreadService
 import com.tellenn.artifacts.services.sync.BankItemSyncService
@@ -10,6 +12,7 @@ import com.tellenn.artifacts.services.sync.CharacterSyncService
 import com.tellenn.artifacts.services.sync.ItemSyncService
 import com.tellenn.artifacts.services.sync.MapSyncService
 import com.tellenn.artifacts.services.sync.MonsterSyncService
+import com.tellenn.artifacts.services.sync.RaidSyncService
 import com.tellenn.artifacts.services.sync.ResourceSyncService
 import com.tellenn.artifacts.services.sync.ServerVersionService
 import com.tellenn.artifacts.services.WebSocketService
@@ -22,6 +25,7 @@ import org.springframework.boot.ApplicationRunner
 import org.springframework.stereotype.Component
 import jakarta.annotation.PreDestroy
 import java.lang.Thread.sleep
+import java.util.concurrent.TimeUnit
 
 @Slf4j
 @Component
@@ -36,6 +40,7 @@ class MainRuntime(
     private val webSocketService: WebSocketService,
     private val bankItemSyncService: BankItemSyncService,
     private val resourceSyncService: ResourceSyncService,
+    private val raidSyncService: RaidSyncService,
     private val serverVersionService: ServerVersionService,
     private val transitionMapperSyncService: TransitionMapperSyncService,
     private val threadService: ThreadService
@@ -43,9 +48,14 @@ class MainRuntime(
 
     private val log = LogManager.getLogger(MainRuntime::class.java)
 
+    companion object {
+        private const val SERVER_UNAVAILABLE_CODE = 502
+        private val SERVER_RETRY_DELAY_MS = TimeUnit.MINUTES.toMillis(1)
+    }
+
     override fun run(args: ApplicationArguments?) {
         // Call the server to get the information
-        val serverStatus = serverStatusClient.getServerStatus().data
+        val serverStatus = fetchServerStatusUntilAvailable()
         timeSync.syncWithServerTime(serverStatus.serverTime)
         log.info("Time synchronized with server. Offset: ${timeSync.currentOffset}")
 
@@ -84,12 +94,23 @@ class MainRuntime(
             val syncedResourceCount = resourceSyncService.syncAllResources()
             log.info("Resources synchronized with server. Total resources: $syncedResourceCount")
             sleep(1000)
-            
+
+            // Synchronize raids from the server
+            val syncedRaidCount = raidSyncService.syncAllRaids()
+            log.info("Raids synchronized with server. Total raids: $syncedRaidCount")
+            sleep(1000)
+
             // Update the server version after all syncs are completed
             serverVersionService.updateServerVersion(serverStatus)
             log.info("Server version updated after all syncs completed")
         } else {
             log.info("Server version unchanged, skipping syncs (except bank)")
+            // A collection added after the version was last stored is never backfilled
+            // by the version gate — sync raids on their own if the cache is still empty.
+            val backfilledRaidCount = raidSyncService.syncRaidsIfEmpty()
+            if (backfilledRaidCount > 0) {
+                log.info("Raids backfilled (cache was empty). Total raids: $backfilledRaidCount")
+            }
         }
 
 
@@ -111,6 +132,22 @@ class MainRuntime(
         // Start threads for existing characters
         startCharacterThreads(characterSyncService.syncPredefinedCharacters())
 
+    }
+
+    /**
+     * Fetches the server status on startup, retrying after a one-minute wait while the
+     * server is unavailable (HTTP 502). Any other API error is rethrown immediately.
+     */
+    private fun fetchServerStatusUntilAvailable(): ServerStatus {
+        while (true) {
+            try {
+                return serverStatusClient.getServerStatus().data
+            } catch (e: ArtifactsApiException) {
+                if (e.code != SERVER_UNAVAILABLE_CODE) throw e
+                log.warn("Server unavailable (502) on startup, retrying in 1 minute...")
+                sleep(SERVER_RETRY_DELAY_MS)
+            }
+        }
     }
 
     /**

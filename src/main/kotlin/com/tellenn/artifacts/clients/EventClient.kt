@@ -3,12 +3,10 @@ package com.tellenn.artifacts.clients
 import com.fasterxml.jackson.module.kotlin.readValue
 import com.tellenn.artifacts.clients.responses.ArtifactsArrayResponseBody
 import com.tellenn.artifacts.models.EventData
-import lombok.extern.slf4j.Slf4j
 import org.springframework.stereotype.Component
 
-@Slf4j
 @Component
-class EventClient : BaseArtifactsClient() {
+class EventClient(deps: BaseClientDependencies) : BaseArtifactsClient(deps) {
 
     fun getEvents(type: String? = null, page: Int = 1, size: Int = 50): ArtifactsArrayResponseBody<EventData> {
         val queryParams = buildQueryParams(

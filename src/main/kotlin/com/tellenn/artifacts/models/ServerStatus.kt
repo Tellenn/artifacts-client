@@ -19,15 +19,18 @@ class SeasonInfo(
     @param:JsonProperty("name") val name : String,
     @param:JsonProperty("number") val number : Int,
     @param:JsonProperty("start_date") val startDate : Instant,
-    @param:JsonProperty("badges") val badges : Array<Badge>,
-    @param:JsonProperty("skins") val skins : Array<Badge>
+    @param:JsonProperty("rewards") val rewards : Array<Reward>
 )
 
 @Suppress("unused")
-class Badge(
+class Reward(
     @param:JsonProperty("code") val code : String,
+    @param:JsonProperty("type") val type : String,
     @param:JsonProperty("description") val description : String,
     @param:JsonProperty("required_points") val requiredPoints : Int,
+    @param:JsonProperty("quantity") val quantity : Int,
+    @param:JsonProperty("member_required") val memberRequired : Boolean,
+    @param:JsonProperty("first_only") val firstOnly : Boolean,
 )
 
 @Suppress("unused")

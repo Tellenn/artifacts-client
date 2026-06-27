@@ -9,6 +9,10 @@ class EquipmentResponseBody(
 
     @param:JsonProperty("cooldown") val cooldown: Cooldown,
     @param:JsonProperty("character") val character: ArtifactsCharacter,
+    @param:JsonProperty("items") val items: Array<EquipmentSlotResponseBody>,
+)
+
+class EquipmentSlotResponseBody(
     @param:JsonProperty("slot") val slot: String,
     @param:JsonProperty("item") val item: ItemDetails,
 )

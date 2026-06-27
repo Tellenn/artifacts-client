@@ -3,12 +3,10 @@ package com.tellenn.artifacts.clients
 import com.fasterxml.jackson.module.kotlin.readValue
 import com.tellenn.artifacts.clients.responses.ArtifactsResponseBody
 import com.tellenn.artifacts.clients.responses.GatheringResponseBody
-import lombok.extern.slf4j.Slf4j
 import org.springframework.stereotype.Component
 
-@Slf4j
 @Component
-class GatheringClient : BaseArtifactsClient() {
+class GatheringClient(deps: BaseClientDependencies) : BaseArtifactsClient(deps) {
 
     fun gather(characterName: String): ArtifactsResponseBody<GatheringResponseBody> {
         waitForCooldown(characterName)

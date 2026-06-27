@@ -4,6 +4,7 @@ import com.tellenn.artifacts.AppConfig.maxLevel
 import com.tellenn.artifacts.clients.AccountClient
 import com.tellenn.artifacts.exceptions.MapContentNotFoundException
 import com.tellenn.artifacts.exceptions.MissingItemException
+import com.tellenn.artifacts.exceptions.NoCraftableItemException
 import com.tellenn.artifacts.models.ArtifactsCharacter
 import com.tellenn.artifacts.models.SimpleItem
 import com.tellenn.artifacts.services.BankService
@@ -11,6 +12,7 @@ import com.tellenn.artifacts.services.CharacterService
 import com.tellenn.artifacts.services.GatheringService
 import com.tellenn.artifacts.services.ItemService
 import com.tellenn.artifacts.services.AchievementService
+import com.tellenn.artifacts.services.CharacterContextService
 import com.tellenn.artifacts.services.MapService
 import com.tellenn.artifacts.services.MovementService
 import com.tellenn.artifacts.services.TaskService
@@ -33,7 +35,8 @@ class WoodworkerJob(
     val gatheringService: GatheringService,
     val itemService: ItemService,
     val bankItemSyncService: BankItemSyncService,
-    val achievementService: AchievementService
+    val achievementService: AchievementService,
+    val contextService: CharacterContextService,
 ) : GenericJob(mapService, movementService, bankService, characterService, accountClient, taskService) {
 
     lateinit var character: ArtifactsCharacter
@@ -47,9 +50,11 @@ class WoodworkerJob(
 
         do{
             if (isCrafterMaxLevel()) {
+                contextService.setObjective(characterName, "Exécution des achievements (crafter max)")
                 character = achievementService.executeAchievement(character, "woodworker")
                 continue
             }
+            contextService.setObjective(characterName, "Alignement de niveau avec le crafter")
             character = catchBackCrafter(character)
             val itemsToCraft = ArrayList<SimpleItem>()
             val gatheringItems = itemService.getAllCraftBySkillUnderLevel(skill, character.woodcuttingLevel)
@@ -67,6 +72,7 @@ class WoodworkerJob(
                 try {
                     for (it in itemsToCraft) {
                         log.info("${character.name} is stocking up on some ${it.code}")
+                        contextService.setObjective(characterName, "Stock de ${it.code} pour le crafter (cible : 200)")
                         character = gatheringService.craftOrGather(character, it.code, it.quantity)
                         character = movementService.moveToBank(character)
                         character = bankService.emptyInventory(character)
@@ -77,9 +83,8 @@ class WoodworkerJob(
                 }catch (e: MissingItemException){
                     character = accountClient.getCharacter(character.name).data
                     log.error("Tried to craft while not having enought items ... it's a bother",e)
-                }finally {
-                    continue
                 }
+                continue
                 // Otherwise levelup
             }else if(character.woodcuttingLevel < maxLevel){
                 log.info("${character.name} is leveling his woodcutting skill")
@@ -87,9 +92,10 @@ class WoodworkerJob(
                     itemService.getAllCraftableItemsBySkillAndSubtypeAndMaxLevel(skill, "plank", character.woodcuttingLevel)
                         .filter { it.code != "cursed_plank" && it.code != "magical_plank" }
                 if (items.isEmpty()) {
-                    throw Exception("No craftable item found")
+                    throw NoCraftableItemException(skill, character.woodcuttingLevel)
                 }
                 val item = items.first()
+                contextService.setObjective(characterName, "Level up bûcheronnage → craft de ${item.code} (niv. ${character.woodcuttingLevel})")
                 character = gatheringService.craftOrGather(
                     character,
                     item.code,
@@ -101,6 +107,7 @@ class WoodworkerJob(
                 // Or do some tasks to get task coins
             }else{
                 log.info("${character.name} is doing a new itemTask")
+                contextService.setObjective(characterName, "Tâche d'item (niv. max atteint)")
                 if(character.task.isNullOrEmpty()){
                     character = taskService.getNewItemTask(character)
                 }

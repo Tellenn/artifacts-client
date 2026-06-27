@@ -2,6 +2,7 @@ package com.tellenn.artifacts.jobs
 
 import com.tellenn.artifacts.AppConfig.maxLevel
 import com.tellenn.artifacts.clients.AccountClient
+import com.tellenn.artifacts.exceptions.NoCraftableItemException
 import com.tellenn.artifacts.models.ArtifactsCharacter
 import com.tellenn.artifacts.models.SimpleItem
 import com.tellenn.artifacts.services.BankService
@@ -9,6 +10,7 @@ import com.tellenn.artifacts.services.CharacterService
 import com.tellenn.artifacts.services.GatheringService
 import com.tellenn.artifacts.services.ItemService
 import com.tellenn.artifacts.services.AchievementService
+import com.tellenn.artifacts.services.CharacterContextService
 import com.tellenn.artifacts.services.MapService
 import com.tellenn.artifacts.services.MovementService
 import com.tellenn.artifacts.services.TaskService
@@ -32,7 +34,8 @@ class MinerJob(
     private val gatheringService: GatheringService,
     private val itemService: ItemService,
     private val bankItemSyncService: BankItemSyncService,
-    private val achievementService: AchievementService
+    private val achievementService: AchievementService,
+    private val contextService: CharacterContextService,
 ) : GenericJob(mapService, movementService, bankService, characterService, accountClient, taskService) {
 
     lateinit var character: ArtifactsCharacter
@@ -46,9 +49,11 @@ class MinerJob(
 
         do{
             if (isCrafterMaxLevel()) {
+                contextService.setObjective(characterName, "Exécution des achievements (crafter max)")
                 character = achievementService.executeAchievement(character, "miner")
                 continue
             }
+            contextService.setObjective(characterName, "Alignement de niveau avec le crafter")
             character = catchBackCrafter(character)
             val itemsToCraft = ArrayList<SimpleItem>()
             val gatheringItems = itemService.getAllCraftBySkillUnderLevel(skill, character.miningLevel)
@@ -66,6 +71,7 @@ class MinerJob(
             if(itemsToCraft.isNotEmpty()){
                 itemsToCraft.forEach {
                     log.info("${character.name} is stocking up on some ${it.code}")
+                    contextService.setObjective(characterName, "Stock de ${it.code} pour le crafter (cible : 200)")
                     character = gatheringService.craftOrGather(character, it.code, it.quantity)
                     character = movementService.moveToBank(character)
                     character = bankService.emptyInventory(character)
@@ -78,9 +84,10 @@ class MinerJob(
                     itemService.getAllCraftableItemsBySkillAndSubtypeAndMaxLevel(skill, "bar", character.miningLevel)
                         .filter { it.code != "strangold_bar" }
                 if (items.isEmpty()) {
-                    throw Exception("No craftable item found")
+                    throw NoCraftableItemException(skill, character.miningLevel)
                 }
                 val item = items.first()
+                contextService.setObjective(characterName, "Level up minage → craft de ${item.code} (niv. ${character.miningLevel})")
                 character = gatheringService.craftOrGather(
                     character,
                     item.code,
@@ -92,6 +99,7 @@ class MinerJob(
                 // Or do some tasks to get task coins
             }else{
                 log.info("${character.name} is doing a new itemTask")
+                contextService.setObjective(characterName, "Tâche d'item (niv. max atteint)")
                 if(character.task.isNullOrEmpty()){
                     character = taskService.getNewItemTask(character)
                 }

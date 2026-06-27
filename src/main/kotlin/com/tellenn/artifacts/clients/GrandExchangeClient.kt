@@ -5,12 +5,10 @@ import com.tellenn.artifacts.clients.responses.ArtifactsArrayResponseBody
 import com.tellenn.artifacts.clients.responses.ArtifactsResponseBody
 import com.tellenn.artifacts.clients.responses.GEBuyTransaction
 import com.tellenn.artifacts.models.GEOrder
-import lombok.extern.slf4j.Slf4j
 import org.springframework.stereotype.Component
 
-@Slf4j
 @Component
-class GrandExchangeClient : BaseArtifactsClient() {
+class GrandExchangeClient(deps: BaseClientDependencies) : BaseArtifactsClient(deps) {
 
     fun getPublicSellOrders(itemCode: String): ArtifactsArrayResponseBody<GEOrder> {
         return sendGetRequest("/grandexchange/orders?item_code=$itemCode").use { response ->

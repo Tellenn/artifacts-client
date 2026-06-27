@@ -11,6 +11,7 @@ class ItemDetails(
     @param:JsonProperty("subtype") val subtype: String,
     @param:JsonProperty("level") val level: Int,
     @param:JsonProperty("tradeable") val tradeable: Boolean,
+    @param:JsonProperty("recyclable") val recyclable: Boolean = false,
     @param:JsonProperty("craft") val craft: ItemCraft?,
     @param:JsonProperty("effects") val effects: List<Effect>?,
     @param:JsonProperty("conditions") val conditions: List<ItemCondition>?

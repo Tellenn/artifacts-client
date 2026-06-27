@@ -29,7 +29,8 @@ class BankService(
     private val bankItemSyncService: BankItemSyncService,
     private val accountClient: AccountClient,
     private val movementClient: MovementClient,
-    private val mapService: MapService
+    private val mapService: MapService,
+    private val teleportService: TeleportService
 ) {
     private val log = LogManager.getLogger(BankService::class.java)
     private val reservations = ConcurrentHashMap<String, AtomicInteger>()
@@ -49,18 +50,47 @@ class BankService(
 
     fun emptyInventory(character: ArtifactsCharacter) : ArtifactsCharacter{
         var newCharacter = character
+
+        // Potions de téléport déjà en inventaire : on en garde une de chaque type
+        // (inutile de les déposer pour les reprendre juste après).
+        val heldPotionCodes = teleportService.findUsableTeleportPotionsInInventory(character)
+            .map { it.first.code }
+            .toSet()
+
         val inventory = character.inventory
-        val items = inventory.filter { it.quantity > 0 }.map { SimpleItem(it.code, it.quantity) }
+        val items = inventory
+            .filter { it.quantity > 0 }
+            .map { slot ->
+                val kept = if (slot.code in heldPotionCodes) 1 else 0
+                SimpleItem(slot.code, slot.quantity - kept)
+            }
+            .filter { it.quantity > 0 }
         newCharacter = deposit(newCharacter, items)
         if(newCharacter.utility1Slot != ""){
-            newCharacter = characterService.unequip(newCharacter, "utility1", newCharacter.utility1SlotQuantity)
-            newCharacter = deposit(character, listOf(SimpleItem(newCharacter.utility1Slot, newCharacter.utility1SlotQuantity)))
+            val utility1Code = newCharacter.utility1Slot
+            val utility1Qty = newCharacter.utility1SlotQuantity
+            newCharacter = characterService.unequip(newCharacter, "utility1", utility1Qty)
+            newCharacter = deposit(newCharacter, listOf(SimpleItem(utility1Code, utility1Qty)))
         }
         if(newCharacter.utility2Slot != ""){
-            newCharacter = characterService.unequip(newCharacter, "utility2", newCharacter.utility2SlotQuantity)
-            newCharacter = deposit(character, listOf(SimpleItem(newCharacter.utility2Slot, newCharacter.utility2SlotQuantity)))
+            val utility2Code = newCharacter.utility2Slot
+            val utility2Qty = newCharacter.utility2SlotQuantity
+            newCharacter = characterService.unequip(newCharacter, "utility2", utility2Qty)
+            newCharacter = deposit(newCharacter, listOf(SimpleItem(utility2Code, utility2Qty)))
         }
-        return depositMoney(newCharacter, newCharacter.gold)
+        newCharacter = depositMoney(newCharacter, newCharacter.gold)
+
+        // On complète avec une potion de chaque type encore disponible en banque,
+        // pour pouvoir choisir la plus adaptée à chaque déplacement.
+        val potionsToWithdraw = teleportService.findUsableTeleportPotionsInBank(newCharacter)
+            .filter { it.code !in heldPotionCodes }
+            .map { SimpleItem(it.code, 1) }
+        if (potionsToWithdraw.isNotEmpty()) {
+            log.info("{} restocks teleport potions: {}", newCharacter.name,
+                potionsToWithdraw.joinToString { it.code })
+            newCharacter = withdrawMany(ArrayList(potionsToWithdraw), newCharacter)
+        }
+        return newCharacter
     }
 
     fun depositMoney(character: ArtifactsCharacter, amount: Int) : ArtifactsCharacter{
@@ -124,30 +154,21 @@ class BankService(
                 }
             }
 
-        }catch(e: InterruptedException){
+        } catch (e: InterruptedException) {
             throw e
         } catch (e: Exception) {
             log.error("Failed to deposit items to bank: ${e.message}")
 
-            // Rollback database changes
-            newBankItems.forEach { 
-                try {
-                    bankRepository.delete(it)
-                } catch (ex: Exception) {
-                    log.error("Failed to rollback new bank item ${it.code}: ${ex.message}")
-                }
+            newBankItems.forEach {
+                try { bankRepository.delete(it) }
+                catch (ex: Exception) { log.error("Failed to rollback new bank item ${it.code}: ${ex.message}") }
             }
-
             originalBankItems.forEach { (_, originalItem) ->
-                try {
-                    bankRepository.save(originalItem)
-                } catch (ex: Exception) {
-                    log.error("Failed to rollback bank item ${originalItem.code}: ${ex.message}")
-                }
+                try { bankRepository.save(originalItem) }
+                catch (ex: Exception) { log.error("Failed to rollback bank item ${originalItem.code}: ${ex.message}") }
             }
 
-            // Re-throw the exception or handle it as needed
-            // throw e
+            throw e
         }
 
         return newCharacter
@@ -291,6 +312,15 @@ class BankService(
 
     fun getHealingPotions() : List<ItemDetails> {
         return bankRepository.findByCodeContainingIgnoreCase("health").map { itemRepository.findByCode(it.code) }
+    }
+
+    /**
+     * Returns every combat potion (subtype "potion") currently stored in the bank.
+     * Effect-based categorization (heal / damage / resistance) is left to [EquipmentService].
+     */
+    fun getCombatPotions() : List<ItemDetails> {
+        val bankCodes = getAll().map { it.code }
+        return itemRepository.findByCodeIn(bankCodes).filter { it.subtype == "potion" }
     }
 
     fun withdrawGold(amount: Int, newCharacter: ArtifactsCharacter) : ArtifactsCharacter{

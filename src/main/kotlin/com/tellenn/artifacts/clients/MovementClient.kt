@@ -4,12 +4,10 @@ import com.fasterxml.jackson.module.kotlin.readValue
 import com.tellenn.artifacts.clients.responses.ArtifactsResponseBody
 import com.tellenn.artifacts.clients.responses.MovementResponseBody
 import com.tellenn.artifacts.clients.responses.TransitionResponseBody
-import lombok.extern.slf4j.Slf4j
 import org.springframework.stereotype.Component
 
-@Slf4j
 @Component
-class MovementClient : BaseArtifactsClient() {
+class MovementClient(deps: BaseClientDependencies) : BaseArtifactsClient(deps) {
 
     fun move(characterName: String, mapId: Int): ArtifactsResponseBody<MovementResponseBody> {
         waitForCooldown(characterName)

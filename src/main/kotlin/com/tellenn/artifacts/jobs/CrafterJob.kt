@@ -13,15 +13,19 @@ import com.tellenn.artifacts.models.ArtifactsCharacter
 import com.tellenn.artifacts.models.ItemDetails
 import com.tellenn.artifacts.services.BankService
 import com.tellenn.artifacts.services.CharacterService
+import com.tellenn.artifacts.services.CraftLevelingService
 import com.tellenn.artifacts.services.EventService
 import com.tellenn.artifacts.services.GatheringService
+import com.tellenn.artifacts.services.LevelingChoice
 import com.tellenn.artifacts.services.ItemService
 import com.tellenn.artifacts.services.MapService
 import com.tellenn.artifacts.services.AchievementService
 import com.tellenn.artifacts.services.MonsterService
 import com.tellenn.artifacts.services.MovementService
+import com.tellenn.artifacts.services.RaidService
 import com.tellenn.artifacts.services.TaskService
 import com.tellenn.artifacts.services.UniqueArtifactService
+import com.tellenn.artifacts.services.CharacterContextService
 import com.tellenn.artifacts.AppConfig.maxLevel
 import org.springframework.stereotype.Component
 import java.lang.Thread.sleep
@@ -43,23 +47,29 @@ class CrafterJob(
     private val gatheringService: GatheringService,
     private val eventService: EventService,
     private val monsterService: MonsterService,
+    private val raidService: RaidService,
     private val achievementService: AchievementService,
     private val uniqueArtifactService: UniqueArtifactService,
+    private val contextService: CharacterContextService,
+    private val craftLevelingService: CraftLevelingService,
 ) : GenericJob(mapService, movementService, bankService, characterService, accountClient, taskService) {
 
     lateinit var character: ArtifactsCharacter
     val rareItemCode = listOf("magical_cure", "jasper_crystal", "astralyte_crystal", "enchanted_fabric", "ruby", "sapphire", "emerald", "topaz", "diamond")
     var eventBasedItemCodes = listOf<String>()
+    var raidRewardItemCodes = setOf<String>()
 
     fun run(characterName: String) {
         sleep(1000)
         eventBasedItemCodes = eventService.getAllEventMaterials()
+        raidRewardItemCodes = raidService.getAllRaidRewardItemCodes()
         character = init(characterName)
         do {
             if (character.weaponcraftingLevel >= maxLevel
                 && character.gearcraftingLevel >= maxLevel
                 && character.jewelrycraftingLevel >= maxLevel
             ) {
+                contextService.setObjective(character.name, "Exécution des achievements (toutes compétences max)")
                 character = achievementService.executeAchievement(character, "crafter")
                 continue
             }
@@ -67,19 +77,22 @@ class CrafterJob(
             val bankDetails = bankService.getBankDetails()
             if(bankDetails.slots - bankService.getBankSize() < 20 && bankDetails.slots < 200 && bankDetails.gold > bankDetails.nextExpansionCost){
                 log.info("${character.name} is buying a bankSlot for ${bankDetails.nextExpansionCost}")
+                contextService.setObjective(character.name, "Achat d'un slot bancaire (${bankDetails.nextExpansionCost} or)")
                 character = movementService.moveToBank(character)
                 character = bankService.withdrawMoney(character, bankDetails.nextExpansionCost)
                 character = bankService.buyBankSlot(character)
             }
 
+            contextService.setObjective(character.name, "Nettoyage de la banque")
             character = cleanUpBank()
+            contextService.setObjective(character.name, "Réclamation des items en attente")
             character = claimPendingItems()
 
             for ((artifact, _) in uniqueArtifactService.findArtifactsToGather()) {
-                    character = tryGatherUniqueArtifact(artifact)
+                contextService.setObjective(character.name, "Collecte de l'artéfact unique : ${artifact.code}")
+                character = tryGatherUniqueArtifact(artifact)
             }
 
-            val skillToLevel = getLowestSkillLevel(character)
             val itemsToCraft = getListOfItemToCraftUnderLevel(
                 character,
                 listOf("weaponcrafting","gearcrafting","jewelrycrafting")
@@ -92,6 +105,7 @@ class CrafterJob(
                     if(bankService.canCraftFromBank(itemDetail)){
                         try {
                             log.info("${character.name} is crafting a ${itemDetail.code} from items in bank for use in bank")
+                            contextService.setObjective(character.name, "Craft de ${itemDetail.code} depuis la banque (stock)")
                             character =
                                 gatheringService.craftOrGather(character, itemDetail.code, 1, allowFight = false)
                             character = movementService.moveToBank(character)
@@ -111,6 +125,7 @@ class CrafterJob(
                 for (itemDetail in itemsToCraft) {
                     try{
                         log.info("${character.name} is gathering and crafting a ${itemDetail.code} for use in bank")
+                        contextService.setObjective(character.name, "Collecte et craft de ${itemDetail.code} pour la banque")
                         character = gatheringService.craftOrGather(character, itemDetail.code, 1, allowFight = true, shouldTrain = false)
                         character = movementService.moveToBank(character)
                         character = bankService.emptyInventory(character)
@@ -137,11 +152,24 @@ class CrafterJob(
                     } // TODO Another failure case can be because of an event base requirement. Need to do something about it
                 }
             }
-            val itemToCraft =
-                getTopLowestCostingItemForLeveling(character.getLevelOf(skillToLevel), listOf(skillToLevel))
-            // TODO : If itemTocraft is empty, it means the crafts are becoming too hard to do and may need to include rare items
+            val skillToLevel = craftLevelingService.selectSkillToLevel(
+                character, listOf("weaponcrafting", "gearcrafting", "jewelrycrafting")
+            )
+            if (skillToLevel == null) {
+                // Aucune recette « sans matériau rare » ni couverte par un surplus : on protège la
+                // réserve et on laisse la boucle principale faire autre chose (nettoyage, crafts
+                // banque, collecte) plutôt que d'entamer les matériaux rares.
+                continue
+            }
             val oldLevel = character.getLevelOf(skillToLevel)
             while (oldLevel == character.getLevelOf(skillToLevel)) {
+                // Re-sélection avant chaque craft : un craft consomme exactement la quantité requise,
+                // donc tant qu'un surplus existe la banque reste au-dessus du plancher ; dès qu'il
+                // est épuisé, selectLevelingCraft renvoie NoViableRecipe et on s'arrête.
+                val choice = craftLevelingService.selectLevelingCraft(character, skillToLevel)
+                if (choice !is LevelingChoice.Craft) break
+                val itemToCraft = choice.item
+                contextService.setObjective(character.name, "Craft de ${itemToCraft.code} pour level up $skillToLevel (niv. $oldLevel)")
                 try {
                     log.info("${character.name} is gathering and crafting a ${itemToCraft.code} for leveling")
                     character = gatheringService.craftOrGather(character, itemToCraft.code, 1, allowFight = true)
@@ -163,9 +191,6 @@ class CrafterJob(
                             (character.inventoryMaxItems - 10) / itemService.getInvSizeToCraft(item)
                         )
                     }while (e.level == character.getLevelOf(e.skill))
-                }catch(e: CharacterSkillTooLow){
-                    log.warn("Tried to craft sub item from a too high level job", e)
-                    continue
                 }catch (_: CharacterInventoryFullException) {
                     log.warn("Character inventory is full, something went terribly wrong")
                     character = accountClient.getCharacter(character.name).data
@@ -201,15 +226,6 @@ class CrafterJob(
         }
     }
 
-    private fun getLowestSkillLevel(character: ArtifactsCharacter): String{
-        val skills = mapOf(
-            "weaponcrafting"  to (character.weaponcraftingLevel  - character.weaponcraftingLevel  % 5),
-            "gearcrafting"    to (character.gearcraftingLevel    - character.gearcraftingLevel    % 5),
-            "jewelrycrafting" to (character.jewelrycraftingLevel - character.jewelrycraftingLevel % 5),
-        )
-        return skills.minWith(compareBy { it.value }).key
-    }
-
     private fun getListOfItemToCraftUnderLevel(character : ArtifactsCharacter, skills : List<String>) : List<ItemDetails>{
         val items = ArrayList<ItemDetails>()
 
@@ -232,7 +248,7 @@ class CrafterJob(
                     if(rareItemCode.contains(item.code)){
                         !bankService.isInBank(item.code, item.quantity)
                         || ( it.level > 30 && bankService.isInBank(
-                            "tasks_coins",
+                            "tasks_coin",
                             40
                         ))
                     }else{ false } } ?: false }
@@ -245,13 +261,24 @@ class CrafterJob(
                     }
                 }else{ false } } ?: false }
             .filter { item ->
-                // Filter out items that require boss monster components not in bank
+                // Filter out items that require boss monster components not in bank.
+                // A non-craftable item (craft == null) is never a valid craft target → excluded.
                 item.craft?.items?.none { ingredient ->
                     val monster = monsterService.findMonsterThatDrop(ingredient.code)
                     if(monster?.type == "boss"){
                         !bankService.isInBank(ingredient.code, ingredient.quantity)
                     }else{ false }
-                } ?: true
+                } ?: false
+            }
+            .filter { item ->
+                // Filter out items requiring a raid-only reward component not in bank: raids run on a
+                // schedule and cannot be triggered by the bot, so such a craft would stay blocked.
+                // A non-craftable item (craft == null) is never a valid craft target → excluded.
+                item.craft?.items?.none { ingredient ->
+                    if(raidRewardItemCodes.contains(ingredient.code)){
+                        !bankService.isInBank(ingredient.code, ingredient.quantity)
+                    }else{ false }
+                } ?: false
             }
             .sortedBy { it.level }
     }
@@ -269,55 +296,32 @@ class CrafterJob(
         }
     }
 
-    private fun getTopLowestCostingItemForLeveling(level: Int, skills : List<String>) : ItemDetails{
-        val minLevel = level -10
-        val items = itemService.getCrafterItemsBetweenLevel(minLevel-1, level +1, skills)
-        val itemCostMatrix = HashMap<ItemDetails, Int>()
-        // Exclude very hard items and the tutorial one
-        items.filter { it.code != "wooden_staff"  }
-            .filter {
-                it.craft?.items?.none { item ->
-                    if(rareItemCode.contains(item.code)){
-                        !bankService.isInBank(item.code, item.quantity) // Just false ?
-                    }else{ false } } ?: false }
-            .filter { it.craft?.items?.none { item ->
-                if(eventBasedItemCodes.contains(item.code)){
-                    !bankService.isInBank(item.code, item.quantity)
-                }else{ false } } ?: false }
-            .forEach {
-            itemCostMatrix.put(
-                it,
-                itemService.getWeightToCraft(it))
-        }
-        return itemCostMatrix.minWith(compareBy { it.value }).key
-    }
-
-    private fun cleanUpBank(): ArtifactsCharacter {
+    fun cleanUpBank(): ArtifactsCharacter {
         character = movementService.moveToBank(character)
         character = bankService.emptyInventory(character)
-        var nbItems = 10
-        val itemsToRecycle = arrayListOf<ItemDetails>().toMutableList()
-        val minCrafterLevel = min(character.weaponcraftingLevel, min( character.gearcraftingLevel, character.jewelrycraftingLevel)) -10
+        val itemsToRecycle = mutableListOf<Pair<ItemDetails, Int>>()
+        val minCrafterLevel = min(character.weaponcraftingLevel, min(character.gearcraftingLevel, character.jewelrycraftingLevel)) - 10
         bankService.getAllEquipmentsUnderLevel(minCrafterLevel)
-            .map { BankItemDocument.toItemDetails(it) }
-            .forEach {
-                // If it's not not, not the tutorial weapon and it's a craftable item, recycle it
-            if(nbItems>0 && it != null && it.code != "wooden_staff" && it.craft != null){
-                character = bankService.withdrawAllOfOne(character, it.code)
-
-                itemsToRecycle.add(it)
-                nbItems--
+            .mapNotNull { BankItemDocument.toItemDetails(it) }
+            .forEach { item ->
+                when {
+                    // Tutorial weapon: destroyed rather than recycled.
+                    item.code == "wooden_stick" -> {
+                        character = characterService.destroyAllOfOne(character, item.code)
+                    }
+                    // Craftable equipment: withdraw the whole stock so it can be recycled in full.
+                    item.craft != null -> {
+                        val quantity = bankService.getOne(item.code).quantity
+                        if (quantity > 0) {
+                            character = bankService.withdrawAllOfOne(character, item.code)
+                            itemsToRecycle.add(item to quantity)
+                        }
+                    }
+                    // Otherwise a dropped, non-craftable item: handled when an event happens.
+                }
             }
-                // If it's the tutorial item, destroy it
-            if(nbItems>0 && it != null && it.code == "wooden_staff"){
-                character = characterService.destroyAllOfOne(character, it.code)
-            }
-            // If it's a dropped item, it'll be taken care of when an event happens
-        }
-        if(itemsToRecycle.isNotEmpty()){
-            itemsToRecycle.forEach {
-                character = gatheringService.recycle(character, it, 1)
-            }
+        itemsToRecycle.forEach { (item, quantity) ->
+            character = gatheringService.recycle(character, item, quantity)
         }
         character = movementService.moveToBank(character)
         return bankService.emptyInventory(character)

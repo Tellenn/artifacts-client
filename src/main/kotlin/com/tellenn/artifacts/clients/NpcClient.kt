@@ -7,12 +7,10 @@ import com.tellenn.artifacts.clients.responses.ArtifactsResponseBody
 import com.tellenn.artifacts.clients.responses.NpcMerchantTransaction
 import com.tellenn.artifacts.models.ArtifactsCharacter
 import com.tellenn.artifacts.models.NpcItem
-import lombok.extern.slf4j.Slf4j
 import org.springframework.stereotype.Component
 
-@Slf4j
 @Component
-class NpcClient : BaseArtifactsClient() {
+class NpcClient(deps: BaseClientDependencies) : BaseArtifactsClient(deps) {
 
     fun getNpcItems(npcCode: String): ArtifactsArrayResponseBody<NpcItem> {
         return sendGetRequest("/npcs/items?npc=$npcCode").use { response ->

@@ -4,12 +4,10 @@ import com.fasterxml.jackson.module.kotlin.readValue
 import com.tellenn.artifacts.clients.requests.CombatRequest
 import com.tellenn.artifacts.clients.responses.ArtifactsResponseBody
 import com.tellenn.artifacts.clients.responses.CombatResponseBody
-import lombok.extern.slf4j.Slf4j
 import org.springframework.stereotype.Component
 
-@Slf4j
 @Component
-class BattleClient : BaseArtifactsClient() {
+class BattleClient(deps: BaseClientDependencies) : BaseArtifactsClient(deps) {
 
     fun fight(characterName: String): ArtifactsResponseBody<CombatResponseBody> {
         waitForCooldown(characterName)

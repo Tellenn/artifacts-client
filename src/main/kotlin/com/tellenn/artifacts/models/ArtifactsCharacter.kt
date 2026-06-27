@@ -104,9 +104,25 @@ data class ArtifactsCharacter(
         }
     }
 
+    fun getStat(code: String): Int = when (code) {
+        "level"                 -> level
+        "mining_level"          -> miningLevel
+        "woodcutting_level"     -> woodcuttingLevel
+        "fishing_level"         -> fishingLevel
+        "cooking_level"         -> cookingLevel
+        "weaponcrafting_level"  -> weaponcraftingLevel
+        "gearcrafting_level"    -> gearcraftingLevel
+        "jewelrycrafting_level" -> jewelrycraftingLevel
+        "alchemy_level"         -> alchemyLevel
+        "hp"                    -> hp
+        "max_hp"                -> maxHp
+        else                    -> 0
+    }
+
     operator fun get(equipmentType: String): String? {
         return when (equipmentType) {
             "weapon_slot" -> weaponSlot
+            "rune_slot" -> runeSlot
             "shield_slot" -> shieldSlot
             "helmet_slot" -> helmetSlot
             "body_armor_slot" -> bodyArmorSlot

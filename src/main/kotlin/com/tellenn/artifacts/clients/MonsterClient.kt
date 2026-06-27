@@ -4,12 +4,10 @@ import com.fasterxml.jackson.module.kotlin.readValue
 import com.tellenn.artifacts.models.MonsterData
 import com.tellenn.artifacts.clients.responses.ArtifactsArrayResponseBody
 import com.tellenn.artifacts.clients.responses.ArtifactsResponseBody
-import lombok.extern.slf4j.Slf4j
 import org.springframework.stereotype.Component
 
-@Slf4j
 @Component
-class MonsterClient : BaseArtifactsClient() {
+class MonsterClient(deps: BaseClientDependencies) : BaseArtifactsClient(deps) {
 
     fun getMonsters(name: String? = null, level: Int? = null, 
                     min_level: Int? = null, max_level: Int? = null, drop: String? = null,

@@ -39,7 +39,7 @@ class GrandExchangeService(
 
         val unitPrice = lowestOrder.price
         if (unitPrice <= MIN_GC_UNIT_PRICE) {
-            log.info("GC : {} à {}g/u — sous le seuil minimal, achat direct", item.code, unitPrice)
+            log.info("GE: {} at {}g/u — below minimum threshold, buying directly", item.code, unitPrice)
             return true
         }
 
@@ -50,7 +50,7 @@ class GrandExchangeService(
         val totalGcCost = unitPrice.toLong() * quantity
 
         return if (totalGcCost <= maxGoldToPay) {
-            log.info("GC avantageux pour {} x{} : {}g (GC) <= {}g estimé ({} s × {}/s)",
+            log.info("GE worthwhile for {} x{}: {}g (GE) <= {}g estimated ({} s × {}/s)",
                 item.code, quantity, totalGcCost, maxGoldToPay, estimatedSeconds, goldPerSecond)
             true
         } else {
@@ -68,7 +68,7 @@ class GrandExchangeService(
         newCharacter = movementService.moveToGrandExchange(newCharacter)
         newCharacter = grandExchangeClient.buyItem(newCharacter.name, item.code, quantity, lowestOrder.price).data.character
 
-        log.info("{} a acheté {} x{} au GC pour {}g/u", newCharacter.name, item.code, quantity, lowestOrder.price)
+        log.info("{} bought {} x{} from GE for {}g/u", newCharacter.name, item.code, quantity, lowestOrder.price)
         return newCharacter
     }
 
