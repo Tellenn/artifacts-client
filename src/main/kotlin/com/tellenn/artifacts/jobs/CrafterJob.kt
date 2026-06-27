@@ -294,7 +294,7 @@ class CrafterJob(
         }
     }
 
-    private fun cleanUpBank(): ArtifactsCharacter {
+    fun cleanUpBank(): ArtifactsCharacter {
         character = movementService.moveToBank(character)
         character = bankService.emptyInventory(character)
         var nbItems = 10
@@ -303,19 +303,19 @@ class CrafterJob(
         bankService.getAllEquipmentsUnderLevel(minCrafterLevel)
             .map { BankItemDocument.toItemDetails(it) }
             .forEach {
-                // If it's not not, not the tutorial weapon and it's a craftable item, recycle it
-            if(nbItems>0 && it != null && it.code != "wooden_staff" && it.craft != null){
-                character = bankService.withdrawAllOfOne(character, it.code)
+                // If it's not the tutorial weapon and it's a craftable item, recycle it
+                if(it != null && it.craft != null){
+                    character = bankService.withdrawAllOfOne(character, it.code)
 
-                itemsToRecycle.add(it)
-                nbItems--
-            }
+                    itemsToRecycle.add(it)
+                    nbItems--
+                }
                 // If it's the tutorial item, destroy it
-            if(nbItems>0 && it != null && it.code == "wooden_staff"){
-                character = characterService.destroyAllOfOne(character, it.code)
-            }
+                if(it != null && it.code == "wooden_stick"){
+                    character = characterService.destroyAllOfOne(character, it.code)
+                }
             // If it's a dropped item, it'll be taken care of when an event happens
-        }
+            }
         if(itemsToRecycle.isNotEmpty()){
             itemsToRecycle.forEach {
                 character = gatheringService.recycle(character, it, 1)
