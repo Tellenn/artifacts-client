@@ -86,18 +86,20 @@ class MovementServiceTeleportTest {
     }
 
     @Test
-    fun `moveCharacterToCell walks instead of teleporting when destination is within 3 cells`() {
+    fun `moveCharacterToCell walks when the teleport service offers no worthwhile potion`() {
         val character = buildCharacter(mapId = 1, x = 0, y = 0)
         val moved = buildCharacter(mapId = 5)
         `when`(mapService.findByMapId(5)).thenReturn(mapAt(5, x = 2, y = 0))
         `when`(mapService.findByMapId(1)).thenReturn(mapAt(1, x = 0, y = 0))
+        // La décision « trop proche pour gâcher une potion » est désormais portée par TeleportService.
+        `when`(teleportService.findPotionForDestination(character, 5)).thenReturn(null)
         stubMove("Cloud", 5, moved)
 
         val result = service.moveCharacterToCell(5, character)
 
         assertEquals(5, result.mapId)
+        verify(teleportService).findPotionForDestination(character, 5)
         verify(movementClient).move("Cloud", 5)
-        verifyNoInteractions(teleportService)
     }
 
     @Test

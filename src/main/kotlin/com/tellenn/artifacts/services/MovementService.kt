@@ -8,7 +8,6 @@ import com.tellenn.artifacts.models.ArtifactsCharacter
 import com.tellenn.artifacts.models.MapData
 import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Service
-import kotlin.math.abs
 
 /**
  * Service for handling character movement.
@@ -48,27 +47,14 @@ class MovementService(
 
     /**
      * Tente de se rapprocher de [mapId] via une potion de téléport.
-     * Retourne `null` (téléportation non effectuée) si aucune potion adaptée
-     * n'existe ou si la destination est assez proche pour s'y rendre à pied.
+     * Retourne `null` (téléportation non effectuée) si aucune potion n'économise
+     * assez de marche : la décision est entièrement portée par
+     * [TeleportService.findPotionForDestination].
      */
     private fun tryTeleportTowards(character: ArtifactsCharacter, mapId: Int): ArtifactsCharacter? {
-        val destinationMap = mapService.findByMapId(mapId) ?: return null
-        if (isWithinWalkingRange(character, destinationMap)) return null
-
         val potion = teleportService.findPotionForDestination(character, mapId) ?: return null
-        log.info("{} uses {} to get closer to via {}", character.name, potion.code, mapId)
+        log.info("{} uses {} to get closer to {}", character.name, potion.code, mapId)
         return teleportService.use(character, potion.code)
-    }
-
-    /**
-     * Vrai si la destination est dans la même région et à portée de marche
-     * (≤ [TELEPORT_MIN_CELLS] cases) : inutile de gâcher une potion.
-     */
-    private fun isWithinWalkingRange(character: ArtifactsCharacter, destination: MapData): Boolean {
-        val originMap = mapService.findByMapId(character.mapId)
-        if (originMap?.region != destination.region) return false
-        val cells = abs(character.x - destination.x) + abs(character.y - destination.y)
-        return cells <= TELEPORT_MIN_CELLS
     }
 
     /**
@@ -190,10 +176,5 @@ class MovementService(
     fun moveToGrandExchange(character: ArtifactsCharacter): ArtifactsCharacter {
         val geMap = mapService.findClosestMap(character = character, contentCode = "grandexchange")
         return moveCharacterToCell(geMap.mapId, character)
-    }
-
-    companion object {
-        /** Au-delà de cette distance (en cases, même région), la potion devient rentable. */
-        private const val TELEPORT_MIN_CELLS = 3
     }
 }

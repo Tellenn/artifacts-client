@@ -31,6 +31,7 @@ class TeleportService(
     private val bankItemRepository: BankItemRepository,
     private val accountClient: AccountClient,
     private val mapMongoClient: MapMongoClient,
+    private val mapService: MapService,
 ) {
     private val log = LogManager.getLogger(TeleportService::class.java)
 
@@ -53,44 +54,40 @@ class TeleportService(
     }
 
     /**
-     * Potion la plus appropriée en inventaire pour rejoindre [destinationMapId] :
-     * match exact sur le mapId en priorité, sinon, parmi les potions de la même
-     * région qui nous rapprochent, celle qui atterrit au plus près de la cible.
+     * Première potion d'inventaire qui économise plus de [MIN_CELLS_SAVED] cases
+     * de marche pour rejoindre [destinationMapId], en comparant le trajet à pied
+     * depuis la position actuelle au trajet depuis le point d'arrivée de la potion.
+     * Dès qu'une potion convient, on la retourne sans examiner les suivantes.
      */
     fun findPotionForDestination(character: ArtifactsCharacter, destinationMapId: Int): ItemDetails? {
         val usable = findUsableTeleportPotionsInInventory(character)
         if (usable.isEmpty()) return null
 
-        usable.find { (_, mapId) -> mapId == destinationMapId }?.first?.let { return it }
-
         val destination = mapMongoClient.getMapById(destinationMapId) ?: return null
-        val destinationRegion = destination.region ?: return null
-        return usable
-            .filter { (_, mapId) -> mapMongoClient.getMapById(mapId)?.region == destinationRegion }
-            .filter { (_, landingMapId) -> bringsCloser(character, landingMapId, destination) }
-            .minByOrNull { (_, landingMapId) -> landingDistance(landingMapId, destination) }
-            ?.first
+        val currentRegion = mapMongoClient.getMapById(character.mapId)?.region
+        val currentCost = walkingCost(character.x, character.y, currentRegion, destination)
+
+        return usable.firstNotNullOfOrNull { (item, landingMapId) ->
+            val landing = mapMongoClient.getMapById(landingMapId) ?: return@firstNotNullOfOrNull null
+            val costWithPotion = walkingCost(landing.x, landing.y, landing.region, destination)
+            if (currentCost - costWithPotion > MIN_CELLS_SAVED) item else null
+        }
     }
 
     /**
-     * Garde-fou : vrai si atterrir sur [landingMapId] rapproche réellement de
-     * [destination]. Si le personnage est déjà dans la région cible, la potion
-     * n'est retenue que si le point d'arrivée est plus proche que sa position
-     * actuelle ; en cas de changement de région, rejoindre la bonne région est
-     * toujours un gain.
+     * Coût de marche (en cases) d'un point vers [destination] : distance de
+     * Manhattan, majorée de [PENALTY_PER_TRANSITION] cases par transition de
+     * région à franchir lorsque l'origine et la destination changent de région.
      */
-    private fun bringsCloser(character: ArtifactsCharacter, landingMapId: Int, destination: MapData): Boolean {
-        val characterRegion = mapMongoClient.getMapById(character.mapId)?.region
-        if (characterRegion != destination.region) return true
-
-        val currentDistance = abs(character.x - destination.x) + abs(character.y - destination.y)
-        return landingDistance(landingMapId, destination) < currentDistance
-    }
-
-    /** Distance (en cases) entre le point d'arrivée [landingMapId] et [destination]. */
-    private fun landingDistance(landingMapId: Int, destination: MapData): Int {
-        val landing = mapMongoClient.getMapById(landingMapId) ?: return Int.MAX_VALUE
-        return abs(landing.x - destination.x) + abs(landing.y - destination.y)
+    private fun walkingCost(fromX: Int, fromY: Int, fromRegion: Int?, destination: MapData): Int {
+        val manhattan = abs(fromX - destination.x) + abs(fromY - destination.y)
+        val transitions =
+            if (fromRegion != null && destination.region != null && fromRegion != destination.region) {
+                mapService.findTransitionPath(fromRegion, destination.region!!).size
+            } else {
+                0
+            }
+        return manhattan + transitions * PENALTY_PER_TRANSITION
     }
 
     /**
@@ -154,5 +151,11 @@ class TeleportService(
         private const val TELEPORT_EFFECT = "teleport"
         private const val RECALL_POTION = "recall_potion"
         private const val RECALL_WITHDRAW_TARGET = 2
+
+        /** Économie minimale (en cases) pour qu'une potion vaille la peine d'être utilisée. */
+        private const val MIN_CELLS_SAVED = 3
+
+        /** Coût (en cases) imputé à chaque transition de région franchie à pied. */
+        private const val PENALTY_PER_TRANSITION = 5
     }
 }

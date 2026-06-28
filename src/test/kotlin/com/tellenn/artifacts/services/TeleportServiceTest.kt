@@ -22,9 +22,10 @@ class TeleportServiceTest {
     private val bankItemRepository = mock(BankItemRepository::class.java)
     private val accountClient = mock(AccountClient::class.java)
     private val mapMongoClient = mock(MapMongoClient::class.java)
+    private val mapService = mock(MapService::class.java)
 
     private val service = TeleportService(
-        characterClient, itemRepository, bankItemRepository, accountClient, mapMongoClient
+        characterClient, itemRepository, bankItemRepository, accountClient, mapMongoClient, mapService
     )
 
     private fun buildCharacter(
@@ -168,101 +169,21 @@ class TeleportServiceTest {
 
     // ── findPotionForDestination ───────────────────────────────────────────
 
+    private fun map(mapId: Int, x: Int, y: Int, region: Int): MapData =
+        MapData("map$mapId", "skin", x, y, mapId, "main", null,
+            Interactions(MapContent("resource", "iron"), null), region = region)
+
     @Test
-    fun `findPotionForDestination returns exact match`() {
+    fun `findPotionForDestination returns null when inventory has no usable potion`() {
+        val result = service.findPotionForDestination(buildCharacter(inventory = emptyArray()), 600)
+        assertNull(result)
+    }
+
+    @Test
+    fun `findPotionForDestination returns null when destination map is unknown`() {
         val character = buildCharacter(inventory = arrayOf(InventorySlot(1, "tp_potion", 1)))
-        val potion = buildPotion("tp_potion", 545)
-        `when`(itemRepository.findByCodeIn(listOf("tp_potion"))).thenReturn(listOf(potion))
-
-        val result = service.findPotionForDestination(character, 545)
-
-        assertEquals("tp_potion", result?.code)
-    }
-
-    @Test
-    fun `findPotionForDestination returns regional match when no exact match`() {
-        val character = buildCharacter(inventory = arrayOf(InventorySlot(1, "tp_potion", 1)))
-        val potion = buildPotion("tp_potion", 545)
-        `when`(itemRepository.findByCodeIn(listOf("tp_potion"))).thenReturn(listOf(potion))
-        `when`(mapMongoClient.getMapById(600)).thenReturn(
-            MapData("Target", "skin", 0, 0, 600, "main", null,
-                Interactions(MapContent("resource", "iron"), null), region = 1)
-        )
-        `when`(mapMongoClient.getMapById(545)).thenReturn(
-            MapData("Near", "skin", 0, 0, 545, "main", null,
-                Interactions(MapContent("resource", "coal"), null), region = 1)
-        )
-
-        val result = service.findPotionForDestination(character, 600)
-
-        assertEquals("tp_potion", result?.code)
-    }
-
-    @Test
-    fun `findPotionForDestination picks the regional potion landing closest to the target`() {
-        val character = buildCharacter(mapId = 1, inventory = arrayOf(
-            InventorySlot(1, "tp_far", 1),
-            InventorySlot(2, "tp_near", 1),
-        ))
-        `when`(itemRepository.findByCodeIn(listOf("tp_far", "tp_near")))
-            .thenReturn(listOf(buildPotion("tp_far", 700), buildPotion("tp_near", 545)))
-        // Personnage hors région cible : les deux potions rapprochent, on prend la plus proche.
-        `when`(mapMongoClient.getMapById(1)).thenReturn(
-            MapData("Origin", "skin", 0, 0, 1, "main", null,
-                Interactions(MapContent("resource", "iron"), null), region = 2))
-        `when`(mapMongoClient.getMapById(600)).thenReturn(
-            MapData("Target", "skin", 10, 0, 600, "main", null,
-                Interactions(MapContent("resource", "iron"), null), region = 1))
-        `when`(mapMongoClient.getMapById(700)).thenReturn(
-            MapData("Far", "skin", 0, 0, 700, "main", null,
-                Interactions(MapContent("resource", "coal"), null), region = 1))
-        `when`(mapMongoClient.getMapById(545)).thenReturn(
-            MapData("Near", "skin", 9, 0, 545, "main", null,
-                Interactions(MapContent("resource", "coal"), null), region = 1))
-
-        val result = service.findPotionForDestination(character, 600)
-
-        assertEquals("tp_near", result?.code)
-    }
-
-    @Test
-    fun `findPotionForDestination uses regional potion when it lands closer to the target`() {
-        val character = buildCharacter(mapId = 1, inventory = arrayOf(InventorySlot(1, "tp_potion", 1)))
-        val potion = buildPotion("tp_potion", 545)
-        `when`(itemRepository.findByCodeIn(listOf("tp_potion"))).thenReturn(listOf(potion))
-        // Personnage déjà dans la région cible, loin de la cible (0,0)->(20,0).
-        `when`(mapMongoClient.getMapById(1)).thenReturn(
-            MapData("Origin", "skin", 0, 0, 1, "main", null,
-                Interactions(MapContent("resource", "iron"), null), region = 1))
-        `when`(mapMongoClient.getMapById(600)).thenReturn(
-            MapData("Target", "skin", 20, 0, 600, "main", null,
-                Interactions(MapContent("resource", "iron"), null), region = 1))
-        // La potion atterrit en (18,0) : plus proche que la position actuelle.
-        `when`(mapMongoClient.getMapById(545)).thenReturn(
-            MapData("Near", "skin", 18, 0, 545, "main", null,
-                Interactions(MapContent("resource", "coal"), null), region = 1))
-
-        val result = service.findPotionForDestination(character, 600)
-
-        assertEquals("tp_potion", result?.code)
-    }
-
-    @Test
-    fun `findPotionForDestination ignores regional potion that would land further from the target`() {
-        val character = buildCharacter(mapId = 1, inventory = arrayOf(InventorySlot(1, "tp_potion", 1)))
-        val potion = buildPotion("tp_potion", 545)
-        `when`(itemRepository.findByCodeIn(listOf("tp_potion"))).thenReturn(listOf(potion))
-        // Personnage déjà dans la région cible, proche de la cible (0,0)->(2,0).
-        `when`(mapMongoClient.getMapById(1)).thenReturn(
-            MapData("Origin", "skin", 0, 0, 1, "main", null,
-                Interactions(MapContent("resource", "iron"), null), region = 1))
-        `when`(mapMongoClient.getMapById(600)).thenReturn(
-            MapData("Target", "skin", 2, 0, 600, "main", null,
-                Interactions(MapContent("resource", "iron"), null), region = 1))
-        // La potion atterrit en (50,0) : bien plus loin -> ne pas l'utiliser.
-        `when`(mapMongoClient.getMapById(545)).thenReturn(
-            MapData("Far", "skin", 50, 0, 545, "main", null,
-                Interactions(MapContent("resource", "coal"), null), region = 1))
+        `when`(itemRepository.findByCodeIn(listOf("tp_potion"))).thenReturn(listOf(buildPotion("tp_potion", 545)))
+        `when`(mapMongoClient.getMapById(600)).thenReturn(null)
 
         val result = service.findPotionForDestination(character, 600)
 
@@ -270,20 +191,80 @@ class TeleportServiceTest {
     }
 
     @Test
-    fun `findPotionForDestination returns null when no match`() {
-        val character = buildCharacter(inventory = arrayOf(InventorySlot(1, "tp_potion", 1)))
-        val potion = buildPotion("tp_potion", 545)
-        `when`(itemRepository.findByCodeIn(listOf("tp_potion"))).thenReturn(listOf(potion))
-        `when`(mapMongoClient.getMapById(999)).thenReturn(
-            MapData("Far", "skin", 0, 0, 999, "main", null,
-                Interactions(MapContent("resource", "coal"), null), region = 2)
-        )
-        `when`(mapMongoClient.getMapById(545)).thenReturn(
-            MapData("Near", "skin", 0, 0, 545, "main", null,
-                Interactions(MapContent("resource", "coal"), null), region = 1)
-        )
+    fun `findPotionForDestination takes the potion when it saves more than three cells`() {
+        val character = buildCharacter(mapId = 1, inventory = arrayOf(InventorySlot(1, "tp_potion", 1)))
+        `when`(itemRepository.findByCodeIn(listOf("tp_potion"))).thenReturn(listOf(buildPotion("tp_potion", 545)))
+        // À pied : 20 cases (x=0 -> x=20). Avec la potion (atterrit en x=18) : 2 cases. Économie 18.
+        `when`(mapMongoClient.getMapById(1)).thenReturn(map(1, 0, 0, region = 1))
+        `when`(mapMongoClient.getMapById(600)).thenReturn(map(600, 20, 0, region = 1))
+        `when`(mapMongoClient.getMapById(545)).thenReturn(map(545, 18, 0, region = 1))
 
-        val result = service.findPotionForDestination(character, 999)
+        val result = service.findPotionForDestination(character, 600)
+
+        assertEquals("tp_potion", result?.code)
+    }
+
+    @Test
+    fun `findPotionForDestination rejects the potion when it saves three cells or fewer`() {
+        val character = buildCharacter(mapId = 1, inventory = arrayOf(InventorySlot(1, "tp_potion", 1)))
+        `when`(itemRepository.findByCodeIn(listOf("tp_potion"))).thenReturn(listOf(buildPotion("tp_potion", 545)))
+        // À pied : 5 cases. Avec la potion (atterrit en x=3) : 2 cases. Économie 3 (pas > 3) -> refus.
+        `when`(mapMongoClient.getMapById(1)).thenReturn(map(1, 0, 0, region = 1))
+        `when`(mapMongoClient.getMapById(600)).thenReturn(map(600, 5, 0, region = 1))
+        `when`(mapMongoClient.getMapById(545)).thenReturn(map(545, 3, 0, region = 1))
+
+        val result = service.findPotionForDestination(character, 600)
+
+        assertNull(result)
+    }
+
+    @Test
+    fun `findPotionForDestination returns the first qualifying potion without checking the others`() {
+        val character = buildCharacter(mapId = 1, inventory = arrayOf(
+            InventorySlot(1, "tp_first", 1),
+            InventorySlot(2, "tp_second", 1),
+        ))
+        `when`(itemRepository.findByCodeIn(listOf("tp_first", "tp_second")))
+            .thenReturn(listOf(buildPotion("tp_first", 700), buildPotion("tp_second", 545)))
+        // Les deux économisent > 3 cases ; tp_second est plus proche mais tp_first vient en premier.
+        `when`(mapMongoClient.getMapById(1)).thenReturn(map(1, 0, 0, region = 1))
+        `when`(mapMongoClient.getMapById(600)).thenReturn(map(600, 20, 0, region = 1))
+        `when`(mapMongoClient.getMapById(700)).thenReturn(map(700, 10, 0, region = 1))
+        `when`(mapMongoClient.getMapById(545)).thenReturn(map(545, 19, 0, region = 1))
+
+        val result = service.findPotionForDestination(character, 600)
+
+        assertEquals("tp_first", result?.code)
+    }
+
+    @Test
+    fun `findPotionForDestination counts region transitions in the walking cost`() {
+        val character = buildCharacter(mapId = 1, inventory = arrayOf(InventorySlot(1, "tp_potion", 1)))
+        `when`(itemRepository.findByCodeIn(listOf("tp_potion"))).thenReturn(listOf(buildPotion("tp_potion", 545)))
+        // Même coordonnées mais région différente : à pied = 1 transition * 5 = 5 cases.
+        // La potion atterrit dans la bonne région au même point -> 0 case. Économie 5 > 3.
+        `when`(mapMongoClient.getMapById(1)).thenReturn(map(1, 0, 0, region = 2))
+        `when`(mapMongoClient.getMapById(600)).thenReturn(map(600, 0, 0, region = 1))
+        `when`(mapMongoClient.getMapById(545)).thenReturn(map(545, 0, 0, region = 1))
+        `when`(mapService.findTransitionPath(2, 1)).thenReturn(listOf(mock(TransitionMapper::class.java)))
+
+        val result = service.findPotionForDestination(character, 600)
+
+        assertEquals("tp_potion", result?.code)
+    }
+
+    @Test
+    fun `findPotionForDestination rejects an out-of-region potion that does not save enough`() {
+        val character = buildCharacter(mapId = 1, inventory = arrayOf(InventorySlot(1, "tp_potion", 1)))
+        `when`(itemRepository.findByCodeIn(listOf("tp_potion"))).thenReturn(listOf(buildPotion("tp_potion", 545)))
+        // À pied : 1 transition * 5 = 5 cases. La potion rejoint la région cible mais à 4 cases
+        // de la cible -> 4 cases. Économie 1 (pas > 3) -> refus malgré le changement de région.
+        `when`(mapMongoClient.getMapById(1)).thenReturn(map(1, 0, 0, region = 2))
+        `when`(mapMongoClient.getMapById(600)).thenReturn(map(600, 0, 0, region = 1))
+        `when`(mapMongoClient.getMapById(545)).thenReturn(map(545, 4, 0, region = 1))
+        `when`(mapService.findTransitionPath(2, 1)).thenReturn(listOf(mock(TransitionMapper::class.java)))
+
+        val result = service.findPotionForDestination(character, 600)
 
         assertNull(result)
     }
