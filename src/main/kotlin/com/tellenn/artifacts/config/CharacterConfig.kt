@@ -8,11 +8,11 @@ class CharacterConfig(
     companion object {
         fun getPredefinedCharacters(): List<CharacterConfig> {
             return listOf(
-                CharacterConfig("Renoir", "men1", "crafter"),
-                CharacterConfig("Cloud", "men2", "fighter"),
-                CharacterConfig("Aerith", "women1", "alchemist"),
-                CharacterConfig("Kepo", "women2", "miner"),
-                CharacterConfig("Gustave", "men3", "woodworker")
+                CharacterConfig("Renoir", "robin_hood", "crafter"),
+                CharacterConfig("Cloud", "gold_founder", "fighter"),
+                CharacterConfig("Aerith", "necromancer", "alchemist"),
+                CharacterConfig("Kepo", "vip_founder", "miner"),
+                CharacterConfig("Gustave", "zombie", "woodworker")
             )
         }
 
