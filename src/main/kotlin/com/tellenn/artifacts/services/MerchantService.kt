@@ -58,7 +58,7 @@ class MerchantService (
                 val itemToSell = newCharacter.inventory.first { it.code == item.code }
 
                 logger.info("!!!!!!!! Now we sell ${itemToSell.quantity} ${itemToSell.code} to $npcName")
-                newCharacter = npcClient.sellItem(npcName, item.code, itemToSell.quantity).data.character
+                newCharacter = npcClient.sellItem(newCharacter.name, item.code, itemToSell.quantity).data.character
 
             }
         }

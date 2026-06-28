@@ -223,7 +223,7 @@ class GatheringService(
                 log.warn("{} : ressource {} introuvable sur la map {} — données de map potentiellement obsolètes", newCharacter.name, resourceCode, mapData.mapId)
                 excludedMapIds.add(mapData.mapId)
                 newCharacter = accountClient.getCharacter(newCharacter.name).data
-                mapData = mapService.findClosestMap(character = newCharacter, contentCode = resourceCode, excludeMapIds = excludedMapIds)
+                mapData = mapService.findClosestMapFromApi(character = newCharacter, contentCode = resourceCode, excludeMapIds = excludedMapIds)
                 newCharacter = movementService.moveCharacterToCell(mapData.mapId, newCharacter)
             }
         }
