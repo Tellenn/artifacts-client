@@ -41,7 +41,7 @@ class MerchantService (
 
         val items = findSellableItems(npcName)
         if(items.isEmpty()){
-            logger.info("!!!!!!!! No npc items found for the event $npcName")
+            logger.info("No npc items found for the event $npcName")
             return newCharacter
         }
 
@@ -49,15 +49,15 @@ class MerchantService (
         newCharacter = bankService.emptyInventory(newCharacter)
         for(item in items){
             if(bankService.isInBank(item.code, 1)){
-                logger.info("%blue(!!!!!!!!) Selling item ${item.code} to $npcName")
+                logger.info("Selling item ${item.code} to $npcName")
                 newCharacter = movementService.moveToBank(newCharacter)
                 newCharacter = bankService.withdrawAllOfOne(newCharacter, item.code)
 
-                logger.info("!!!!!!!! Withdrawn the items, moving to the npc")
+                logger.info("Withdrawn the items, moving to the npc")
                 newCharacter = movementService.moveToNpc(newCharacter, npcName)
                 val itemToSell = newCharacter.inventory.first { it.code == item.code }
 
-                logger.info("!!!!!!!! Now we sell ${itemToSell.quantity} ${itemToSell.code} to $npcName")
+                logger.info("Now we sell ${itemToSell.quantity} ${itemToSell.code} to $npcName")
                 newCharacter = npcClient.sellItem(newCharacter.name, item.code, itemToSell.quantity).data.character
 
             }
