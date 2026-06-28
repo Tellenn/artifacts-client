@@ -88,7 +88,7 @@ class BankServiceTeleportTest {
         val character = buildCharacter()
         `when`(teleportService.findUsableTeleportPotionsInInventory(character)).thenReturn(emptyList())
         `when`(teleportService.findUsableTeleportPotionsInBank(anyObject()))
-            .thenReturn(listOf(potion("recall_potion", 271), potion("region_potion", 600)))
+            .thenReturn(listOf(SimpleItem("recall_potion", 1), SimpleItem("region_potion", 1)))
         `when`(bankRepository.findByCode(anyObject())).thenReturn(null)
 
         @Suppress("UNCHECKED_CAST")
@@ -128,7 +128,7 @@ class BankServiceTeleportTest {
             .thenReturn(listOf(potion("tp_held", 545) to 545))
         // La banque propose tp_held (déjà détenu) et tp_other (manquant).
         `when`(teleportService.findUsableTeleportPotionsInBank(anyObject()))
-            .thenReturn(listOf(potion("tp_held", 545), potion("tp_other", 600)))
+            .thenReturn(listOf(SimpleItem("tp_held", 1), SimpleItem("tp_other", 1)))
 
         `when`(itemRepository.findByCode("tp_held")).thenReturn(potion("tp_held", 545))
         `when`(itemRepository.findByCode("iron")).thenReturn(

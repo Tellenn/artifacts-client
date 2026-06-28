@@ -8,6 +8,7 @@ import com.tellenn.artifacts.db.repositories.ItemRepository
 import com.tellenn.artifacts.models.ArtifactsCharacter
 import com.tellenn.artifacts.models.ItemDetails
 import com.tellenn.artifacts.models.MapData
+import com.tellenn.artifacts.models.SimpleItem
 import org.apache.logging.log4j.LogManager
 import org.springframework.stereotype.Service
 import kotlin.math.abs
@@ -94,15 +95,30 @@ class TeleportService(
 
     /**
      * Toutes les potions de téléport disponibles en banque (une entrée par code),
-     * dont les conditions d'utilisation sont remplies. Permet de retirer un
-     * assortiment et de choisir ensuite la plus adaptée à chaque déplacement.
+     * dont les conditions d'utilisation sont remplies, avec la quantité à retirer.
+     * On retire une seule potion par type pour pouvoir choisir la plus adaptée à
+     * chaque déplacement, sauf pour la potion de rappel dont on prend deux unités
+     * lorsque le stock le permet (déplacement de secours fréquemment utilisé).
      */
-    fun findUsableTeleportPotionsInBank(character: ArtifactsCharacter): List<ItemDetails> =
+    fun findUsableTeleportPotionsInBank(character: ArtifactsCharacter): List<SimpleItem> =
         bankItemRepository.findByEffectsCode(TELEPORT_EFFECT)
             .filter { it.quantity > 0 }
-            .map { itemRepository.findByCode(it.code) }
-            .filter { item -> item.effects?.any { it.code == TELEPORT_EFFECT } == true && canUse(character, item) }
-            .distinctBy { it.code }
+            .groupBy { it.code }
+            .mapNotNull { (code, docs) ->
+                val item = itemRepository.findByCode(code)
+                if (item.effects?.any { it.code == TELEPORT_EFFECT } == true && canUse(character, item)) {
+                    SimpleItem(code, withdrawQuantity(code, docs.sumOf { it.quantity }))
+                } else {
+                    null
+                }
+            }
+
+    /**
+     * Quantité de potion à retirer de la banque : deux pour la potion de rappel
+     * (dans la limite du stock), une seule pour tout autre type.
+     */
+    private fun withdrawQuantity(code: String, available: Int): Int =
+        if (code == RECALL_POTION) minOf(RECALL_WITHDRAW_TARGET, available) else 1
 
     /**
      * Utilise une potion depuis l'inventaire et retourne le personnage mis à jour
@@ -136,5 +152,7 @@ class TeleportService(
 
     companion object {
         private const val TELEPORT_EFFECT = "teleport"
+        private const val RECALL_POTION = "recall_potion"
+        private const val RECALL_WITHDRAW_TARGET = 2
     }
 }

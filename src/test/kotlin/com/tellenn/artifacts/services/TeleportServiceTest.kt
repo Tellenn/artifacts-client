@@ -302,6 +302,20 @@ class TeleportServiceTest {
         val result = service.findUsableTeleportPotionsInBank(character)
 
         assertEquals(setOf("recall_potion", "region_potion"), result.map { it.code }.toSet())
+        assertEquals(2, result.first { it.code == "recall_potion" }.quantity)
+        assertEquals(1, result.first { it.code == "region_potion" }.quantity)
+    }
+
+    @Test
+    fun `findUsableTeleportPotionsInBank withdraws a single recall potion when only one is in stock`() {
+        val character = buildCharacter()
+        `when`(bankItemRepository.findByEffectsCode("teleport"))
+            .thenReturn(listOf(buildBankDoc("recall_potion", quantity = 1)))
+        `when`(itemRepository.findByCode("recall_potion")).thenReturn(buildPotion("recall_potion", 271))
+
+        val result = service.findUsableTeleportPotionsInBank(character)
+
+        assertEquals(1, result.first { it.code == "recall_potion" }.quantity)
     }
 
     @Test

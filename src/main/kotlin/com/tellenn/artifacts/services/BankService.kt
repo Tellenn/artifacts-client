@@ -84,7 +84,6 @@ class BankService(
         // pour pouvoir choisir la plus adaptée à chaque déplacement.
         val potionsToWithdraw = teleportService.findUsableTeleportPotionsInBank(newCharacter)
             .filter { it.code !in heldPotionCodes }
-            .map { SimpleItem(it.code, 1) }
         if (potionsToWithdraw.isNotEmpty()) {
             log.info("{} restocks teleport potions: {}", newCharacter.name,
                 potionsToWithdraw.joinToString { it.code })
