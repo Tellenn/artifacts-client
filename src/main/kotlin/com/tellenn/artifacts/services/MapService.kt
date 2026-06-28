@@ -127,6 +127,10 @@ class MapService(
         return mapMongoClient.getMapById(mapId)
     }
 
+    fun isMonsterPresentAt(mapId: Int, monsterCode: String): Boolean {
+        return mapClient.getMaps(content_code = monsterCode).data.any { it.mapId == mapId }
+    }
+
     /**
      * Finds the shortest path of transitions between two regions.
      * Uses BFS to find the path.

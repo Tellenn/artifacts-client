@@ -42,8 +42,15 @@ class WebSocketService(
     private val threadService: ThreadService,
     private val battleService: BattleService,
     private val battleSimulatorService: BattleSimulatorService,
-    private val monsterService: MonsterService
+    private val monsterService: MonsterService,
+    private val characterService: CharacterService,
+    private val mapService: MapService
 ) {
+    companion object {
+        /** Stop an event fight after this many consecutive rounds the fighter could not clear. */
+        private const val MAX_EVENT_FIGHT_FAILURES = 3
+    }
+
     val objectMapper = jacksonObjectMapper().apply {
         registerModule(JavaTimeModule())
     }
@@ -297,26 +304,18 @@ class WebSocketService(
                                     } else {
                                         val fighterName = getPredefinedCharacters().first { it.job == "fighter" }.name
                                         val fighter = accountClient.getCharacter(fighterName).data
-                                        val simulation = battleSimulatorService.simulate(monsterCode, fighter)
+                                        // Use the authoritative server-side simulation (as BossFightService/TaskService do).
+                                        // The local heuristic over-estimates survivability (unlimited potion healing,
+                                        // ignores the `corrupted` resistance-shred effect), which sent under-levelled
+                                        // fighters into unwinnable event fights.
+                                        val winrate = battleSimulatorService.simulateWithApi(monsterCode, fighter).data.winrate
 
-                                        if (!simulation.win) {
-                                            logger.info("$fighterName cannot win against $monsterCode — skipping")
+                                        if (winrate < 100) {
+                                            logger.info("$fighterName cannot reliably win against $monsterCode (winrate $winrate%) — skipping")
                                         } else {
-                                            logger.info("$fighterName can win against $monsterCode (level ${monster.level}) — assigning fight mission")
+                                            logger.info("$fighterName can win against $monsterCode (level ${monster.level}, winrate $winrate%) — assigning fight mission")
                                             threadService.assignMissionAsync(fighterName, MissionPriority.AUTOMATIC) {
-                                                try {
-                                                    var character = accountClient.getCharacter(fighterName).data
-                                                    do {
-                                                        character = movementService.moveToBank(character)
-                                                        character = bankService.emptyInventory(character)
-                                                        character = movementService.moveCharacterToCell(event.map.mapId, character)
-                                                        character = battleService.battleUntilInvIsFull(character, monsterCode)
-                                                    } while (true)
-                                                } catch (_: MapContentNotFoundException) {
-                                                    logger.info("Monster $monsterCode is no longer available")
-                                                } catch (e: Exception) {
-                                                    logger.error("Uncaught error occurred while fighting event monster $monsterCode", e)
-                                                }
+                                                fightEventMonster(fighterName, event.map.mapId, monsterCode)
                                             }
                                         }
                                     }
@@ -366,6 +365,48 @@ class WebSocketService(
                 // Schedule a reconnection attempt
                 scheduleReconnect()
             }
+        }
+    }
+
+    /**
+     * Fights an event monster repeatedly, emptying the inventory at the bank between rounds.
+     *
+     * Stops when the monster disappears, or after [MAX_EVENT_FIGHT_FAILURES] consecutive rounds the
+     * fighter could not clear. A round that ends without a full inventory means the fight could not be
+     * sustained (battle lost or interrupted): without this cap the loop retried a losing fight forever,
+     * even after the event had expired.
+     */
+    internal fun fightEventMonster(fighterName: String, mapId: Int, monsterCode: String) {
+        var consecutiveFailures = 0
+        try {
+            var character = accountClient.getCharacter(fighterName).data
+            do {
+                character = movementService.moveToBank(character)
+                character = bankService.emptyInventory(character)
+
+                // The event may have ended: the cell is then empty or occupied by another monster
+                // we must not fight. Stop unless our target monster is still there.
+                if (!mapService.isMonsterPresentAt(mapId, monsterCode)) {
+                    logger.info("$monsterCode is no longer on map $mapId (event ended) — $fighterName stops")
+                    return
+                }
+
+                character = movementService.moveCharacterToCell(mapId, character)
+                character = battleService.battleUntilInvIsFull(character, monsterCode)
+                // It's possible that the monster has moved away from the cell and was replaced, but that's ok.
+                if (characterService.isInventoryFull(character)) {
+                    consecutiveFailures = 0
+                } else {
+                    consecutiveFailures++
+                    logger.warn("$fighterName could not clear $monsterCode (failure $consecutiveFailures/$MAX_EVENT_FIGHT_FAILURES)")
+                }
+            } while (consecutiveFailures < MAX_EVENT_FIGHT_FAILURES)
+
+            logger.info("$fighterName stops fighting $monsterCode after $MAX_EVENT_FIGHT_FAILURES consecutive failures")
+        } catch (_: MapContentNotFoundException) {
+            logger.info("Monster $monsterCode is no longer available")
+        } catch (e: Exception) {
+            logger.error("Uncaught error occurred while fighting event monster $monsterCode", e)
         }
     }
 
