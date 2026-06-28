@@ -241,8 +241,8 @@ class AlchemistJob(
     }
 
     companion object {
-        private const val TELEPORT_STOCK_TRIGGER = 20
-        private const val TELEPORT_STOCK_TARGET = 40
+        private const val TELEPORT_STOCK_TRIGGER = 50
+        private const val TELEPORT_STOCK_TARGET = 100
         private const val INVENTORY_MARGIN = 10
     }
 }
