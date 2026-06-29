@@ -60,7 +60,7 @@ class MinerJob(
                 .filter { it.subtype != "precious_stone" && it.code != "strangold_bar" && it.code != "obsidian_bar"}
                 .sortedBy { it.level }
             for(it in gatheringItems){
-                if(!bankService.isInBank(it.code, 200)){
+                if(!bankService.isInBank(it.code, 100)){
 
                     itemsToCraft.add(SimpleItem(it.code, (character.inventoryMaxItems - 20) / itemService.getInvSizeToCraft(it) ))
                     break
