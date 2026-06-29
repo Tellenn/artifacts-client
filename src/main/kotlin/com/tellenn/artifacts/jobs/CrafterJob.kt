@@ -169,13 +169,10 @@ class CrafterJob(
                 val choice = craftLevelingService.selectLevelingCraft(character, skillToLevel)
                 if (choice !is LevelingChoice.Craft) break
                 val itemToCraft = choice.item
-                contextService.setObjective(character.name, "Craft de ${itemToCraft.code} pour level up $skillToLevel (niv. $oldLevel)")
+                contextService.setObjective(character.name, "Craft de ${itemToCraft.code} ×${choice.batchSize} pour level up $skillToLevel (niv. $oldLevel)")
                 try {
-                    log.info("${character.name} is gathering and crafting a ${itemToCraft.code} for leveling")
-                    character = gatheringService.craftOrGather(character, itemToCraft.code, 1, allowFight = true)
-                    character = gatheringService.recycle(character, itemToCraft, 1)
-                    character = movementService.moveToBank(character)
-                    character = bankService.emptyInventory(character)
+                    log.info("{} is gathering and crafting {} x{} for leveling", character.name, itemToCraft.code, choice.batchSize)
+                    character = gatheringService.craftAndRecycleForLeveling(character, itemToCraft, choice.batchSize, allowFight = true)
                 }catch (e: CharacterSkillTooLow){
                     // Usually caused by a crating of a sub object, it can be nice if the main crafter level the sub resource
                     character = accountClient.getCharacter(character.name).data

@@ -104,6 +104,21 @@ data class ArtifactsCharacter(
         }
     }
 
+    /** XP acquise dans le niveau courant de la compétence [job] (progression vers le niveau suivant). */
+    fun getXpOf(job: String): Int {
+        return when (job) {
+            "mining" -> miningXp
+            "woodcutting" -> woodcuttingXp
+            "fishing" -> fishingXp
+            "cooking" -> cookingXp
+            "weaponcrafting" -> weaponcraftingXp
+            "jewelrycrafting" -> jewelrycraftingXp
+            "gearcrafting" -> gearcraftingXp
+            "alchemy" -> alchemyXp
+            else -> 0
+        }
+    }
+
     fun getStat(code: String): Int = when (code) {
         "level"                 -> level
         "mining_level"          -> miningLevel
