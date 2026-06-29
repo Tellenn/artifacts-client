@@ -65,7 +65,7 @@ class CraftLevelingService(
 
     /** La plus basse des [skills] qui a une recette jouable, sinon `null` (⇒ faire autre chose). */
     fun selectSkillToLevel(character: ArtifactsCharacter, skills: List<String>): String? =
-        skills.sortedBy { character.getLevelOf(it) }
+        skills.sortedBy { character.getLevelOf(it) / 5}
             .firstOrNull { selectLevelingCraft(character, it) is LevelingChoice.Craft }
 
     private fun cheapest(items: List<ItemDetails>): ItemDetails =

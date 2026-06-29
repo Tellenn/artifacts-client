@@ -61,7 +61,7 @@ class WoodworkerJob(
                 .filter { it.subtype != "precious_stone" }
                 .filter { it.code != "cursed_plank" && it.code != "magical_plank" && it.code != "magic_sap"}
             for(it in gatheringItems){
-                if(!bankService.isInBank(it.code, 200)){
+                if(!bankService.isInBank(it.code, 100)){
                     itemsToCraft.add(SimpleItem(it.code, (character.inventoryMaxItems - 20) / itemService.getInvSizeToCraft(it) ))
                     break
                 }
