@@ -57,6 +57,11 @@ class ThreadService(
 ) {
     private val logger = LoggerFactory.getLogger(ThreadService::class.java)
 
+    companion object {
+        /** Delay before respawning a default-behavior thread that exited unexpectedly. */
+        private const val RESTART_DELAY_MS = 1000L
+    }
+
     // Map to store character threads by character name
     private val characterThreads = ConcurrentHashMap<String, ManagedCharacterThread>()
 
@@ -80,27 +85,53 @@ class ThreadService(
                     throw UnknownJobException(config.job, config.name)
                 }
             }
-        } catch (_: InterruptedException) {
-            // Thread was interrupted, likely for a mission
-            logger.info("Character ${config.name} default behavior interrupted")
-            Thread.currentThread().interrupt() // Preserve interrupt status
-        }  catch (_: InterruptedIOException) {
-            // Thread was interrupted, likely for a mission
-            logger.info("Character ${config.name} default behavior interrupted")
-            Thread.currentThread().interrupt() // Preserve interrupt status
         } catch (e: Exception) {
-            logger.error("Error in character thread for ${config.name}", e)
-
-            // Restart the character thread after a brief delay
-            try {
-                logger.info("Restarting character thread for ${config.name} after exception")
-                Thread.sleep(1000) // Wait 1 second before restarting
-                internalStartThread(config)
-            } catch (restartException: Exception) {
-                logger.error("Failed to restart character thread for ${config.name}", restartException)
-            }
+            onDefaultBehaviorStopped(config, e)
         } finally {
             logger.info("Character ${config.name} thread is exiting")
+        }
+    }
+
+    /**
+     * Decides what to do when a character's default behavior loop stops on an exception.
+     *
+     * The exception type is NOT a reliable signal: a timed-out API call surfaces as a
+     * [java.net.SocketTimeoutException], which extends [InterruptedIOException] and therefore looks
+     * exactly like a genuine thread interruption. The authoritative signal is [ManagedCharacterThread.isOnMission],
+     * which every mission/reservation path sets to `true` *before* interrupting the thread.
+     *
+     * - Thread no longer the registered one (stopped or already replaced) → just exit.
+     * - A mission owns the character (`isOnMission == true`) → exit; the mission framework restarts it.
+     * - Anything else (spurious interrupt, transient API timeout, job failure) → restart so the
+     *   character does not die permanently.
+     */
+    private fun onDefaultBehaviorStopped(config: CharacterConfig, cause: Exception) {
+        val managed = characterThreads[config.name]
+        val isCurrentRegisteredThread = managed?.thread === Thread.currentThread()
+        val isMissionTakeover = managed?.isOnMission?.get() == true
+
+        if (!isCurrentRegisteredThread || isMissionTakeover) {
+            logger.info("Character ${config.name} default behavior interrupted")
+            if (cause is InterruptedException || cause is InterruptedIOException) {
+                Thread.currentThread().interrupt() // Preserve interrupt status
+            }
+            return
+        }
+
+        logger.warn(
+            "Character ${config.name} default behavior stopped unexpectedly ({}), restarting thread",
+            cause.javaClass.simpleName, cause
+        )
+        restartAfterUnexpectedExit(config)
+    }
+
+    /** Restarts a character's default behavior after an unexpected exit, leaving the map entry intact. */
+    private fun restartAfterUnexpectedExit(config: CharacterConfig) {
+        try {
+            Thread.sleep(RESTART_DELAY_MS)
+            internalStartThread(config)
+        } catch (restartException: Exception) {
+            logger.error("Failed to restart character thread for ${config.name}", restartException)
         }
     }
 
