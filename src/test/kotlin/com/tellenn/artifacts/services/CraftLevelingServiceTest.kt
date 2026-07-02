@@ -160,6 +160,39 @@ class CraftLevelingServiceTest {
     }
 
     @Test
+    fun `le batch d'une recette propre couvre l'XP jusqu'au prochain palier de 5 niveaux`() {
+        // Niveau 20, xp 0 → palier 25 (5 niveaux). XP requise = barres 20..24 = 51000.
+        // XP/craft pour un item niveau 20 = 495. ceil(51000/495) = 104.
+        val item = cleanRing("clean_ring", level = 20)
+        val choice = serviceWithCleanCandidate(item)
+            .selectLevelingCraft(cleanCrafter(level = 20, xp = 0), "jewelrycrafting")
+        assertInstanceOf(LevelingChoice.Craft::class.java, choice)
+        assertEquals(104, (choice as LevelingChoice.Craft).batchSize)
+    }
+
+    @Test
+    fun `le batch part d'un niveau intermédiaire et soustrait l'XP déjà acquise`() {
+        // Niveau 23, xp 200 → palier 25 (2 niveaux). XP requise = (barre23-200)+barre24 = 23200.
+        // XP/craft pour un item niveau 23 = 495. ceil(23200/495) = 47.
+        val item = cleanRing("clean_ring", level = 23)
+        val choice = serviceWithCleanCandidate(item)
+            .selectLevelingCraft(cleanCrafter(level = 23, xp = 200), "jewelrycrafting")
+        assertInstanceOf(LevelingChoice.Craft::class.java, choice)
+        assertEquals(47, (choice as LevelingChoice.Craft).batchSize)
+    }
+
+    @Test
+    fun `une recette puisant dans le surplus rare est craftée une par une (batchSize 1)`() {
+        // surplus_ring est choisi via la branche « coverable » ⇒ on protège la réserve, un craft à la fois.
+        val ring = rareRing("surplus_ring", 25, "ruby", 1)
+        val svc = service(mockItemServiceReturning("jewelrycrafting", ring))
+        `when`(bankService.isInBank("ruby", 11)).thenReturn(true) // 11 - 1 = 10 = plancher
+        val choice = svc.selectLevelingCraft(character("jewelrycrafting" to 25), "jewelrycrafting")
+        assertInstanceOf(LevelingChoice.Craft::class.java, choice)
+        assertEquals(1, (choice as LevelingChoice.Craft).batchSize)
+    }
+
+    @Test
     fun `weaponcrafting niveau 1 ne sélectionne jamais wooden_staff, l'arme de tutoriel limitée`() {
         // wooden_staff (recette weaponcrafting niveau 1) requiert wooden_stick : une arme de départ
         // non craftable distribuée en quantité limitée. On ne doit jamais l'épuiser pour du leveling.
@@ -197,6 +230,35 @@ class CraftLevelingServiceTest {
     // ------------------------------------------------------------------------------------------
     // Logique de réserve / surplus (candidats contrôlés)
     // ------------------------------------------------------------------------------------------
+
+    /** Recette « propre » (ingrédient non rare) de jewelrycrafting au niveau donné. */
+    private fun cleanRing(code: String, level: Int): ItemDetails =
+        ItemDetails(
+            code = code, name = code, description = "", type = "ring", subtype = "",
+            level = level, tradeable = true,
+            craft = ItemCraft("jewelrycrafting", level, listOf(RecipeIngredient("gold_bar", 3)), 1),
+            effects = emptyList(), conditions = emptyList()
+        )
+
+    /** Service dont la fenêtre de jewelrycrafting ne contient que [item] (recette propre). */
+    private fun serviceWithCleanCandidate(item: ItemDetails): CraftLevelingService {
+        val svc = mock(ItemService::class.java)
+        stubCandidatesBySkill(svc, mapOf("jewelrycrafting" to listOf(item)))
+        // gold_bar : ingrédient non rang, craft null ⇒ accumulate s'arrête, recette « propre ».
+        `when`(svc.getItem("gold_bar")).thenReturn(
+            ItemDetails("gold_bar", "gold_bar", "", "resource", "bar", 10, true, false, null, emptyList(), emptyList())
+        )
+        return service(svc)
+    }
+
+    /** Crafter dont on contrôle niveau, XP courante et sagesse (sagesse 0 ⇒ pas de bonus). */
+    private fun cleanCrafter(level: Int, xp: Int): ArtifactsCharacter {
+        val c = mock(ArtifactsCharacter::class.java)
+        `when`(c.getLevelOf("jewelrycrafting")).thenReturn(level)
+        `when`(c.getXpOf("jewelrycrafting")).thenReturn(xp)
+        `when`(c.wisdom).thenReturn(0)
+        return c
+    }
 
     private fun rareRing(code: String, level: Int, rare: String, qty: Int): ItemDetails =
         ItemDetails(
@@ -262,6 +324,110 @@ class CraftLevelingServiceTest {
             listOf("weaponcrafting", "gearcrafting", "jewelrycrafting")
         )
         assertEquals("gearcrafting", skill)
+    }
+
+    // ------------------------------------------------------------------------------------------
+    // XP de craft (formule API)
+    // ------------------------------------------------------------------------------------------
+
+    @Test
+    fun `craftXp - cas de base sans sagesse ni malus`() {
+        // item 20 → base 450, coef 45 ; ratio 20/20=1 ×45=45 ; sum 495 ; mult 1, penalty 1, wisdom 1 → 495
+        assertEquals(495, craftXp(itemLevel = 20, playerLevel = 20, wisdom = 0, skill = "jewelrycrafting"))
+    }
+
+    @Test
+    fun `craftXp - le bonus de sagesse ajoute 0,1% d'XP par point`() {
+        // 495 × (1 + 50×0.001) = 495 × 1.05 = 519.75 → 520
+        assertEquals(520, craftXp(itemLevel = 20, playerLevel = 20, wisdom = 50, skill = "jewelrycrafting"))
+    }
+
+    @Test
+    fun `craftXp - 10 niveaux ou plus au-dessus de l'item donne 0 XP`() {
+        assertEquals(0, craftXp(itemLevel = 10, playerLevel = 20, wisdom = 0, skill = "jewelrycrafting"))
+    }
+
+    @Test
+    fun `craftXp - jusqu'à 9 niveaux au-dessus l'XP reste pleine (palier)`() {
+        // diff 9 : item 11 → base 200, coef 35 ; ratio 11/20=0.55 ×35=19.25 ; sum 219.25 → 219
+        assertEquals(219, craftXp(itemLevel = 11, playerLevel = 20, wisdom = 0, skill = "jewelrycrafting"))
+    }
+
+    @Test
+    fun `craftXp - un item de niveau égal ou supérieur garde l'XP pleine`() {
+        // item 26 > player 20 : base 550, coef 50 ; ratio 26/20=1.3 ×50=65 ; sum 615 → 615
+        assertEquals(615, craftXp(itemLevel = 26, playerLevel = 20, wisdom = 0, skill = "jewelrycrafting"))
+    }
+
+    @Test
+    fun `craftXp - palier de base 45+`() {
+        // item 45 → base 1000, coef 70 ; ratio 1 ×70=70 ; sum 1070 → 1070
+        assertEquals(1070, craftXp(itemLevel = 45, playerLevel = 45, wisdom = 0, skill = "weaponcrafting"))
+    }
+
+    @Test
+    fun `craftXp - les compétences de récolte subissent le multiplicateur 0,1`() {
+        // item 11, sum 219.25 × 0.1 = 21.925 → 22
+        assertEquals(22, craftXp(itemLevel = 11, playerLevel = 20, wisdom = 0, skill = "mining"))
+    }
+
+    @Test
+    fun `craftXp - la cuisine subit le multiplicateur 0,5`() {
+        // item 11, sum 219.25 × 0.5 = 109.625 → 110
+        assertEquals(110, craftXp(itemLevel = 11, playerLevel = 20, wisdom = 0, skill = "cooking"))
+    }
+
+    @Test
+    fun `xpPerCraft lit le niveau de compétence, le niveau de l'item et la sagesse du personnage`() {
+        val item = ItemDetails(
+            code = "x", name = "x", description = "", type = "ring", subtype = "",
+            level = 20, tradeable = true,
+            craft = ItemCraft("jewelrycrafting", 20, listOf(RecipeIngredient("ruby", 1)), 1),
+            effects = emptyList(), conditions = emptyList()
+        )
+        val c = mock(ArtifactsCharacter::class.java)
+        `when`(c.getLevelOf("jewelrycrafting")).thenReturn(20)
+        `when`(c.wisdom).thenReturn(0)
+
+        assertEquals(495, service().xpPerCraft(c, item, "jewelrycrafting"))
+    }
+
+    // ------------------------------------------------------------------------------------------
+    // XP nécessaire pour monter de niveau (table de progression)
+    // ------------------------------------------------------------------------------------------
+
+    @Test
+    fun `xpToLevelUp renvoie la taille de la barre d'XP du niveau`() {
+        assertEquals(150, service().xpToLevelUp(1))
+        assertEquals(8200, service().xpToLevelUp(20))
+        assertEquals(54200, service().xpToLevelUp(49))
+    }
+
+    @Test
+    fun `xpToLevelUp renvoie 0 au niveau max`() {
+        assertEquals(0, service().xpToLevelUp(50))
+    }
+
+    @Test
+    fun `xpToGainLevels - un niveau depuis le début du niveau courant`() {
+        assertEquals(150, service().xpToGainLevels(currentLevel = 1, currentXp = 0, levels = 1))
+    }
+
+    @Test
+    fun `xpToGainLevels - un niveau soustrait l'XP déjà acquise`() {
+        assertEquals(100, service().xpToGainLevels(currentLevel = 1, currentXp = 50, levels = 1))
+    }
+
+    @Test
+    fun `xpToGainLevels - plusieurs niveaux additionne les barres suivantes`() {
+        // (150-100) + barre(2)=250 + barre(3)=350 = 650
+        assertEquals(650, service().xpToGainLevels(currentLevel = 1, currentXp = 100, levels = 3))
+    }
+
+    @Test
+    fun `xpToGainLevels - jusqu'au niveau max additionne les dernières barres`() {
+        // barre(48)=52400 + barre(49)=54200 = 106600
+        assertEquals(106600, service().xpToGainLevels(currentLevel = 48, currentXp = 0, levels = 2))
     }
 
     @Test

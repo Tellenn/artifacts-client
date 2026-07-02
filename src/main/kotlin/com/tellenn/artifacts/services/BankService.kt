@@ -310,6 +310,8 @@ class BankService(
         return bankRepository.findAll().map { SimpleItem(it.code, it.quantity) }
     }
 
+    fun getAllItems(): List<BankItemDocument> = bankRepository.findAll()
+
     fun getOne(itemCode: String): SimpleItem {
         return bankRepository.findByCode(itemCode)?.let { SimpleItem(it.code, it.quantity) } ?: SimpleItem("", 0)
     }

@@ -34,7 +34,9 @@ class GatheringService(
     private val equipmentService: EquipmentService,
     private val accountClient: AccountClient,
     private val npcClient: NpcClient,
-    private val grandExchangeService: GrandExchangeService
+    private val grandExchangeService: GrandExchangeService,
+    private val gatheringTaskService: GatheringTaskService,
+    private val materialResponsibility: MaterialResponsibility
 ) {
     private val log = LogManager.getLogger(GatheringService::class.java)
 
@@ -126,6 +128,97 @@ class GatheringService(
                 newCharacter = recollectMissingIngredients(newCharacter, itemDetails.craft.items, quantity)
                 craft(newCharacter, itemDetails, quantity)
             }
+        }
+    }
+
+    /**
+     * Monte une compétence de craft en produisant [quantity] exemplaires de [item] puis en les
+     * recyclant, avec une stratégie « tout collecter d'abord » pour minimiser les déplacements :
+     *
+     * - **Phase 1** ([gatherLevelingMaterials]) : amène en banque la totalité des ingrédients du batch.
+     * - **Phase 2** : assemble puis recycle par chunks de la taille de l'inventaire.
+     *
+     * [craftOrGather] n'est jamais modifié — il est réutilisé tel quel pour produire chaque ingrédient.
+     * La méthode lève les mêmes exceptions que [craftOrGather]/[craft] (ex. [CharacterSkillTooLow]) :
+     * la récupération reste à la charge de l'appelant.
+     */
+    fun craftAndRecycleForLeveling(
+        character: ArtifactsCharacter,
+        item: ItemDetails,
+        quantity: Int,
+        allowFight: Boolean = false,
+    ): ArtifactsCharacter {
+        val craft = item.craft ?: return character
+        postLevelingShortfalls(item, quantity)
+        var newCharacter = gatherLevelingMaterials(character, item, quantity, allowFight)
+
+        val perChunk = levelingAssembleChunkSize(craft.items.sumOf { it.quantity }, newCharacter.inventoryMaxItems)
+        var remaining = quantity
+        while (remaining > 0) {
+            val n = minOf(perChunk, remaining)
+            newCharacter = movementService.moveToBank(newCharacter)
+            for (ingredient in craft.items) {
+                newCharacter = bankService.withdrawOne(ingredient.code, ingredient.quantity * n, newCharacter)
+            }
+            newCharacter = craft(newCharacter, item, n)
+            newCharacter = recycle(newCharacter, item, n)
+            newCharacter = movementService.moveToBank(newCharacter)
+            newCharacter = bankService.emptyInventory(newCharacter)
+            remaining -= n
+        }
+        return newCharacter
+    }
+
+    /**
+     * Phase 1 du leveling par batch — **point d'extension** pour la future répartition de la collecte
+     * entre plusieurs personnages : amène en banque la totalité des ingrédients directs de [item] pour
+     * [quantity] crafts, chaque ingrédient étant collecté par chunks tenant dans l'inventaire.
+     */
+    private fun gatherLevelingMaterials(
+        character: ArtifactsCharacter,
+        item: ItemDetails,
+        quantity: Int,
+        allowFight: Boolean,
+    ): ArtifactsCharacter {
+        var newCharacter = character
+        for (ingredient in item.craft?.items ?: emptyList()) {
+            val unitSize = itemService.getInvSizeToCraft(itemService.getItem(ingredient.code))
+            val totalNeeded = ingredient.quantity * quantity
+            val chunk = levelingGatherChunkSize(unitSize, totalNeeded, newCharacter.inventoryMaxItems)
+            var got = 0
+            while (got < totalNeeded) {
+                val n = minOf(chunk, totalNeeded - got)
+                newCharacter = craftOrGather(newCharacter, ingredient.code, n, allowFight = allowFight, shouldTrain = false)
+                newCharacter = movementService.moveToBank(newCharacter)
+                newCharacter = bankService.emptyInventory(newCharacter)
+                got += n
+            }
+        }
+        return newCharacter
+    }
+
+    /**
+     * Publie dans le pool partagé les manques de matériaux récoltables d'un batch de leveling, pour
+     * que les récolteurs les produisent en parallèle — **uniquement** si au moins deux matériaux
+     * délégables manquent. Avec un seul manque délégable, la parallélisation n'apporte rien : le
+     * crafter le collecte lui-même (comportement de [gatherLevelingMaterials] inchangé).
+     *
+     * Publication best-effort : un échec du pool est journalisé et le crafter poursuit sa propre
+     * collecte (la publication n'est pas un échec de tâche).
+     */
+    internal fun postLevelingShortfalls(item: ItemDetails, batchSize: Int) {
+        try {
+            val craft = item.craft ?: return
+            val bankQuantities = craft.items.associate { it.code to bankService.getOne(it.code).quantity }
+            val shortfalls = levelingShortfalls(item, batchSize, bankQuantities)
+            val delegatable = shortfalls.keys.count { materialResponsibility.skillFor(it) != null }
+            if (delegatable <= 1) return
+            gatheringTaskService.postShortfalls(shortfalls)
+        } catch (e: Exception) {
+            log.warn(
+                "Échec de publication des manques de matériaux pour {} : {} — le crafter collectera lui-même",
+                item.code, e.message
+            )
         }
     }
 
@@ -312,4 +405,36 @@ class GatheringService(
             throw IllegalArgumentException("Cannot gather mob without fighting enabled")
         }
     }
+}
+
+/**
+ * Nombre d'exemplaires d'un ingrédient à collecter par passage en banque sans déborder l'inventaire.
+ * Un footprint ([unitSize]) de 0 désigne un matériau récolté brut : `gather()` gère lui-même ses
+ * allers-retours, on demande donc toute la quantité d'un coup.
+ */
+internal fun levelingGatherChunkSize(unitSize: Int, totalNeeded: Int, inventoryMaxItems: Int): Int =
+    if (unitSize <= 0) totalNeeded else maxOf(1, inventoryMaxItems / unitSize)
+
+/**
+ * Nombre d'exemplaires de l'item final à assembler par passage : borné par le footprint direct de
+ * ses ingrédients ([directSize]) — les sous-crafts sont déjà en banque — au minimum 1.
+ */
+internal fun levelingAssembleChunkSize(directSize: Int, inventoryMaxItems: Int): Int =
+    if (directSize <= 0) 1 else maxOf(1, inventoryMaxItems / directSize)
+
+/**
+ * Manques de matériaux à publier pour un batch de leveling : pour chaque ingrédient direct de
+ * [item], le besoin total (`batchSize × quantité`) moins le stock déjà en banque ([bankQuantities]),
+ * en ne gardant que les manques strictement positifs. Arithmétique pure : aucun filtrage par
+ * compétence (assuré en aval par `GatheringTaskService.postShortfalls`).
+ */
+internal fun levelingShortfalls(
+    item: ItemDetails,
+    batchSize: Int,
+    bankQuantities: Map<String, Int>,
+): Map<String, Int> {
+    val craft = item.craft ?: return emptyMap()
+    return craft.items
+        .associate { it.code to batchSize * it.quantity - (bankQuantities[it.code] ?: 0) }
+        .filterValues { it > 0 }
 }

@@ -15,6 +15,8 @@ class ArtifactsCharacterGetStatTest {
         gearcraftingLevel: Int = 0,
         jewelrycraftingLevel: Int = 0,
         alchemyLevel: Int = 0,
+        weaponcraftingXp: Int = 0,
+        miningXp: Int = 0,
         hp: Int = 0,
         maxHp: Int = 0,
     ): ArtifactsCharacter = ArtifactsCharacter(
@@ -24,10 +26,10 @@ class ArtifactsCharacterGetStatTest {
         initiative = 0, threat = 0, dmg = 0, wisdom = 0, prospecting = 0,
         criticalStrike = 0, speed = 0, haste = 0, xp = 0, maxXp = 0,
         taskType = null, taskTotal = 0, taskProgress = 0,
-        miningXp = 0, miningMaxXp = 0, miningLevel = miningLevel,
+        miningXp = miningXp, miningMaxXp = 0, miningLevel = miningLevel,
         woodcuttingXp = 0, woodcuttingMaxXp = 0, woodcuttingLevel = woodcuttingLevel,
         fishingXp = 0, fishingMaxXp = 0, fishingLevel = fishingLevel,
-        weaponcraftingXp = 0, weaponcraftingMaxXp = 0, weaponcraftingLevel = weaponcraftingLevel,
+        weaponcraftingXp = weaponcraftingXp, weaponcraftingMaxXp = 0, weaponcraftingLevel = weaponcraftingLevel,
         gearcraftingXp = 0, gearcraftingMaxXp = 0, gearcraftingLevel = gearcraftingLevel,
         jewelrycraftingXp = 0, jewelrycraftingMaxXp = 0, jewelrycraftingLevel = jewelrycraftingLevel,
         cookingXp = 0, cookingMaxXp = 0, cookingLevel = cookingLevel,
@@ -68,5 +70,16 @@ class ArtifactsCharacterGetStatTest {
     @Test
     fun `getStat returns 0 for unknown code`() {
         assertEquals(0, buildCharacter().getStat("unknown_code"))
+    }
+
+    @Test
+    fun `getXpOf returns the skill current xp`() {
+        assertEquals(1234, buildCharacter(weaponcraftingXp = 1234).getXpOf("weaponcrafting"))
+        assertEquals(42, buildCharacter(miningXp = 42).getXpOf("mining"))
+    }
+
+    @Test
+    fun `getXpOf returns 0 for unknown skill`() {
+        assertEquals(0, buildCharacter().getXpOf("unknown_skill"))
     }
 }
