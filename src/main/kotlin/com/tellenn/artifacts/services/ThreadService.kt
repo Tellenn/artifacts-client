@@ -53,7 +53,8 @@ class ThreadService(
     @param:Lazy private val fighterJob: FighterJob,
     @param:Lazy private val alchemistJob: AlchemistJob,
     @param:Lazy private val minerJob: MinerJob,
-    @param:Lazy private val woodworkerJob: WoodworkerJob
+    @param:Lazy private val woodworkerJob: WoodworkerJob,
+    private val missionMetrics: MissionMetrics
 ) {
     private val logger = LoggerFactory.getLogger(ThreadService::class.java)
 
@@ -152,6 +153,11 @@ class ThreadService(
         thread.start()
 
         characterThreads[config.name] = ManagedCharacterThread(config, thread, isOnMission, currentPriority)
+        missionMetrics.registerCharacter(
+            config.name,
+            threadAlive = { characterThreads[config.name]?.thread?.isAlive == true },
+            onMission = { characterThreads[config.name]?.isOnMission?.get() == true },
+        )
         logger.info("Thread started for character: ${config.name}")
     }
 
@@ -348,8 +354,8 @@ class ThreadService(
             }
             
             // Execute the mission in the current thread
-            mission()
-            
+            missionMetrics.timeMission(characterName, priority.name) { mission() }
+
             logger.info("Mission completed for character: $characterName")
             true
         } catch (e: Exception) {
@@ -403,7 +409,7 @@ class ThreadService(
             // Execute the mission in a new thread
             val missionThread = Thread {
                 try {
-                    mission()
+                    missionMetrics.timeMission(characterName, priority.name) { mission() }
                     logger.info("Async mission completed for character: $characterName")
                 } catch (e: Exception) {
                     logger.error("Error executing async mission for character $characterName", e)

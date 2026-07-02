@@ -31,6 +31,7 @@ abstract class BaseArtifactsClient(deps: BaseClientDependencies) {
     private val clientErrorService: ClientErrorService = deps.clientErrorService
     private val messageService: MessageService = deps.messageService
     private val timeUtils: TimeUtils = deps.timeUtils
+    private val clientMetrics: ClientMetrics = deps.clientMetrics
     val url: String = deps.url
     private val key: String = deps.key
 
@@ -202,7 +203,9 @@ abstract class BaseArtifactsClient(deps: BaseClientDependencies) {
         val clientType = javaClass.simpleName
 
         try {
-            val response = client.newCall(request).execute()
+            val response = clientMetrics.executeTimed(clientType, "GET", path) {
+                client.newCall(request).execute()
+            }
             checkRateLimit(response, "hour") { sendGetRequest(path) }?.let { return it }
             checkRateLimit(response, "minute") { sendGetRequest(path) }?.let { return it }
             checkRateLimit(response, "second") { sendGetRequest(path) }?.let { return it }
@@ -248,7 +251,9 @@ abstract class BaseArtifactsClient(deps: BaseClientDependencies) {
         val clientType = javaClass.simpleName
 
         try {
-            val response = client.newCall(request).execute()
+            val response = clientMetrics.executeTimed(clientType, "POST", path) {
+                client.newCall(request).execute()
+            }
             checkRateLimit(response, "hour") { sendPostRequest(path, body) }?.let { return it }
             checkRateLimit(response, "minute") { sendPostRequest(path, body) }?.let { return it }
             checkRateLimit(response, "second") { sendPostRequest(path, body) }?.let { return it }

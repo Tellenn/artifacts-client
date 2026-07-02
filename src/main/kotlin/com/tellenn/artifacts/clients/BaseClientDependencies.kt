@@ -11,6 +11,7 @@ class BaseClientDependencies(
     val clientErrorService: ClientErrorService,
     val messageService: MessageService,
     val timeUtils: TimeUtils,
+    val clientMetrics: ClientMetrics,
     @param:Value("\${artifacts.api.url}") val url: String,
     @param:Value("\${artifacts.api.key}") val key: String,
 )

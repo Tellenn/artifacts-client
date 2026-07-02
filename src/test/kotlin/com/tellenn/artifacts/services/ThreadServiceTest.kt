@@ -6,6 +6,7 @@ import com.tellenn.artifacts.jobs.CrafterJob
 import com.tellenn.artifacts.jobs.FighterJob
 import com.tellenn.artifacts.jobs.MinerJob
 import com.tellenn.artifacts.jobs.WoodworkerJob
+import io.micrometer.core.instrument.simple.SimpleMeterRegistry
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.BeforeEach
@@ -35,7 +36,10 @@ class ThreadServiceTest {
         alchemistJob = mock(AlchemistJob::class.java)
         minerJob = mock(MinerJob::class.java)
         woodworkerJob = mock(WoodworkerJob::class.java)
-        threadService = ThreadService(crafterJob, fighterJob, alchemistJob, minerJob, woodworkerJob)
+        threadService = ThreadService(
+            crafterJob, fighterJob, alchemistJob, minerJob, woodworkerJob,
+            MissionMetrics(SimpleMeterRegistry())
+        )
     }
 
     @AfterEach
