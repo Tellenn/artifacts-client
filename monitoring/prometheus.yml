@@ -1,0 +1,16 @@
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+
+scrape_configs:
+  - job_name: artifacts-client
+    metrics_path: /actuator/prometheus
+    static_configs:
+      # Application running inside docker-compose
+      - targets: ['app:8888']
+        labels:
+          env: docker
+      # Application running locally from the IDE
+      - targets: ['host.docker.internal:8888']
+        labels:
+          env: local
