@@ -230,7 +230,7 @@ abstract class BaseArtifactsClient(deps: BaseClientDependencies) {
             val responseBody = responseBodyString.toByteArray().toResponseBody(mediaType)
             return response.newBuilder().body(responseBody).build()
         } catch (e: Exception) {
-            if (e !is ArtifactsApiException) {
+            if (e !is ArtifactsApiException && e !is InterruptedIOException && e !is InterruptedException) {
                 logAndThrowError(null, clientType, path, "GET", path, null, "")
             }
             throw e

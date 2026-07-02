@@ -13,6 +13,7 @@ import com.tellenn.artifacts.db.repositories.ItemRepository
 import com.tellenn.artifacts.exceptions.BankCorruptedException
 import com.tellenn.artifacts.exceptions.MapContentNotFoundException
 import com.tellenn.artifacts.exceptions.MissingItemException
+import com.tellenn.artifacts.exceptions.NotFoundException
 import com.tellenn.artifacts.models.BankDetails
 import com.tellenn.artifacts.services.sync.BankItemSyncService
 import org.apache.logging.log4j.LogManager
@@ -211,6 +212,10 @@ class BankService(
             throw e
         }catch (e: MissingItemException){
             // Peut arriver si un autre agent a retiré l'item entre le isInBank et le retrait effectif
+            bankItemSyncService.syncAllItems()
+            throw e
+        }catch (e: NotFoundException){
+            // 404 = l'item n'existe plus du tout dans la vraie banque : le cache local est périmé
             bankItemSyncService.syncAllItems()
             throw e
         }

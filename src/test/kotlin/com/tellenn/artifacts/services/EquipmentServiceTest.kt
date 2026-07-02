@@ -2,10 +2,13 @@ package com.tellenn.artifacts.services
 
 import com.tellenn.artifacts.clients.AccountClient
 import com.tellenn.artifacts.db.repositories.ItemRepository
+import com.tellenn.artifacts.exceptions.NotFoundException
 import com.tellenn.artifacts.models.ArtifactsCharacter
 import com.tellenn.artifacts.models.Effect
+import com.tellenn.artifacts.models.ItemCraft
 import com.tellenn.artifacts.models.ItemDetails
 import com.tellenn.artifacts.models.MonsterData
+import com.tellenn.artifacts.models.SimpleItem
 import com.tellenn.artifacts.services.battlesim.BattleSimulatorService
 import com.tellenn.artifacts.services.sync.BankItemSyncService
 import org.junit.jupiter.api.Assertions.assertEquals
@@ -20,19 +23,25 @@ class EquipmentServiceTest {
 
     private lateinit var bankService: BankService
     private lateinit var itemRepository: ItemRepository
+    private lateinit var monsterService: MonsterService
+    private lateinit var itemService: ItemService
+    private lateinit var movementService: MovementService
     private lateinit var service: EquipmentService
 
     @BeforeEach
     fun setUp() {
         bankService = mock(BankService::class.java)
         itemRepository = mock(ItemRepository::class.java)
+        monsterService = mock(MonsterService::class.java)
+        itemService = mock(ItemService::class.java)
+        movementService = mock(MovementService::class.java)
         service = EquipmentService(
             bankService = bankService,
-            monsterService = mock(MonsterService::class.java),
+            monsterService = monsterService,
             itemRepository = itemRepository,
             characterService = mock(CharacterService::class.java),
-            itemService = mock(ItemService::class.java),
-            movementService = mock(MovementService::class.java),
+            itemService = itemService,
+            movementService = movementService,
             battleSimulatorService = mock(BattleSimulatorService::class.java),
             bankItemSyncService = mock(BankItemSyncService::class.java),
             accountClient = mock(AccountClient::class.java),
@@ -105,6 +114,33 @@ class EquipmentServiceTest {
         // then — strongest restore at or below level 20
         assertEquals("greater_health_potion", loadout.utility2)
     }
+
+    @Test
+    fun `la mission d'equipement continue sans nourriture quand le cache banque est perime`() {
+        // given — le cache local annonce du cooked_chicken mais la vraie banque renvoie 404
+        val hero = character(level = 10)
+        `when`(monsterService.getMonster("chicken")).thenReturn(monster(attackFire = 10))
+        `when`(movementService.moveToBank(hero)).thenReturn(hero)
+        `when`(bankService.emptyInventory(hero)).thenReturn(hero)
+        `when`(bankService.withdrawMany(ArrayList(), hero)).thenReturn(hero)
+        `when`(itemService.getHealingItems(emptyList())).thenReturn(listOf(SimpleItem("cooked_chicken", 66)))
+        `when`(itemService.getItem("cooked_chicken")).thenReturn(healingFood("cooked_chicken", level = 5))
+        `when`(bankService.getOne("cooked_chicken")).thenReturn(SimpleItem("cooked_chicken", 66))
+        `when`(bankService.withdrawOne("cooked_chicken", 50, hero)).thenThrow(NotFoundException())
+
+        // when
+        val result = service.equipBestAvailableEquipmentForMonsterInBank(hero, "chicken", equipPotions = false)
+
+        // then — on part combattre sans nourriture au lieu de faire crasher toute la mission
+        assertEquals(hero, result)
+    }
+
+    private fun healingFood(code: String, level: Int) = ItemDetails(
+        code = code, name = code, description = "", type = "consumable", subtype = "food",
+        level = level, tradeable = true,
+        craft = ItemCraft(skill = "cooking", level = level, items = emptyList(), quantity = 1),
+        effects = listOf(effect("heal", 100)), conditions = null,
+    )
 
     private fun effect(code: String, value: Int) = Effect(code, value, null)
 

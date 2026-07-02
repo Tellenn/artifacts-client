@@ -12,9 +12,11 @@ import com.tellenn.artifacts.exceptions.BankCorruptedException
 import com.tellenn.artifacts.exceptions.BattleLostException
 import com.tellenn.artifacts.exceptions.CharacterInventoryFullException
 import com.tellenn.artifacts.exceptions.MapContentNotFoundException
+import com.tellenn.artifacts.exceptions.MissingItemException
 import com.tellenn.artifacts.exceptions.NotFoundException
 import com.tellenn.artifacts.services.battlesim.BattleSimulatorService
 import com.tellenn.artifacts.services.sync.BankItemSyncService
+import org.apache.logging.log4j.LogManager
 import org.springframework.stereotype.Service
 import kotlin.math.min
 
@@ -115,22 +117,30 @@ class EquipmentService(
         newCharacter = movementService.moveToBank(newCharacter)
         newCharacter = bankService.emptyInventory(newCharacter)
 
-        // Fetch healing potions if there are any interesting.
-        // Boss fights skip this generic path and apply role-based potions themselves.
-        if (equipPotions) {
-            newCharacter = equipBestPotionsForFight(newCharacter, monsterCode)
-        }
-
-        // Fetch healing outside of combat items if there are any interesting
-        val healingItemInBank = itemService.getHealingItems(bankService.getAll())
-        if(healingItemInBank.isNotEmpty()){
-            val worstHealingItem = healingItemInBank
-                .map { itemService.getItem(it.code) }
-                .filter { it.craft != null && it.level <= newCharacter.level}
-            if(worstHealingItem.isNotEmpty()){
-                val worstHealingItemCode = worstHealingItem.minBy { it.level }.code
-                newCharacter = bankService.withdrawOne(worstHealingItemCode, min(newCharacter.inventoryMaxItems /2, bankService.getOne(worstHealingItemCode).quantity), newCharacter)
+        // Potions et nourriture sont un confort : si le cache banque est périmé (404/478),
+        // on part combattre sans plutôt que de faire échouer toute la mission.
+        try {
+            // Fetch healing potions if there are any interesting.
+            // Boss fights skip this generic path and apply role-based potions themselves.
+            if (equipPotions) {
+                newCharacter = equipBestPotionsForFight(newCharacter, monsterCode)
             }
+
+            // Fetch healing outside of combat items if there are any interesting
+            val healingItemInBank = itemService.getHealingItems(bankService.getAll())
+            if(healingItemInBank.isNotEmpty()){
+                val worstHealingItem = healingItemInBank
+                    .map { itemService.getItem(it.code) }
+                    .filter { it.craft != null && it.level <= newCharacter.level}
+                if(worstHealingItem.isNotEmpty()){
+                    val worstHealingItemCode = worstHealingItem.minBy { it.level }.code
+                    newCharacter = bankService.withdrawOne(worstHealingItemCode, min(newCharacter.inventoryMaxItems /2, bankService.getOne(worstHealingItemCode).quantity), newCharacter)
+                }
+            }
+        }catch (e: NotFoundException){
+            logger.warn("Cache banque périmé en récupérant potions/nourriture pour {}, combat sans : {}", newCharacter.name, e.message)
+        }catch (e: MissingItemException){
+            logger.warn("Cache banque périmé en récupérant potions/nourriture pour {}, combat sans : {}", newCharacter.name, e.message)
         }
         return newCharacter
     }
@@ -613,6 +623,8 @@ class EquipmentService(
     }
 
     companion object {
+        private val logger = LogManager.getLogger(EquipmentService::class.java)
+
         /** Threat multiplier applied to the tank so it holds the boss's aggro. */
         const val TANK_THREAT_MULT = 10
 
