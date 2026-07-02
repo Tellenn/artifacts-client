@@ -468,23 +468,11 @@ class EquipmentService(
     }
 
     private fun getBestWisdomGear(items: List<BankItemDocument>) : BankItemDocument? {
-        if(items.isEmpty()){
-            return null
-        }
-        val itemMap = HashMap<BankItemDocument, Int>()
-        for(item in items){
-            var score = 0
-            if(item.effects != null){
-                for (effect in item.effects) {
-                    when(effect.code) {
-                        "wisdom" -> score += effect.value
-                    }
-                }
-            }
-            itemMap[item] = score
-        }
-
-        return itemMap.maxBy { it.value }.key
+        return items
+            .map { item -> item to (item.effects?.filter { it.code == "wisdom" }?.sumOf { it.value } ?: 0) }
+            .filter { it.second > 0 }
+            .maxByOrNull { it.second }
+            ?.first
     }
 
     fun getBestScoreForItems(items: List<BankItemDocument>, monster: MonsterData, weapon: BankItemDocument?, threatScoreMult: Int = 1) : BankItemDocument? {

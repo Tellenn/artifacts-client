@@ -1,6 +1,7 @@
 package com.tellenn.artifacts.services
 
 import com.tellenn.artifacts.clients.AccountClient
+import com.tellenn.artifacts.db.documents.BankItemDocument
 import com.tellenn.artifacts.db.repositories.ItemRepository
 import com.tellenn.artifacts.exceptions.NotFoundException
 import com.tellenn.artifacts.models.ArtifactsCharacter
@@ -13,6 +14,7 @@ import com.tellenn.artifacts.services.battlesim.BattleSimulatorService
 import com.tellenn.artifacts.services.sync.BankItemSyncService
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertNull
+import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 import org.mockito.Mockito.mock
@@ -134,6 +136,40 @@ class EquipmentServiceTest {
         // then — on part combattre sans nourriture au lieu de faire crasher toute la mission
         assertEquals(hero, result)
     }
+
+    @Test
+    fun `aucun slot n'est propose quand aucun equipement n'apporte de wisdom`() {
+        // given — la banque ne contient que du gear sans effet wisdom
+        val helmet = bankEquipment("iron_helmet", type = "helmet", effect("hp", 20))
+        val boots = bankEquipment("iron_boots", type = "boots")
+        `when`(bankService.getAllEquipmentsUnderLevel(10)).thenReturn(listOf(helmet, boots))
+
+        // when
+        val bis = service.getBestWisdomEquipmentInBank(character(level = 10))
+
+        // then — rien à équiper : le crafter évite un aller-retour banque inutile
+        assertTrue(bis.values.all { it == null })
+    }
+
+    @Test
+    fun `l'equipement avec wisdom est selectionne sur son slot`() {
+        // given
+        val sageHelmet = bankEquipment("sage_helmet", type = "helmet", effect("wisdom", 10))
+        val ironHelmet = bankEquipment("iron_helmet", type = "helmet", effect("hp", 20))
+        `when`(bankService.getAllEquipmentsUnderLevel(10)).thenReturn(listOf(sageHelmet, ironHelmet))
+
+        // when
+        val bis = service.getBestWisdomEquipmentInBank(character(level = 10))
+
+        // then
+        assertEquals("sage_helmet", bis["helmet"]?.code)
+    }
+
+    private fun bankEquipment(code: String, type: String, vararg effects: Effect) = BankItemDocument(
+        code = code, name = code, description = "", type = type, subtype = "",
+        level = 1, tradeable = true, recyclable = true,
+        effects = effects.toList(), craft = null, quantity = 1,
+    )
 
     private fun healingFood(code: String, level: Int) = ItemDetails(
         code = code, name = code, description = "", type = "consumable", subtype = "food",
