@@ -82,7 +82,7 @@ class GenericJob(
             .sortedBy { -it.level }
             .forEach {
                 if(bankService.canCraftFromBank(it)){
-                    var craftableAmount = newCharacter.inventoryMaxItems / itemService.getInvSizeToCraft(it)
+                    var craftableAmount = newCharacter.inventoryMaxItems -10 / itemService.getInvSizeToCraft(it)
                     it.craft?.items?.forEach { item ->
                         craftableAmount = min(craftableAmount, bankService.getOne(item.code).quantity / item.quantity)
                     }
