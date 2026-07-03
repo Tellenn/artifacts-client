@@ -8,6 +8,7 @@ import com.tellenn.artifacts.models.SimpleItem
 import com.tellenn.artifacts.services.BankService
 import com.tellenn.artifacts.services.CharacterService
 import com.tellenn.artifacts.services.GatheringService
+import com.tellenn.artifacts.services.GatheringWorkerService
 import com.tellenn.artifacts.services.ItemService
 import com.tellenn.artifacts.services.AchievementService
 import com.tellenn.artifacts.services.CharacterContextService
@@ -32,6 +33,7 @@ class MinerJob(
     accountClient: AccountClient,
     taskService: TaskService,
     private val gatheringService: GatheringService,
+    private val gatheringWorkerService: GatheringWorkerService,
     private val itemService: ItemService,
     private val bankItemSyncService: BankItemSyncService,
     private val achievementService: AchievementService,
@@ -52,6 +54,14 @@ class MinerJob(
                 contextService.setObjective(characterName, "Exécution des achievements (crafter max)")
                 character = achievementService.executeAchievement(character, "miner")
                 continue
+            }
+            if (gatheringWorkerService.hasOpenTasks(listOf(skill), mapOf(skill to character.miningLevel))) {
+                contextService.setObjective(characterName, "Production pour le pool du crafter")
+                val poolResult = gatheringWorkerService.workOpenTasks(
+                    character, listOf(skill), mapOf(skill to character.miningLevel)
+                )
+                character = poolResult.character
+                if (poolResult.produced > 0) continue
             }
             contextService.setObjective(characterName, "Alignement de niveau avec le crafter")
             character = catchBackCrafter(character)

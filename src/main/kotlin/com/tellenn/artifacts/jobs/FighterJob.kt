@@ -14,6 +14,7 @@ import com.tellenn.artifacts.services.MonsterService
 import com.tellenn.artifacts.services.MovementService
 import com.tellenn.artifacts.services.TaskService
 import com.tellenn.artifacts.services.CharacterContextService
+import com.tellenn.artifacts.services.GatheringWorkerService
 import org.springframework.stereotype.Component
 
 /**
@@ -32,6 +33,7 @@ class FighterJob(
     private val monsterService: MonsterService,
     private val achievementService: AchievementService,
     private val contextService: CharacterContextService,
+    private val gatheringWorkerService: GatheringWorkerService,
 ) : GenericJob(mapService, movementService, bankService, characterService, accountClient, taskService) {
 
     lateinit var character: ArtifactsCharacter
@@ -45,12 +47,21 @@ class FighterJob(
                 continue
             }
 
+            if (gatheringWorkerService.hasOpenTasks(MOB_SKILLS, mobLevels())) {
+                contextService.setObjective(characterName, "Production pour le pool du crafter")
+                val poolResult = gatheringWorkerService.workOpenTasks(character, MOB_SKILLS, mobLevels(), allowFight = true)
+                character = poolResult.character
+                if (poolResult.produced > 0) continue
+            }
+
             try {
                 contextService.setObjective(characterName, "Obtention d'une tâche monstre")
                 character = taskService.getNewMonsterTask(character)
                 log.info("${character.name} is doing a new monster task")
                 contextService.setObjective(characterName, "Combat : ${character.task} (${character.taskProgress}/${character.taskTotal})")
-                character = taskService.doCharacterTask(character)
+                character = taskService.doCharacterTask(character) {
+                    gatheringWorkerService.hasOpenTasks(MOB_SKILLS, mobLevels())
+                }
                 character = movementService.moveToBank(character)
                 character = bankService.emptyInventory(character)
                 if(bankService.isInBank("tasks_coin",16)) {
@@ -82,5 +93,11 @@ class FighterJob(
             character = movementService.moveToBank(character)
             character = bankService.emptyInventory(character)
         }
+    }
+
+    private fun mobLevels() = mapOf("mob" to character.level)
+
+    companion object {
+        private val MOB_SKILLS = listOf("mob")
     }
 }

@@ -11,6 +11,7 @@ import com.tellenn.artifacts.models.SimpleItem
 import com.tellenn.artifacts.services.BankService
 import com.tellenn.artifacts.services.CharacterService
 import com.tellenn.artifacts.services.GatheringService
+import com.tellenn.artifacts.services.GatheringWorkerService
 import com.tellenn.artifacts.services.ItemService
 import com.tellenn.artifacts.services.AchievementService
 import com.tellenn.artifacts.services.CharacterContextService
@@ -33,6 +34,7 @@ class AlchemistJob(
     accountClient: AccountClient,
     taskService: TaskService,
     private val gatheringService: GatheringService,
+    private val gatheringWorkerService: GatheringWorkerService,
     private val itemService: ItemService,
     private val itemRepository: ItemRepository,
     private val achievementService: AchievementService,
@@ -50,6 +52,12 @@ class AlchemistJob(
                 contextService.setObjective(characterName, "Exécution des achievements (crafter max)")
                 character = achievementService.executeAchievement(character, "alchemist")
                 continue
+            }
+            if (gatheringWorkerService.hasOpenTasks(POOL_SKILLS, poolLevels())) {
+                contextService.setObjective(characterName, "Production pour le pool du crafter")
+                val poolResult = gatheringWorkerService.workOpenTasks(character, POOL_SKILLS, poolLevels(), allowFight = true)
+                character = poolResult.character
+                if (poolResult.produced > 0) continue
             }
             contextService.setObjective(characterName, "Alignement de niveau avec le crafter")
             character = catchBackCrafter(character)
@@ -240,9 +248,16 @@ class AlchemistJob(
         }
     }
 
+    private fun poolLevels() = mapOf(
+        "alchemy" to character.alchemyLevel,
+        "fishing" to character.fishingLevel,
+        "cooking" to character.cookingLevel,
+    )
+
     companion object {
         private const val TELEPORT_STOCK_TRIGGER = 50
         private const val TELEPORT_STOCK_TARGET = 100
         private const val INVENTORY_MARGIN = 10
+        private val POOL_SKILLS = listOf("alchemy", "fishing", "cooking")
     }
 }
