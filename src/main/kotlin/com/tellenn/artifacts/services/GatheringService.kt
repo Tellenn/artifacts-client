@@ -170,11 +170,18 @@ class GatheringService(
     }
 
     /**
-     * Phase 1 du leveling par batch — **point d'extension** pour la future répartition de la collecte
-     * entre plusieurs personnages : amène en banque la totalité des ingrédients directs de [item] pour
-     * [quantity] crafts, chaque ingrédient étant collecté par chunks tenant dans l'inventaire.
+     * Phase 1 du leveling par batch : amène en banque la totalité des ingrédients directs de [item]
+     * pour [quantity] crafts, en deux temps par ingrédient :
+     *
+     * 1. **Phase pool** — le crafter consomme les tranches ouvertes du pool partagé comme un worker
+     *    ([GatheringTaskService.produceOpenSlices]), en concurrence loyale avec les autres personnages.
+     * 2. **Phase complément** — ce que le pool et le stock banque ne couvrent pas est collecté
+     *    directement, par chunks tenant dans l'inventaire. Si un worker termine sa réservation après
+     *    coup, le surplus reste en banque pour le batch suivant.
+     *
+     * Interne (plutôt que privée) pour être testable unitairement, comme [postLevelingShortfalls].
      */
-    private fun gatherLevelingMaterials(
+    internal fun gatherLevelingMaterials(
         character: ArtifactsCharacter,
         item: ItemDetails,
         quantity: Int,
@@ -185,12 +192,20 @@ class GatheringService(
             val unitSize = itemService.getInvSizeToCraft(itemService.getItem(ingredient.code))
             val totalNeeded = ingredient.quantity * quantity
             val chunk = levelingGatherChunkSize(unitSize, totalNeeded, newCharacter.inventoryMaxItems)
-            var got = 0
-            while (got < totalNeeded) {
-                val n = minOf(chunk, totalNeeded - got)
+
+            fun gatherChunkToBank(n: Int) {
                 newCharacter = craftOrGather(newCharacter, ingredient.code, n, allowFight = allowFight, shouldTrain = false)
                 newCharacter = movementService.moveToBank(newCharacter)
                 newCharacter = bankService.emptyInventory(newCharacter)
+            }
+
+            gatheringTaskService.produceOpenSlices(ingredient.code, newCharacter.name, chunk, ::gatherChunkToBank)
+
+            val missing = (totalNeeded - bankService.getOne(ingredient.code).quantity).coerceAtLeast(0)
+            var got = 0
+            while (got < missing) {
+                val n = minOf(chunk, missing - got)
+                gatherChunkToBank(n)
                 got += n
             }
         }

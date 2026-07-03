@@ -6,11 +6,17 @@ import com.tellenn.artifacts.db.repositories.GatheringTaskRepository
 import com.tellenn.artifacts.models.GatheringTaskStatus
 import com.tellenn.artifacts.models.ItemDetails
 import com.tellenn.artifacts.models.ReservationStatus
+import com.tellenn.artifacts.exceptions.BattleLostException
 import java.time.Instant
 import org.junit.jupiter.api.Assertions.assertEquals
+import org.junit.jupiter.api.Assertions.assertFalse
+import org.junit.jupiter.api.Assertions.assertThrows
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
+import org.mockito.ArgumentMatchers.anyInt
+import org.mockito.ArgumentMatchers.anyString
+import org.mockito.Mockito.never
 import org.mockito.Mockito.verify
 import org.mockito.Mockito.verifyNoMoreInteractions
 import org.mockito.Mockito.mock
@@ -84,6 +90,68 @@ class GatheringTaskServiceTest {
 
         // then
         verify(repository).releaseSlice("iron_bar", "res-1", 30)
+    }
+
+    // --- produceOpenSlices : cycle réserve → produit → reporte, réutilisé par crafter et workers ---
+
+    @Test
+    fun `produceOpenSlices produit et reporte chaque tranche jusqu'a epuisement du pool`() {
+        // given : deux tranches disponibles, puis plus rien à réserver
+        val first = SliceReservation("Renoir", 30, Instant.now())
+        val second = SliceReservation("Renoir", 20, Instant.now())
+        `when`(repository.reserveSlice("iron_bar", "Renoir", 30)).thenReturn(first, second, null)
+
+        // when
+        val producedSlices = mutableListOf<Int>()
+        val total = service.produceOpenSlices("iron_bar", "Renoir", 30) { producedSlices.add(it) }
+
+        // then : chaque tranche accordée est produite puis reportée, le total est cumulé
+        assertEquals(listOf(30, 20), producedSlices)
+        assertEquals(50, total)
+        verify(repository).reportProduced("iron_bar", first.id, 30)
+        verify(repository).reportProduced("iron_bar", second.id, 20)
+    }
+
+    @Test
+    fun `produceOpenSlices ne produit rien sans tache ouverte`() {
+        // given : aucune tâche dans le pool pour ce matériau
+        `when`(repository.reserveSlice("iron_bar", "Renoir", 30)).thenReturn(null)
+
+        // when
+        var produceCalled = false
+        val total = service.produceOpenSlices("iron_bar", "Renoir", 30) { produceCalled = true }
+
+        // then
+        assertEquals(0, total)
+        assertFalse(produceCalled)
+    }
+
+    @Test
+    fun `produceOpenSlices libere la tranche et propage l'exception quand la production echoue`() {
+        // given : une tranche réservée mais la production échoue (combat perdu)
+        val reservation = SliceReservation("Renoir", 30, Instant.now())
+        `when`(repository.reserveSlice("iron_bar", "Renoir", 30)).thenReturn(reservation)
+
+        // when - then : l'exception remonte telle quelle
+        assertThrows(BattleLostException::class.java) {
+            service.produceOpenSlices("iron_bar", "Renoir", 30) { throw BattleLostException("slime") }
+        }
+        verify(repository).releaseSlice("iron_bar", reservation.id, 30)
+        verify(repository, never()).reportProduced(anyString(), anyString(), anyInt())
+    }
+
+    @Test
+    fun `produceOpenSlices s'arrete proprement quand l'infra du pool echoue`() {
+        // given : le pool est injoignable (best-effort — la collecte directe prendra le relais)
+        `when`(repository.reserveSlice("iron_bar", "Renoir", 30)).thenThrow(RuntimeException("mongo down"))
+
+        // when
+        var produceCalled = false
+        val total = service.produceOpenSlices("iron_bar", "Renoir", 30) { produceCalled = true }
+
+        // then : aucune exception ne remonte, rien n'est produit
+        assertEquals(0, total)
+        assertFalse(produceCalled)
     }
 
     @Test
