@@ -72,12 +72,12 @@ class TaskService(
         return taskClient.abandonTask(newCharacter.name).data.character
     }
 
-    fun doCharacterTask(character: ArtifactsCharacter): ArtifactsCharacter {
+    fun doCharacterTask(character: ArtifactsCharacter, interruptWhen: () -> Boolean = { false }): ArtifactsCharacter {
         log.debug("Character ${character.name} is doing a task")
         if(!character.task.isNullOrEmpty()){
             val newCharacter = when(character.taskType){
                 "items" -> completeItemTask(character)
-                "monsters" -> completeMonsterTask(character)
+                "monsters" -> completeMonsterTask(character, interruptWhen)
                 else -> character
             }
             return newCharacter
@@ -120,7 +120,7 @@ class TaskService(
         return newCharacter
     }
 
-    fun completeMonsterTask(character: ArtifactsCharacter) : ArtifactsCharacter{
+    fun completeMonsterTask(character: ArtifactsCharacter, interruptWhen: () -> Boolean = { false }) : ArtifactsCharacter{
         var count = 0
         var newCharacter = character
         val monsterCode = character.task
@@ -146,6 +146,11 @@ class TaskService(
         }
 
         while(quantityLeft > 0 && count < 5) {
+            if (interruptWhen()) {
+                log.info("{} suspend sa task {} ({} restants) pour produire le pool de récolte",
+                    newCharacter.name, monsterCode, quantityLeft)
+                return newCharacter
+            }
             try {
                 newCharacter = battleService.battle(newCharacter, character.task!!)
                 quantityLeft--

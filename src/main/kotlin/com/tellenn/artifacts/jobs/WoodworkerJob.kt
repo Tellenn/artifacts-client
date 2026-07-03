@@ -10,6 +10,7 @@ import com.tellenn.artifacts.models.SimpleItem
 import com.tellenn.artifacts.services.BankService
 import com.tellenn.artifacts.services.CharacterService
 import com.tellenn.artifacts.services.GatheringService
+import com.tellenn.artifacts.services.GatheringWorkerService
 import com.tellenn.artifacts.services.ItemService
 import com.tellenn.artifacts.services.AchievementService
 import com.tellenn.artifacts.services.CharacterContextService
@@ -33,6 +34,7 @@ class WoodworkerJob(
     accountClient: AccountClient,
     taskService: TaskService,
     val gatheringService: GatheringService,
+    private val gatheringWorkerService: GatheringWorkerService,
     val itemService: ItemService,
     val bankItemSyncService: BankItemSyncService,
     val achievementService: AchievementService,
@@ -53,6 +55,14 @@ class WoodworkerJob(
                 contextService.setObjective(characterName, "Exécution des achievements (crafter max)")
                 character = achievementService.executeAchievement(character, "woodworker")
                 continue
+            }
+            if (gatheringWorkerService.hasOpenTasks(listOf(skill), mapOf(skill to character.woodcuttingLevel))) {
+                contextService.setObjective(characterName, "Production pour le pool du crafter")
+                val poolResult = gatheringWorkerService.workOpenTasks(
+                    character, listOf(skill), mapOf(skill to character.woodcuttingLevel)
+                )
+                character = poolResult.character
+                if (poolResult.produced > 0) continue
             }
             contextService.setObjective(characterName, "Alignement de niveau avec le crafter")
             character = catchBackCrafter(character)
