@@ -56,11 +56,15 @@ class BattleService(
         val map = mapService.findClosestMap(character, contentCode = monster.code)
         var newCharacter = equipmentService.equipBestAvailableEquipmentForMonsterInBank(character, monster.code)
         newCharacter = movementService.moveCharacterToCell(map.mapId, newCharacter)
+        // Les drops annexes remplissent l'inventaire bien avant la quantité cible : on mémorise
+        // ce qui part en banque à chaque débordement pour ne combattre que pour le solde restant.
+        var bankedQuantity = 0
         try {
-            while (!characterService.has(newCharacter, quantity, itemCode)){
+            while (!characterService.has(newCharacter, quantity - bankedQuantity, itemCode)){
                 try {
                     newCharacter = battle(newCharacter, monster.code)
                 }catch (_ : CharacterInventoryFullException){
+                    bankedQuantity += newCharacter.inventory.filter { it.code == itemCode }.sumOf { it.quantity }
                     newCharacter = movementService.moveToBank(newCharacter)
                     newCharacter = bankService.emptyInventory(newCharacter)
                     newCharacter = movementService.moveCharacterToCell(map.mapId, newCharacter)
@@ -70,19 +74,10 @@ class BattleService(
             newCharacter = accountClient.getCharacter(newCharacter.name).data
             if(shouldTrain){
                 newCharacter = train(newCharacter, -1)
-                return fightToGetItem(newCharacter, itemCode, quantity, shouldTrain)
+                return fightToGetItem(newCharacter, itemCode, quantity - bankedQuantity, shouldTrain)
             }else{
                 throw e
             }
-        }catch (_: CharacterInventoryFullException){
-            newCharacter = accountClient.getCharacter(newCharacter.name).data
-            val newQuantity = newCharacter.inventory.find { it.code == itemCode }?.let {quantity - it.quantity}
-            newCharacter = movementService.moveToBank(newCharacter)
-            newCharacter = bankService.emptyInventory(newCharacter)
-            if(newQuantity != null && newQuantity > 0){
-                fightToGetItem(newCharacter, itemCode, quantity, shouldTrain)
-            }else
-            return newCharacter
         }
         return newCharacter
     }
