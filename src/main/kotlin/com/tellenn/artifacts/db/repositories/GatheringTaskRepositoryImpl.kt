@@ -109,14 +109,15 @@ class GatheringTaskRepositoryImpl : GatheringTaskRepositoryCustom {
         }
     }
 
-    override fun expireStaleReservations(olderThan: Instant) {
+    override fun releaseOrphanedReservations(activeIds: Set<String>, olderThan: Instant) {
         val staleTasks = mongoTemplate.find(
             Query.query(Criteria.where("reservations.reservedAt").lt(olderThan)),
             GatheringTaskDocument::class.java
         )
         for (task in staleTasks) {
-            val staleReservations = task.reservations.filter { it.reservedAt.isBefore(olderThan) }
-            for (reservation in staleReservations) {
+            val orphanedReservations = task.reservations
+                .filter { it.reservedAt.isBefore(olderThan) && it.id !in activeIds }
+            for (reservation in orphanedReservations) {
                 mongoTemplate.updateFirst(
                     Query.query(Criteria.where("_id").`is`(task.materialCode)),
                     Update()

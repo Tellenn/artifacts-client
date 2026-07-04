@@ -10,6 +10,7 @@ import org.springframework.scheduling.annotation.Scheduled
 import org.springframework.stereotype.Service
 import java.time.Duration
 import java.time.Instant
+import java.util.concurrent.ConcurrentHashMap
 
 /**
  * Pool de tâches de récolte partagé : le crafter y publie ses manques de matériaux,
@@ -23,6 +24,13 @@ class GatheringTaskService(
 ) {
 
     /**
+     * Ids des réservations détenues par une production en cours de ce process. Le bot étant
+     * mono-instance, ce registre fait autorité : toute réservation en base absente d'ici est
+     * orpheline (crash, redémarrage, release perdu) et sera restituée par le sweep.
+     */
+    private val activeReservations: MutableSet<String> = ConcurrentHashMap.newKeySet()
+
+    /**
      * Publie une tâche par manque positif. Les matériaux assemblés par le crafter
      * (compétence de craft) sont ignorés — le crafter les produit lui-même.
      */
@@ -34,6 +42,11 @@ class GatheringTaskService(
         }
     }
 
+    /**
+     * Réserve brute, sans inscription au registre des productions en cours : une réservation
+     * prise ici sera restituée comme orpheline par le sweep passé [ORPHAN_GRACE]. Pour produire,
+     * passer par [produceOpenSlices] qui gère le cycle de vie complet.
+     */
     fun reserveSlice(materialCode: String, owner: String, maxSlice: Int): SliceReservation? =
         repository.reserveSlice(materialCode, owner, maxSlice)
 
@@ -49,8 +62,8 @@ class GatheringTaskService(
      * Utilisé par le crafter pendant ses batchs de leveling et réutilisable par les futurs workers.
      *
      * - Échec de [produce] : la tranche est libérée puis l'exception remonte telle quelle.
-     * - Échec de l'infra du pool : best-effort — log `warn` et arrêt propre (le TTL des
-     *   réservations sert de filet pour un report/release perdu).
+     * - Échec de l'infra du pool : best-effort — log `warn` et arrêt propre (le sweep des
+     *   réservations orphelines sert de filet pour un report/release perdu).
      *
      * @return le total effectivement produit et reporté.
      */
@@ -65,16 +78,21 @@ class GatheringTaskService(
                 return totalProduced
             } ?: return totalProduced
 
+            activeReservations.add(reservation.id)
             try {
-                produce(reservation.amount)
-            } catch (e: Exception) {
-                runCatching { repository.releaseSlice(materialCode, reservation.id, reservation.amount) }
-                    .onFailure { logger.warn("Libération de tranche impossible pour {} — le TTL la restituera", materialCode) }
-                throw e
+                try {
+                    produce(reservation.amount)
+                } catch (e: Exception) {
+                    runCatching { repository.releaseSlice(materialCode, reservation.id, reservation.amount) }
+                        .onFailure { logger.warn("Libération de tranche impossible pour {} — le sweep des orphelines la restituera", materialCode) }
+                    throw e
+                }
+                runCatching { repository.reportProduced(materialCode, reservation.id, reservation.amount) }
+                    .onFailure { logger.warn("Report de production impossible pour {} — le sweep des orphelines restituera la tranche", materialCode) }
+                totalProduced += reservation.amount
+            } finally {
+                activeReservations.remove(reservation.id)
             }
-            runCatching { repository.reportProduced(materialCode, reservation.id, reservation.amount) }
-                .onFailure { logger.warn("Report de production impossible pour {} — le TTL restituera la tranche", materialCode) }
-            totalProduced += reservation.amount
         }
     }
 
@@ -117,18 +135,22 @@ class GatheringTaskService(
     )
 
     /**
-     * Filet de sécurité du pool : restitue les tranches dont le release/report s'est perdu
-     * (thread interrompu, redémarrage de l'application). Premier passage dès le démarrage
-     * (pas d'`initialDelay`) pour nettoyer les réservations orphelines d'un arrêt brutal.
+     * Filet de sécurité du pool : restitue les réservations orphelines — présentes en base mais
+     * détenues par aucune production en cours de ce process (crash, redémarrage, release perdu).
+     * Une tranche activement produite n'est jamais volée, quelle que soit sa durée. Premier
+     * passage dès le démarrage (pas d'`initialDelay`) : le registre encore vide rend orphelin
+     * tout reliquat de l'arrêt précédent. [ORPHAN_GRACE] couvre la fenêtre entre l'écriture de
+     * la réservation en base et son inscription au registre.
+     * NOTE : registre local au process — à revoir si plusieurs instances partagent la base.
      */
-    @Scheduled(fixedRate = STALE_RESERVATION_SWEEP_MS)
-    fun expireStaleReservations() =
-        repository.expireStaleReservations(Instant.now().minus(CLAIM_TTL))
+    @Scheduled(fixedRate = ORPHAN_SWEEP_MS)
+    fun releaseOrphanedReservations() =
+        repository.releaseOrphanedReservations(activeReservations.toSet(), Instant.now().minus(ORPHAN_GRACE))
 
     companion object {
         private val logger = LogManager.getLogger(GatheringTaskService::class.java)
-        private val CLAIM_TTL: Duration = Duration.ofMinutes(10)
-        private const val STALE_RESERVATION_SWEEP_MS = 60_000L
+        private const val ORPHAN_SWEEP_MS = 60_000L
+        private val ORPHAN_GRACE: Duration = Duration.ofMinutes(2)
         private const val MOB_SKILL = "mob"
         private const val MAX_MOB_SLICE = 20
     }

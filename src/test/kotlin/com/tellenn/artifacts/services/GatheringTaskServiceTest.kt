@@ -264,31 +264,81 @@ class GatheringTaskServiceTest {
         assertEquals(0, status.progressPercent)
     }
 
-    // --- expireStaleReservations : filet de sécurité pour les tranches orphelines (restart, release perdu) ---
+    // --- releaseOrphanedReservations : seules les réservations que ce process ne détient pas
+    // sont orphelines — une tranche en cours de production ne doit jamais être volée ---
+
+    private fun sweptActiveIds(): Set<String> =
+        org.mockito.Mockito.mockingDetails(repository).invocations
+            .last { it.method.name == "releaseOrphanedReservations" }
+            .getArgument(0)
 
     @Test
-    fun `expireStaleReservations restitue les reservations plus vieilles que le TTL de 10 minutes`() {
-        // when
-        service.expireStaleReservations()
+    fun `releaseOrphanedReservations epargne une tranche en cours de production`() {
+        // given : une tranche réservée, et le sweep qui passe pendant la production
+        val reservation = SliceReservation("Cloud", 20, Instant.now())
+        `when`(repository.reserveSlice("feather", "Cloud", 20)).thenReturn(reservation, null)
 
-        // then : le cutoff transmis au repository est bien "maintenant - 10 minutes"
+        // when : le sweep s'exécute au milieu de la production de la tranche
+        service.produceOpenSlices("feather", "Cloud", 20) { service.releaseOrphanedReservations() }
+
+        // then : la réservation en cours fait partie du registre transmis au repository
+        assertTrue(reservation.id in sweptActiveIds())
+    }
+
+    @Test
+    fun `releaseOrphanedReservations transmet un registre vide une fois la production terminee`() {
+        // given : une tranche produite et reportée de bout en bout
+        val reservation = SliceReservation("Cloud", 20, Instant.now())
+        `when`(repository.reserveSlice("feather", "Cloud", 20)).thenReturn(reservation, null)
+        service.produceOpenSlices("feather", "Cloud", 20) { }
+
+        // when
+        service.releaseOrphanedReservations()
+
+        // then : plus rien n'est détenu, tout reliquat en base est orphelin
+        assertTrue(sweptActiveIds().isEmpty())
+    }
+
+    @Test
+    fun `releaseOrphanedReservations transmet un registre vide apres un echec de production`() {
+        // given : la production échoue, la tranche est libérée par produceOpenSlices
+        val reservation = SliceReservation("Cloud", 20, Instant.now())
+        `when`(repository.reserveSlice("feather", "Cloud", 20)).thenReturn(reservation)
+        assertThrows(BattleLostException::class.java) {
+            service.produceOpenSlices("feather", "Cloud", 20) { throw BattleLostException("chicken") }
+        }
+
+        // when
+        service.releaseOrphanedReservations()
+
+        // then : la tranche libérée n'est plus détenue par le registre
+        assertTrue(sweptActiveIds().isEmpty())
+    }
+
+    @Test
+    fun `releaseOrphanedReservations applique une grace couvrant la fenetre reservation-registre`() {
+        // when
+        service.releaseOrphanedReservations()
+
+        // then : le cutoff laisse ~2 minutes de grâce aux réservations fraîches
         val cutoff = org.mockito.Mockito.mockingDetails(repository).invocations
-            .single { it.method.name == "expireStaleReservations" }
-            .getArgument<Instant>(0)
-        val expected = Instant.now().minus(java.time.Duration.ofMinutes(10))
+            .single { it.method.name == "releaseOrphanedReservations" }
+            .getArgument<Instant>(1)
+        val expected = Instant.now().minus(java.time.Duration.ofMinutes(2))
         assertTrue(java.time.Duration.between(cutoff, expected).abs().seconds < 5)
     }
 
     @Test
-    fun `expireStaleReservations est planifiee periodiquement et des le demarrage`() {
+    fun `releaseOrphanedReservations est planifiee periodiquement et des le demarrage`() {
         // given : la méthode doit porter @Scheduled — sans ce câblage, les réservations
         // orphelines (thread interrompu, redémarrage de l'application) ne sont jamais restituées
         val scheduled = GatheringTaskService::class.java
-            .getMethod("expireStaleReservations")
+            .getMethod("releaseOrphanedReservations")
             .getAnnotation(org.springframework.scheduling.annotation.Scheduled::class.java)
 
-        // then : exécution périodique, et premier passage immédiat (nettoyage post-redémarrage)
-        org.junit.jupiter.api.Assertions.assertNotNull(scheduled, "expireStaleReservations doit être planifiée via @Scheduled")
+        // then : exécution périodique, et premier passage immédiat (nettoyage post-redémarrage,
+        // le registre encore vide rend orphelin tout reliquat de l'arrêt précédent)
+        org.junit.jupiter.api.Assertions.assertNotNull(scheduled, "releaseOrphanedReservations doit être planifiée via @Scheduled")
         assertTrue(scheduled.fixedRate > 0, "le sweep doit être périodique (fixedRate)")
         assertTrue(scheduled.initialDelay <= 0, "le premier sweep doit s'exécuter dès le démarrage")
     }

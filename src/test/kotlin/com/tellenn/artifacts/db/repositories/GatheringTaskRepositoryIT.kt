@@ -172,7 +172,7 @@ class GatheringTaskRepositoryIT {
     }
 
     @Test
-    fun `expireStaleReservations restores only reservations older than the cutoff`() {
+    fun `releaseOrphanedReservations restores only reservations older than the cutoff`() {
         repository.upsertTarget("iron_bar", "mining", 10)
         val fresh = repository.reserveSlice("iron_bar", "Kepo", 2)!! // remaining 8
 
@@ -183,11 +183,29 @@ class GatheringTaskRepositoryIT {
             GatheringTaskDocument::class.java
         ) // remaining 5, two reservations
 
-        repository.expireStaleReservations(Instant.now().minus(10, ChronoUnit.MINUTES))
+        repository.releaseOrphanedReservations(emptySet(), Instant.now().minus(10, ChronoUnit.MINUTES))
 
         val task = find("iron_bar")!!
         assertEquals(8, task.remaining) // stale 3 returned, fresh 2 still held
         assertEquals(1, task.reservations.size)
         assertEquals(fresh.id, task.reservations.first().id)
+    }
+
+    @Test
+    fun `releaseOrphanedReservations spares old reservations still held by an active production`() {
+        repository.upsertTarget("iron_bar", "mining", 10)
+
+        val activeButOld = SliceReservation("Kepo", 4, Instant.now().minus(30, ChronoUnit.MINUTES))
+        mongoTemplate.updateFirst(
+            Query.query(Criteria.where("_id").`is`("iron_bar")),
+            Update().inc("remaining", -4).push("reservations", activeButOld),
+            GatheringTaskDocument::class.java
+        ) // remaining 6, une réservation ancienne mais toujours détenue
+
+        repository.releaseOrphanedReservations(setOf(activeButOld.id), Instant.now().minus(10, ChronoUnit.MINUTES))
+
+        val task = find("iron_bar")!!
+        assertEquals(6, task.remaining) // une production longue n'est jamais volée
+        assertEquals(activeButOld.id, task.reservations.single().id)
     }
 }

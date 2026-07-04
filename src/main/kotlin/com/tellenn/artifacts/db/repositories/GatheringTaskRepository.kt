@@ -26,8 +26,11 @@ interface GatheringTaskRepositoryCustom {
     /** Crée ou augmente la cible d'un matériau pour couvrir un nouveau manque. */
     fun upsertTarget(materialCode: String, skill: String, quantity: Int)
 
-    /** Réclame les réservations orphelines plus anciennes que [olderThan]. */
-    fun expireStaleReservations(olderThan: Instant)
+    /**
+     * Restitue les réservations orphelines : plus anciennes que [olderThan] et dont l'id
+     * n'appartient pas à [activeIds] (les tranches encore détenues par une production en cours).
+     */
+    fun releaseOrphanedReservations(activeIds: Set<String>, olderThan: Instant)
 }
 
 @Repository
