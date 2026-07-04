@@ -140,6 +140,38 @@ class GatheringTaskServiceTest {
         verify(repository, never()).reportProduced(anyString(), anyString(), anyInt())
     }
 
+    // --- produceOpenSlices : les tranches mob sont bornées pour ne pas monopoliser une tâche ---
+
+    @Test
+    fun `produceOpenSlices borne les tranches mob a 20 unites`() {
+        // given : une tâche mob de 145 unités, l'appelant demande tout d'un coup
+        val mobTask = task("feather", "mob").copy(targetQuantity = 145, remaining = 145)
+        `when`(repository.findById("feather")).thenReturn(java.util.Optional.of(mobTask))
+        val reservation = SliceReservation("Cloud", 20, Instant.now())
+        `when`(repository.reserveSlice("feather", "Cloud", 20)).thenReturn(reservation, null)
+
+        // when
+        val total = service.produceOpenSlices("feather", "Cloud", 145) { }
+
+        // then : la réservation est demandée par tranches de 20, jamais de 145
+        assertEquals(20, total)
+        verify(repository, never()).reserveSlice("feather", "Cloud", 145)
+    }
+
+    @Test
+    fun `produceOpenSlices ne borne pas les tranches des taches non-mob`() {
+        // given : une tâche de minage, tranche demandée de 50
+        val miningTask = task("iron_bar", "mining").copy(targetQuantity = 100, remaining = 100)
+        `when`(repository.findById("iron_bar")).thenReturn(java.util.Optional.of(miningTask))
+        `when`(repository.reserveSlice("iron_bar", "Kepo", 50)).thenReturn(null)
+
+        // when
+        service.produceOpenSlices("iron_bar", "Kepo", 50) { }
+
+        // then : la tranche demandée est transmise sans plafond
+        verify(repository).reserveSlice("iron_bar", "Kepo", 50)
+    }
+
     @Test
     fun `produceOpenSlices s'arrete proprement quand l'infra du pool echoue`() {
         // given : le pool est injoignable (best-effort — la collecte directe prendra le relais)
@@ -230,6 +262,35 @@ class GatheringTaskServiceTest {
 
         // then
         assertEquals(0, status.progressPercent)
+    }
+
+    // --- expireStaleReservations : filet de sécurité pour les tranches orphelines (restart, release perdu) ---
+
+    @Test
+    fun `expireStaleReservations restitue les reservations plus vieilles que le TTL de 10 minutes`() {
+        // when
+        service.expireStaleReservations()
+
+        // then : le cutoff transmis au repository est bien "maintenant - 10 minutes"
+        val cutoff = org.mockito.Mockito.mockingDetails(repository).invocations
+            .single { it.method.name == "expireStaleReservations" }
+            .getArgument<Instant>(0)
+        val expected = Instant.now().minus(java.time.Duration.ofMinutes(10))
+        assertTrue(java.time.Duration.between(cutoff, expected).abs().seconds < 5)
+    }
+
+    @Test
+    fun `expireStaleReservations est planifiee periodiquement et des le demarrage`() {
+        // given : la méthode doit porter @Scheduled — sans ce câblage, les réservations
+        // orphelines (thread interrompu, redémarrage de l'application) ne sont jamais restituées
+        val scheduled = GatheringTaskService::class.java
+            .getMethod("expireStaleReservations")
+            .getAnnotation(org.springframework.scheduling.annotation.Scheduled::class.java)
+
+        // then : exécution périodique, et premier passage immédiat (nettoyage post-redémarrage)
+        org.junit.jupiter.api.Assertions.assertNotNull(scheduled, "expireStaleReservations doit être planifiée via @Scheduled")
+        assertTrue(scheduled.fixedRate > 0, "le sweep doit être périodique (fixedRate)")
+        assertTrue(scheduled.initialDelay <= 0, "le premier sweep doit s'exécuter dès le démarrage")
     }
 
     @Test

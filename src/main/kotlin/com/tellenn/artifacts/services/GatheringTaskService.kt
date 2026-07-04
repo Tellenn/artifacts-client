@@ -6,6 +6,7 @@ import com.tellenn.artifacts.db.repositories.GatheringTaskRepository
 import com.tellenn.artifacts.models.GatheringTaskStatus
 import com.tellenn.artifacts.models.ReservationStatus
 import org.apache.logging.log4j.LogManager
+import org.springframework.scheduling.annotation.Scheduled
 import org.springframework.stereotype.Service
 import java.time.Duration
 import java.time.Instant
@@ -54,10 +55,11 @@ class GatheringTaskService(
      * @return le total effectivement produit et reporté.
      */
     fun produceOpenSlices(materialCode: String, owner: String, maxSlice: Int, produce: (quantity: Int) -> Unit): Int {
+        val slice = sliceSizeFor(materialCode, maxSlice)
         var totalProduced = 0
         while (true) {
             val reservation = try {
-                repository.reserveSlice(materialCode, owner, maxSlice)
+                repository.reserveSlice(materialCode, owner, slice)
             } catch (e: Exception) {
                 logger.warn("Pool de récolte injoignable pour {} : {} — arrêt de la consommation", materialCode, e.message)
                 return totalProduced
@@ -74,6 +76,17 @@ class GatheringTaskService(
                 .onFailure { logger.warn("Report de production impossible pour {} — le TTL restituera la tranche", materialCode) }
             totalProduced += reservation.amount
         }
+    }
+
+    /**
+     * Taille de tranche effective : les tâches mob sont bornées à [MAX_MOB_SLICE] pour qu'un
+     * combattant ne monopolise pas toute la tâche (drops lents, partage entre combattants,
+     * moins de perte si la réservation est orpheline). Pool injoignable ou tâche inconnue →
+     * pas de plafond, la réservation tranchera.
+     */
+    private fun sliceSizeFor(materialCode: String, maxSlice: Int): Int {
+        val skill = runCatching { repository.findById(materialCode).orElse(null)?.skill }.getOrNull()
+        return if (skill == MOB_SKILL) maxSlice.coerceAtMost(MAX_MOB_SLICE) else maxSlice
     }
 
     /**
@@ -103,11 +116,20 @@ class GatheringTaskService(
         createdAt = createdAt,
     )
 
+    /**
+     * Filet de sécurité du pool : restitue les tranches dont le release/report s'est perdu
+     * (thread interrompu, redémarrage de l'application). Premier passage dès le démarrage
+     * (pas d'`initialDelay`) pour nettoyer les réservations orphelines d'un arrêt brutal.
+     */
+    @Scheduled(fixedRate = STALE_RESERVATION_SWEEP_MS)
     fun expireStaleReservations() =
         repository.expireStaleReservations(Instant.now().minus(CLAIM_TTL))
 
     companion object {
         private val logger = LogManager.getLogger(GatheringTaskService::class.java)
         private val CLAIM_TTL: Duration = Duration.ofMinutes(10)
+        private const val STALE_RESERVATION_SWEEP_MS = 60_000L
+        private const val MOB_SKILL = "mob"
+        private const val MAX_MOB_SLICE = 20
     }
 }
