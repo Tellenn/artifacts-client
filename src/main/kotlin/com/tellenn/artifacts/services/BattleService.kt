@@ -6,6 +6,7 @@ import com.tellenn.artifacts.models.ArtifactsCharacter
 import com.tellenn.artifacts.exceptions.BattleLostException
 import com.tellenn.artifacts.exceptions.CharacterInventoryFullException
 import com.tellenn.artifacts.exceptions.MapNotFoundException
+import com.tellenn.artifacts.services.battlesim.BattleSimulatorService
 import org.apache.logging.log4j.LogManager
 import org.springframework.stereotype.Service
 
@@ -19,10 +20,45 @@ class BattleService(
     private val accountClient: AccountClient,
     private val equipmentService: EquipmentService,
     private val bankService: BankService,
-    private val bossFightService: BossFightService
+    private val bossFightService: BossFightService,
+    private val battleSimulatorService: BattleSimulatorService
 ) {
 
     private val log = LogManager.getLogger(GatheringService::class.java)
+
+    companion object {
+        // 10 simulations : au-delà d'une défaite, le combat est jugé trop risqué
+        // (même seuil que les monster tasks de TaskService).
+        private const val MAX_SIMULATED_LOSSES = 1
+    }
+
+    /**
+     * Simule le combat contre [monsterCode] avec le meilleur équipement disponible en banque
+     * (sans retrait réel), comme le combat effectif l'équipera via
+     * [EquipmentService.equipBestAvailableEquipmentForMonsterInBank].
+     */
+    fun isFightWinnable(character: ArtifactsCharacter, monsterCode: String): Boolean {
+        val testCharacter = character.copy()
+        equipmentService.findBestEquipmentForMonsterInBank(character, monsterCode).forEach { (slot, item) ->
+            if (item != null) {
+                testCharacter["${slot}_slot"] = item.code
+            }
+        }
+        return battleSimulatorService.simulateWithApi(monsterCode, testCharacter).data.losses <= MAX_SIMULATED_LOSSES
+    }
+
+    /**
+     * Vérifie qu'obtenir [itemCode] par le combat est réaliste pour [character].
+     * Les boss sont laissés au chemin boss qui fait sa propre simulation de groupe ;
+     * un item sans monstre connu est considéré comme hors combat (non bloquant).
+     */
+    fun isFightForItemWinnable(character: ArtifactsCharacter, itemCode: String): Boolean {
+        val monster = monsterService.findMonsterThatDrop(itemCode) ?: return true
+        if (monster.type == "boss") {
+            return true
+        }
+        return isFightWinnable(character, monster.code)
+    }
 
 
     fun battleUntilInvIsFull(character: ArtifactsCharacter, monsterCode: String): ArtifactsCharacter{
@@ -52,6 +88,12 @@ class BattleService(
         }
         if(monster.type == "boss"){
             return bossFightService.tryFightForItem(monster.code, itemCode, quantity)
+        }
+        // Un combat perdu d'avance coûte un aller-retour complet + le cooldown de défaite :
+        // on simule avant de bouger. Les personnages en mode entraînement assument leurs défaites.
+        if (!shouldTrain && !isFightWinnable(character, monster.code)) {
+            log.info("{} ne combat pas {} pour {} : la simulation prédit une défaite", character.name, monster.code, itemCode)
+            throw BattleLostException(monster.code)
         }
         val map = mapService.findClosestMap(character, contentCode = monster.code)
         var newCharacter = equipmentService.equipBestAvailableEquipmentForMonsterInBank(character, monster.code)

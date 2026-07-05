@@ -4,13 +4,17 @@ import com.tellenn.artifacts.clients.AccountClient
 import com.tellenn.artifacts.clients.BattleClient
 import com.tellenn.artifacts.clients.responses.ArtifactsResponseBody
 import com.tellenn.artifacts.clients.responses.CombatResponseBody
+import com.tellenn.artifacts.clients.responses.SimulationResult
+import com.tellenn.artifacts.exceptions.BattleLostException
 import com.tellenn.artifacts.exceptions.CharacterInventoryFullException
+import com.tellenn.artifacts.services.battlesim.BattleSimulatorService
 import com.tellenn.artifacts.models.ArtifactsCharacter
 import com.tellenn.artifacts.models.Cooldown
 import com.tellenn.artifacts.models.InventorySlot
 import com.tellenn.artifacts.models.MapData
 import com.tellenn.artifacts.models.MonsterData
 import java.time.Instant
+import org.junit.jupiter.api.Assertions.assertThrows
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 import org.mockito.ArgumentMatchers.anyBoolean
@@ -18,6 +22,7 @@ import org.mockito.ArgumentMatchers.anyInt
 import org.mockito.ArgumentMatchers.anyString
 import org.mockito.Mockito.any
 import org.mockito.Mockito.mock
+import org.mockito.Mockito.never
 import org.mockito.Mockito.times
 import org.mockito.Mockito.verify
 import org.mockito.Mockito.`when`
@@ -45,6 +50,7 @@ class BattleServiceTest {
     private lateinit var equipmentService: EquipmentService
     private lateinit var bankService: BankService
     private lateinit var bossFightService: BossFightService
+    private lateinit var battleSimulatorService: BattleSimulatorService
     private lateinit var battleService: BattleService
 
     @BeforeEach
@@ -58,10 +64,16 @@ class BattleServiceTest {
         equipmentService = mock(EquipmentService::class.java)
         bankService = mock(BankService::class.java)
         bossFightService = mock(BossFightService::class.java)
+        battleSimulatorService = mock(BattleSimulatorService::class.java)
         battleService = BattleService(
             characterService, battleClient, monsterService, mapService, movementService,
-            accountClient, equipmentService, bankService, bossFightService
+            accountClient, equipmentService, bankService, bossFightService, battleSimulatorService
         )
+
+        // Par défaut la simulation prédit une victoire nette et le meilleur stuff banque est vide
+        `when`(equipmentService.findBestEquipmentForMonsterInBank(anyObject(), anyString(), anyInt()))
+            .thenReturn(mutableMapOf())
+        stubSimulation(losses = 0)
 
         val monster = mock(MonsterData::class.java)
         `when`(monster.code).thenReturn("chicken")
@@ -106,6 +118,38 @@ class BattleServiceTest {
         // then : 1 combat déborde + 1 combat pour le solde de 8 — sans comptage cumulatif,
         // le personnage re-farmerait 20 feathers depuis zéro (3e combat)
         verify(battleClient, times(2)).fight("Cloud")
+    }
+
+    @Test
+    fun `fightToGetItem jette BattleLostException sans combattre quand la simulation predit la defaite`() {
+        // given — la simulation annonce plus d'une défaite sur 10
+        stubSimulation(losses = 8)
+
+        // when / then — aucun combat réel ni déplacement ne doit être tenté
+        assertThrows(BattleLostException::class.java) {
+            battleService.fightToGetItem(character(), "feather", 20)
+        }
+        verify(battleClient, never()).fight(anyString())
+        verify(movementService, never()).moveCharacterToCell(anyInt(), anyObject())
+    }
+
+    @Test
+    fun `fightToGetItem combat normalement quand la simulation predit la victoire`() {
+        // given — victoire simulée (défaut du setUp) et un seul combat suffit
+        `when`(battleClient.fight("Cloud"))
+            .thenReturn(fightResponse(character(InventorySlot(1, "feather", 20))))
+
+        // when
+        battleService.fightToGetItem(character(), "feather", 20)
+
+        // then
+        verify(battleClient, times(1)).fight("Cloud")
+    }
+
+    private fun stubSimulation(losses: Int) {
+        val simulation = SimulationResult(wins = 10 - losses, losses = losses, winrate = (10 - losses) * 10, results = emptyList())
+        `when`(battleSimulatorService.simulateWithApi(anyString(), anyObject<ArtifactsCharacter>()))
+            .thenReturn(ArtifactsResponseBody(simulation))
     }
 
     private fun fightResponse(character: ArtifactsCharacter) =

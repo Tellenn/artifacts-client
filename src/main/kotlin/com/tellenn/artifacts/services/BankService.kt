@@ -34,20 +34,33 @@ class BankService(
     private val teleportService: TeleportService
 ) {
     private val log = LogManager.getLogger(BankService::class.java)
-    private val reservations = ConcurrentHashMap<String, AtomicInteger>()
 
-    fun reserveInBank(code: String, quantity: Int) {
-        reservations.getOrPut(code) { AtomicInteger(0) }.addAndGet(quantity)
-        log.debug("Réservé {} x{} en banque", code, quantity)
+    // Réservations par item puis par personnage : chaque réservation a un propriétaire, ce qui
+    // permet de libérer d'un bloc tout ce qu'un personnage a réservé quand sa recette échoue.
+    private val reservations = ConcurrentHashMap<String, ConcurrentHashMap<String, AtomicInteger>>()
+
+    fun reserveInBank(code: String, quantity: Int, characterName: String) {
+        reservations.getOrPut(code) { ConcurrentHashMap() }
+            .getOrPut(characterName) { AtomicInteger(0) }
+            .addAndGet(quantity)
+        log.debug("Réservé {} x{} en banque pour {}", code, quantity, characterName)
     }
 
-    fun releaseReservation(code: String, quantity: Int) {
-        reservations.computeIfPresent(code) { _, atomic ->
+    fun releaseReservation(code: String, quantity: Int, characterName: String) {
+        reservations[code]?.computeIfPresent(characterName) { _, atomic ->
             val remaining = atomic.addAndGet(-quantity)
             if (remaining <= 0) null else atomic
         }
-        log.debug("Libéré réservation {} x{}", code, quantity)
+        log.debug("Libéré réservation {} x{} pour {}", code, quantity, characterName)
     }
+
+    fun releaseAllReservations(characterName: String) {
+        reservations.values.forEach { it.remove(characterName) }
+        log.debug("Libéré toutes les réservations de {}", characterName)
+    }
+
+    private fun reservedQuantity(code: String?): Int =
+        code?.let { reservations[it]?.values?.sumOf { atomic -> atomic.get() } } ?: 0
 
     fun emptyInventory(character: ArtifactsCharacter) : ArtifactsCharacter{
         var newCharacter = character
@@ -181,8 +194,13 @@ class BankService(
 
     fun isInBank(item: String?, quantityLeft: Int = 1): Boolean {
         val bankedItem = bankClient.getBankedItems(item).data.firstOrNull() ?: return false
-        val reserved = reservations[item]?.get() ?: 0
-        return bankedItem.quantity - reserved >= quantityLeft
+        return bankedItem.quantity - reservedQuantity(item) >= quantityLeft
+    }
+
+    /** Quantité en banque encore disponible pour [code], réservations de tous les personnages déduites. */
+    fun availableQuantity(code: String): Int {
+        val banked = bankClient.getBankedItems(code).data.firstOrNull()?.quantity ?: 0
+        return (banked - reservedQuantity(code)).coerceAtLeast(0)
     }
 
     fun getAllEquipmentsUnderLevel(level: Int) : List<BankItemDocument>{
@@ -206,7 +224,7 @@ class BankService(
         var newCharacter = character
         try {
             newCharacter = bankClient.withdrawItems(newCharacter.name, items).data.character
-            items.forEach { releaseReservation(it.code, it.quantity) }
+            items.forEach { releaseReservation(it.code, it.quantity, character.name) }
         }catch (e: BankCorruptedException){
             bankItemSyncService.syncAllItems()
             throw e
