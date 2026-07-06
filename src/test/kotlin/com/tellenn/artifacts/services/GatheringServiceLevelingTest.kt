@@ -46,6 +46,19 @@ class GatheringServiceLevelingTest {
         assertEquals(1, levelingAssembleChunkSize(directSize = 120, inventoryMaxItems = 100))
     }
 
+    @Test
+    fun `l'assemblage garde une marge d'inventaire pour ne pas deborder au retrait`() {
+        // emptyInventory conserve des potions de téléport : l'inventaire n'est jamais réellement
+        // vide. Sans marge, retirer inventoryMax items déborde (497). (100-5)/5 = 19, pas 20.
+        assertEquals(19, levelingAssembleChunkSize(directSize = 5, inventoryMaxItems = 100, safeMargin = 5))
+    }
+
+    @Test
+    fun `la marge d'assemblage ne descend jamais sous un exemplaire`() {
+        // Même si la marge absorbe tout l'inventaire, on assemble au moins un exemplaire par passage.
+        assertEquals(1, levelingAssembleChunkSize(directSize = 50, inventoryMaxItems = 5, safeMargin = 5))
+    }
+
     // --- Phase 0 : calcul des manques de matériaux à publier ---
 
     private fun craftable(code: String, ingredients: List<RecipeIngredient>): ItemDetails =

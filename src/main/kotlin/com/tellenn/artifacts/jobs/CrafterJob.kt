@@ -59,6 +59,10 @@ class CrafterJob(
     var eventBasedItemCodes = listOf<String>()
     var raidRewardItemCodes = setOf<String>()
 
+    // Nombre d'échecs consécutifs du leveling sur inventaire plein (497). Sert de garde-fou : sans lui,
+    // le do-while re-tente le cycle complet sans délai et sature le quota API (2000 req/h).
+    private var consecutiveInventoryFullFailures = 0
+
     fun run(characterName: String) {
         sleep(1000)
         eventBasedItemCodes = eventService.getAllEventMaterials()
@@ -173,6 +177,7 @@ class CrafterJob(
                 try {
                     log.info("{} is gathering and crafting {} x{} for leveling", character.name, itemToCraft.code, choice.batchSize)
                     character = gatheringService.craftAndRecycleForLeveling(character, itemToCraft, choice.batchSize, allowFight = true)
+                    consecutiveInventoryFullFailures = 0
                 }catch (e: CharacterSkillTooLow){
                     // Usually caused by a crating of a sub object, it can be nice if the main crafter level the sub resource
                     character = accountClient.getCharacter(character.name).data
@@ -193,6 +198,15 @@ class CrafterJob(
                     character = accountClient.getCharacter(character.name).data
                     character = movementService.moveToBank(character)
                     character = bankService.emptyInventory(character)
+                    // Backoff exponentiel : un 497 récurrent sur le leveling ne doit pas re-boucler le
+                    // cycle complet sans délai et cramer le quota API. On temporise avant de rendre la main.
+                    consecutiveInventoryFullFailures++
+                    val backoff = crafterInventoryFullBackoffMillis(consecutiveInventoryFullFailures)
+                    if (backoff > 0) {
+                        log.warn("{} : {} échec(s) inventaire plein consécutif(s) sur le leveling — pause de {} ms",
+                            character.name, consecutiveInventoryFullFailures, backoff)
+                        sleep(backoff)
+                    }
                     break
                 }catch (e: Exception){
                     character = accountClient.getCharacter(character.name).data
@@ -335,4 +349,19 @@ class CrafterJob(
         character = bankService.emptyInventory(character)
         return character
     }
+}
+
+private const val INVENTORY_FULL_BACKOFF_BASE_MS = 1000L
+private const val INVENTORY_FULL_BACKOFF_MAX_MS = 60_000L
+
+/**
+ * Temps d'attente (ms) avant de re-tenter le leveling après [consecutiveFailures] échecs consécutifs
+ * sur inventaire plein (497). Backoff exponentiel (base 1 s, ×2 par échec) plafonné à 60 s, pour
+ * qu'une boucle d'erreur ne sature jamais le quota API. Zéro échec = aucune attente.
+ */
+internal fun crafterInventoryFullBackoffMillis(consecutiveFailures: Int): Long {
+    if (consecutiveFailures <= 0) return 0L
+    // Décalage borné avant plafonnement pour éviter tout dépassement de Long.
+    val exponent = (consecutiveFailures - 1).coerceAtMost(20)
+    return (INVENTORY_FULL_BACKOFF_BASE_MS shl exponent).coerceAtMost(INVENTORY_FULL_BACKOFF_MAX_MS)
 }

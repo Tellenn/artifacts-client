@@ -228,7 +228,11 @@ class GatheringService(
         postLevelingShortfalls(item, quantity)
         var newCharacter = gatherLevelingMaterials(character, item, quantity, allowFight)
 
-        val perChunk = levelingAssembleChunkSize(craft.items.sumOf { it.quantity }, newCharacter.inventoryMaxItems)
+        // Marge d'inventaire : emptyInventory conserve des potions de téléport, donc l'inventaire
+        // n'est jamais réellement vide. Sans marge, retirer inventoryMax items déborde → 497.
+        val perChunk = levelingAssembleChunkSize(
+            craft.items.sumOf { it.quantity }, newCharacter.inventoryMaxItems, INVENTORY_SAFE_MARGIN
+        )
         var remaining = quantity
         while (remaining > 0) {
             val n = minOf(perChunk, remaining)
@@ -510,8 +514,8 @@ internal fun levelingGatherChunkSize(unitSize: Int, totalNeeded: Int, inventoryM
  * Nombre d'exemplaires de l'item final à assembler par passage : borné par le footprint direct de
  * ses ingrédients ([directSize]) — les sous-crafts sont déjà en banque — au minimum 1.
  */
-internal fun levelingAssembleChunkSize(directSize: Int, inventoryMaxItems: Int): Int =
-    if (directSize <= 0) 1 else maxOf(1, inventoryMaxItems / directSize)
+internal fun levelingAssembleChunkSize(directSize: Int, inventoryMaxItems: Int, safeMargin: Int = 0): Int =
+    if (directSize <= 0) 1 else maxOf(1, (inventoryMaxItems - safeMargin) / directSize)
 
 /**
  * Manques de matériaux à publier pour un batch de leveling : pour chaque ingrédient direct de
