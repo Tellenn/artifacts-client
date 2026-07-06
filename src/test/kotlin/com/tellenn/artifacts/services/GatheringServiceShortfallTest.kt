@@ -46,6 +46,7 @@ class GatheringServiceShortfallTest {
             grandExchangeService = mock(GrandExchangeService::class.java),
             gatheringTaskService = gatheringTaskService,
             materialResponsibility = materialResponsibility,
+            characterContextService = mock(CharacterContextService::class.java),
         )
         // Default: nothing banked.
         `when`(bankService.getOne(anyString())).thenReturn(SimpleItem("", 0))

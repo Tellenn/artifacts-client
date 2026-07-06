@@ -84,6 +84,7 @@ class GatheringServiceLevelingPoolTest {
                 grandExchangeService = mock(GrandExchangeService::class.java),
                 gatheringTaskService = gatheringTaskService,
                 materialResponsibility = mock(MaterialResponsibility::class.java),
+                characterContextService = mock(CharacterContextService::class.java),
             )
         )
 

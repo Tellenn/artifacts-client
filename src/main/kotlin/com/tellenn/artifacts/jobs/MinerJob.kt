@@ -91,7 +91,7 @@ class MinerJob(
             }else if(character.miningLevel < maxLevel){
                 log.info("${character.name} is leveling his mining skill")
                 val items =
-                    itemService.getAllCraftableItemsBySkillAndSubtypeAndMaxLevel(skill, "bar", character.miningLevel)
+                    itemService.getAllCraftableItemsBySkillAndSubtypesAndMaxLevel(skill, listOf("bar", "alloy"), character.miningLevel)
                         .filter { it.code != "strangold_bar" }
                 if (items.isEmpty()) {
                     throw NoCraftableItemException(skill, character.miningLevel)

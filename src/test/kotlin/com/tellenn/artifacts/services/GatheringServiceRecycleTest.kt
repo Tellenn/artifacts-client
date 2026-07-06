@@ -52,6 +52,7 @@ class GatheringServiceRecycleTest {
             grandExchangeService = mock(GrandExchangeService::class.java),
             gatheringTaskService = mock(GatheringTaskService::class.java),
             materialResponsibility = mock(MaterialResponsibility::class.java),
+            characterContextService = mock(CharacterContextService::class.java),
         )
     }
 

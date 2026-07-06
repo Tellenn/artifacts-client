@@ -37,7 +37,8 @@ class GatheringService(
     private val npcClient: NpcClient,
     private val grandExchangeService: GrandExchangeService,
     private val gatheringTaskService: GatheringTaskService,
-    private val materialResponsibility: MaterialResponsibility
+    private val materialResponsibility: MaterialResponsibility,
+    private val characterContextService: CharacterContextService,
 ) {
     private val log = LogManager.getLogger(GatheringService::class.java)
 
@@ -63,6 +64,9 @@ class GatheringService(
             } catch (e: Exception) {
                 bankService.releaseAllReservations(character.name)
                 throw e
+            } finally {
+                // Symétrique aux réservations : une étape fantôme ne doit pas survivre au craft.
+                characterContextService.clearStep(character.name)
             }
         }
         return resolveCraftOrGather(character, itemCode, quantity, functionLevel, allowFight, shouldTrain)
@@ -118,24 +122,29 @@ class GatheringService(
             if (fromBank > 0) {
                 bankService.reserveInBank(itemDetails.code, fromBank, character.name)
                 if (fromBank == quantity) {
+                    characterContextService.setStep(character.name, "utilise le stock banque : ${quantity}× ${itemDetails.code}")
                     return character
                 }
+                characterContextService.setStep(character.name, "stock banque : ${fromBank}× ${itemDetails.code} réservés, produit les ${quantity - fromBank} restants")
             }
             remaining -= fromBank
         }
         return when {
             itemDetails.subtype == "task" -> {
                 // It's a task reward item, and we don't have it in stock
+                characterContextService.setStep(character.name, "échange task pour ${remaining}× ${itemDetails.code}")
                 tradeTaskItem(character, itemDetails, remaining)
             }
 
             itemDetails.subtype == "mob" -> {
                 // It's a monster loot
+                characterContextService.setStep(character.name, "combat pour ${remaining}× ${itemDetails.code}")
                 fightToGet(character, itemDetails, remaining, allowFight, shouldTrain)
             }
 
             itemDetails.subtype == "npc" -> {
                 // We don't have it, and it's a npc selling it
+                characterContextService.setStep(character.name, "achat NPC de ${remaining}× ${itemDetails.code}")
                 tradeNpc(character, itemDetails, remaining, functionLevel, allowFight, shouldTrain)
             }
 
@@ -146,16 +155,21 @@ class GatheringService(
 
             itemDetails.craft == null -> {
                 // If there is no craft, check GC before gathering (only for ingredients)
-                if (functionLevel > 0 && grandExchangeService.shouldBuyFromGC(character, itemDetails, remaining))
+                if (functionLevel > 0 && grandExchangeService.shouldBuyFromGC(character, itemDetails, remaining)) {
+                    characterContextService.setStep(character.name, "achat GC de ${remaining}× ${itemDetails.code}")
                     buyFromGC(character, itemDetails, remaining)
-                else
+                } else {
+                    characterContextService.setStep(character.name, "collecte de ${remaining}× ${itemDetails.code}")
                     gather(character, itemDetails, remaining)
+                }
             }
 
             else -> {
                 // Check GC before crafting (only for ingredients)
-                if (functionLevel > 0 && grandExchangeService.shouldBuyFromGC(character, itemDetails, remaining))
+                if (functionLevel > 0 && grandExchangeService.shouldBuyFromGC(character, itemDetails, remaining)) {
+                    characterContextService.setStep(character.name, "achat GC de ${remaining}× ${itemDetails.code}")
                     return buyFromGC(character, itemDetails, remaining)
+                }
 
                 // Otherwise we craft (and call the same function for it)
                 var newCharacter = character
@@ -175,6 +189,7 @@ class GatheringService(
                         bankService.withdrawOne(item.code, item.quantity, newCharacter)
                     } catch (_: MissingItemException) {
                         // L'item a été retiré par un autre agent entre la réservation et le retrait effectif
+                        characterContextService.setStep(character.name, "ingrédient ${item.code} manquant en banque — re-collecte")
                         log.warn("{} : ingrédient {} manquant en banque — re-collecte", newCharacter.name, item.code)
                         bankService.releaseReservation(item.code, item.quantity, newCharacter.name)
                         val reGathered = craftOrGather(newCharacter, item.code, item.quantity, 0, allowFight, shouldTrain)
@@ -186,6 +201,7 @@ class GatheringService(
                 // gather() calls emptyInventory() which may have deposited previously obtained ingredients to bank.
                 // Re-withdraw any missing ingredients before crafting.
                 newCharacter = recollectMissingIngredients(newCharacter, itemDetails.craft.items, remaining)
+                characterContextService.setStep(character.name, "assemblage de ${remaining}× ${itemDetails.code}")
                 craft(newCharacter, itemDetails, remaining)
             }
         }
