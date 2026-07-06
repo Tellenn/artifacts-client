@@ -8,7 +8,10 @@ import com.tellenn.artifacts.models.ArtifactsCharacter
 import org.springframework.stereotype.Component
 
 @Component
-class SimulateClient(deps: BaseClientDependencies) : BaseArtifactsClient(deps) {
+class SimulateClient(
+    deps: BaseClientDependencies,
+    private val simulationRateLimiter: SimulationRateLimiter,
+) : BaseArtifactsClient(deps) {
 
     fun simulate(characters: List<ArtifactsCharacter>, monsterName: String): ArtifactsResponseBody<SimulationResult> {
         val chars = characters.map {
@@ -17,6 +20,8 @@ class SimulateClient(deps: BaseClientDependencies) : BaseArtifactsClient(deps) {
             it
         }
 
+        // L'endpoint est limité à 1 req/s : on temporise avant l'appel pour ne pas déclencher de 429.
+        simulationRateLimiter.acquire()
         val req = SimulationBattleRequest(chars, monsterName, 10)
         return sendPostRequest("/simulation/fight", objectMapper.writeValueAsString(req)).use { response ->
             val responseBody = response.body!!.string()

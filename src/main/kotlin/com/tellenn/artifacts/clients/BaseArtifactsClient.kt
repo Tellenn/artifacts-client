@@ -195,7 +195,7 @@ abstract class BaseArtifactsClient(deps: BaseClientDependencies) {
         }
     }
 
-    fun sendGetRequest(path: String, retried: Boolean = false): Response {
+    fun sendGetRequest(path: String, retried: Boolean = false, rateLimitAttempt: Int = 0): Response {
         val request = Request.Builder()
             .url(url + path)
             .header("Authorization", "Bearer $key")
@@ -222,6 +222,14 @@ abstract class BaseArtifactsClient(deps: BaseClientDependencies) {
                     log.warn("502 Bad Gateway on GET $path, retrying once...")
                     return sendGetRequest(path, retried = true)
                 }
+                if (response.code == ErrorCodes.TOO_MANY_REQUESTS && rateLimitAttempt < RATE_LIMIT_MAX_RETRIES) {
+                    response.close()
+                    val backoff = rateLimitRetryDelayMillis(rateLimitAttempt)
+                    log.warn("429 rate limit on GET {}, backing off {} ms (retry {}/{})",
+                        path, backoff, rateLimitAttempt + 1, RATE_LIMIT_MAX_RETRIES)
+                    sleep(backoff)
+                    return sendGetRequest(path, retried, rateLimitAttempt + 1)
+                }
                 logAndThrowError(response, clientType, path, "GET", path, null, responseBodyString)
             }
 
@@ -240,7 +248,7 @@ abstract class BaseArtifactsClient(deps: BaseClientDependencies) {
         }
     }
 
-    fun sendPostRequest(path: String, body: String, retried: Boolean = false): Response {
+    fun sendPostRequest(path: String, body: String, retried: Boolean = false, rateLimitAttempt: Int = 0): Response {
         val mediaType = "application/json; charset=utf-8".toMediaType()
         val requestBody = body.trimIndent().toRequestBody(mediaType)
         val request = Request.Builder()
@@ -269,6 +277,14 @@ abstract class BaseArtifactsClient(deps: BaseClientDependencies) {
                     response.close()
                     log.warn("502 Bad Gateway on POST $path, retrying once...")
                     return sendPostRequest(path, body, retried = true)
+                }
+                if (response.code == ErrorCodes.TOO_MANY_REQUESTS && rateLimitAttempt < RATE_LIMIT_MAX_RETRIES) {
+                    response.close()
+                    val backoff = rateLimitRetryDelayMillis(rateLimitAttempt)
+                    log.warn("429 rate limit on POST {}, backing off {} ms (retry {}/{})",
+                        path, backoff, rateLimitAttempt + 1, RATE_LIMIT_MAX_RETRIES)
+                    sleep(backoff)
+                    return sendPostRequest(path, body, retried, rateLimitAttempt + 1)
                 }
                 try {
                     throw mapResponseCodeToException(response.code, "Request failed with status code ${response.code}")
@@ -333,4 +349,21 @@ abstract class BaseArtifactsClient(deps: BaseClientDependencies) {
             objectMapper.readValue<ArtifactsResponseBody<ArtifactsCharacter>>(responseBody)
         }
     }
+}
+
+/** Nombre de re-tentatives sur un 429 avant de renoncer et de laisser remonter l'exception. */
+internal const val RATE_LIMIT_MAX_RETRIES = 5
+private const val RATE_LIMIT_BACKOFF_BASE_MS = 1_000L
+private const val RATE_LIMIT_BACKOFF_MAX_MS = 5_000L
+
+/**
+ * Attente (ms) avant de re-tenter une requête rejetée en 429. Certains endpoints (dont
+ * /simulation/fight) imposent « 1 req / s » et renvoient un 429 dur sans pré-avertir via l'en-tête
+ * `x-ratelimit-remaining-second` : le back-off proactif ne les couvre pas. On attend donc au moins une
+ * fenêtre pleine d'une seconde, avec une croissance linéaire pour absorber la contention entre les
+ * threads de personnages, plafonnée pour ne jamais figer le thread. Un [attempt] négatif = premier essai.
+ */
+internal fun rateLimitRetryDelayMillis(attempt: Int): Long {
+    val bounded = attempt.coerceAtLeast(0)
+    return (RATE_LIMIT_BACKOFF_BASE_MS * (bounded + 1)).coerceAtMost(RATE_LIMIT_BACKOFF_MAX_MS)
 }
