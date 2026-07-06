@@ -107,7 +107,7 @@ class CrafterJobCleanUpBankTest {
             job.character
         }
         val recycled = mutableListOf<Pair<String, Int>>()
-        `when`(gatheringService.recycle(anyObject(), anyObject(), anyInt())).thenAnswer { invocation ->
+        `when`(gatheringService.recycle(anyObject(), anyObject(), anyInt(), anyBoolean())).thenAnswer { invocation ->
             recycled.add((invocation.getArgument(1) as ItemDetails).code to (invocation.getArgument(2) as Int))
             job.character
         }

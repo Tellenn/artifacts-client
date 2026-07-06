@@ -241,7 +241,7 @@ class GatheringService(
                 newCharacter = bankService.withdrawOne(ingredient.code, ingredient.quantity * n, newCharacter)
             }
             newCharacter = craft(newCharacter, item, n)
-            newCharacter = recycle(newCharacter, item, n)
+            newCharacter = recycle(newCharacter, item, n, forceEnhanced = true)
             newCharacter = movementService.moveToBank(newCharacter)
             newCharacter = bankService.emptyInventory(newCharacter)
             remaining -= n
@@ -327,9 +327,9 @@ class GatheringService(
         }
     }
 
-    fun recycle(character: ArtifactsCharacter, item: ItemDetails, i: Int): ArtifactsCharacter {
+    fun recycle(character: ArtifactsCharacter, item: ItemDetails, i: Int, forceEnhanced: Boolean = false): ArtifactsCharacter {
         var newCharacter = character
-        val enhancedCost = enhancedRecycleCostOrNull(item, i)
+        val enhancedCost = enhancedRecycleCostOrNull(item, i, forceEnhanced)
         if (enhancedCost != null) {
             log.info("{} recycles {} (x{}) in enhanced mode for {} gold", newCharacter.name, item.code, i, enhancedCost)
             newCharacter = movementService.moveToBank(newCharacter)
@@ -345,13 +345,17 @@ class GatheringService(
      * (équipement de niveau 20+, au moins 20 000 or en banque et de quoi couvrir le coût),
      * sinon `null` pour un recyclage normal.
      *
+     * Avec [forceEnhanced] (recyclage du gear de leveling), on ignore les gardes de niveau et de
+     * seuil de trésorerie : seule subsiste l'affordabilité (`bankGold >= cost`) — sinon repli propre
+     * en recyclage normal plutôt que de tenter un retrait d'or impossible.
+     *
      * Coût = somme des quantités d'ingrédients de la recette × quantité recyclée × tarif par ingrédient.
      */
-    private fun enhancedRecycleCostOrNull(item: ItemDetails, quantity: Int): Int? {
+    private fun enhancedRecycleCostOrNull(item: ItemDetails, quantity: Int, forceEnhanced: Boolean = false): Int? {
         val craft = item.craft ?: return null
-        if (item.level < ENHANCED_RECYCLE_MIN_LEVEL) return null
+        if (!forceEnhanced && item.level < ENHANCED_RECYCLE_MIN_LEVEL) return null
         val bankGold = bankService.getBankDetails().gold
-        if (bankGold < ENHANCED_RECYCLE_MIN_BANK_GOLD) return null
+        if (!forceEnhanced && bankGold < ENHANCED_RECYCLE_MIN_BANK_GOLD) return null
         val totalIngredients = craft.items.sumOf { it.quantity }
         val cost = totalIngredients * quantity * goldPerIngredient(item.level)
         return if (bankGold >= cost) cost else null

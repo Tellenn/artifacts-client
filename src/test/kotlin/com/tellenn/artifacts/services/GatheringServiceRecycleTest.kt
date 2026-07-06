@@ -104,6 +104,39 @@ class GatheringServiceRecycleTest {
         verify(craftingClient).recycle(characterName, "wooden_shield", 1, enhanced = false)
     }
 
+    @Test
+    fun `forced enhanced recycles leveling gear below level 20, ignoring level and min-gold gates`() {
+        // given : bouclier niv. 15, 4 ingrédients → coût = 4 * 1 * 5 = 20 or.
+        // Seulement 500 or en banque (< seuil 20 000) : la garde de seuil doit être ignorée.
+        val item = gear(code = "wooden_shield", level = 15, ingredients = mapOf("wood" to 4))
+        val character = stubCharacter()
+        stubBankGold(500)
+        stubFlow(character, code = "wooden_shield", quantity = 1, enhanced = true, cost = 20)
+
+        // when
+        gatheringService.recycle(character, item, 1, forceEnhanced = true)
+
+        // then
+        verify(bankService).withdrawMoney(character, 20)
+        verify(craftingClient).recycle(characterName, "wooden_shield", 1, enhanced = true)
+    }
+
+    @Test
+    fun `forced enhanced falls back to normal recycling when the bank cannot pay the cost`() {
+        // given : coût = 20 or mais seulement 10 or en banque : la garde d'affordabilité reste active.
+        val item = gear(code = "wooden_shield", level = 15, ingredients = mapOf("wood" to 4))
+        val character = stubCharacter()
+        stubBankGold(10)
+        stubFlow(character, code = "wooden_shield", quantity = 1, enhanced = false, cost = 20)
+
+        // when
+        gatheringService.recycle(character, item, 1, forceEnhanced = true)
+
+        // then
+        verify(bankService, never()).withdrawMoney(character, 20)
+        verify(craftingClient).recycle(characterName, "wooden_shield", 1, enhanced = false)
+    }
+
     private fun stubCharacter(): ArtifactsCharacter {
         val character = mock(ArtifactsCharacter::class.java)
         `when`(character.name).thenReturn(characterName)
@@ -117,13 +150,13 @@ class GatheringServiceRecycleTest {
     }
 
     @Suppress("UNCHECKED_CAST")
-    private fun stubFlow(character: ArtifactsCharacter, code: String, quantity: Int, enhanced: Boolean) {
+    private fun stubFlow(character: ArtifactsCharacter, code: String, quantity: Int, enhanced: Boolean, cost: Int = 80) {
         val mapData = mock(MapData::class.java)
         `when`(mapData.mapId).thenReturn(42)
         `when`(mapService.findClosestMap(character = character, contentCode = "weaponcrafting")).thenReturn(mapData)
         `when`(movementService.moveToBank(character)).thenReturn(character)
         `when`(movementService.moveCharacterToCell(42, character)).thenReturn(character)
-        `when`(bankService.withdrawMoney(character, 80)).thenReturn(character)
+        `when`(bankService.withdrawMoney(character, cost)).thenReturn(character)
 
         val body = mock(CraftingResponseBody::class.java)
         `when`(body.character).thenReturn(character)
