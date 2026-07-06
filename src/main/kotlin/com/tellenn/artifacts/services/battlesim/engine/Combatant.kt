@@ -24,6 +24,7 @@ class Combatant(
     var turnsPlayed = 0
     var bonusDamagePct = 0
     var poisonStack = 0
+    var burnDamageLeft = 0
     var barrierHp = 0
     var greedThresholdsCrossed = 0
     var shellResTurnsLeft = 0
