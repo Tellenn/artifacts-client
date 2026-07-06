@@ -36,6 +36,7 @@ class Combatant(
 
     val isAlive: Boolean get() = hp > 0
     fun hpRatio(): Double = if (maxHp == 0) 0.0 else hp.toDouble() / maxHp.toDouble()
+    fun healUpTo(amount: Int) { hp = (hp + amount).coerceAtMost(maxHp) }
 
     companion object {
         fun fromMonster(m: MonsterData): Combatant = Combatant(
