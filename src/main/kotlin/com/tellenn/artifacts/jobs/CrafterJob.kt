@@ -313,6 +313,7 @@ class CrafterJob(
         val minCrafterLevel = min(character.weaponcraftingLevel, min(character.gearcraftingLevel, character.jewelrycraftingLevel)) - 10
         bankService.getAllEquipmentsUnderLevel(minCrafterLevel)
             .mapNotNull { BankItemDocument.toItemDetails(it) }
+            .filter { it.recyclable }
             .forEach { item ->
                 when {
                     // Tutorial weapon: destroyed rather than recycled.
