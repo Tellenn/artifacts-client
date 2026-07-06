@@ -146,49 +146,46 @@ class EquipmentService(
     }
 
     fun equipBestPotionsForFight(character: ArtifactsCharacter, monsterCode: String): ArtifactsCharacter {
-        val initialResult = battleSimulatorService.simulate(monsterCode, character)
-        if(initialResult.win){
+        if (winsAgainst(monsterCode, character)) {
             return character
         }
-        val fakeCharacter = character
         val monster = monsterService.getMonster(monsterCode)
-
         val monsterEffects = monster.effects.map { it.code }
 
-        if(monsterEffects.isNotEmpty() && monsterEffects.contains("poison")){
+        // Antidote pour les monstres empoisonnés. L'API de simulation modélise poison + antipoison,
+        // on peut donc tester réellement si l'antidote suffit à emporter le combat.
+        if (monsterEffects.contains("poison")) {
             val antidote = "small_antidote"
-            fakeCharacter.utility2Slot = antidote
-            val antipoisonBattle = battleSimulatorService.simulate(monsterCode, character)
-            if(antipoisonBattle.win){
-
+            val withAntidote = character.copy().apply { utility2Slot = antidote }
+            if (winsAgainst(monsterCode, withAntidote)) {
                 val maxAvailable = bankService.getOne(antidote)
-                if(maxAvailable.quantity > 0) {
-                    val newCharacter = bankService.withdrawOne(antidote, min(100, maxAvailable.quantity), character)
-                    return characterService.equip(newCharacter, antidote, "utility2", min(100, maxAvailable.quantity))
+                if (maxAvailable.quantity > 0) {
+                    val quantity = min(100, maxAvailable.quantity)
+                    val newCharacter = bankService.withdrawOne(antidote, quantity, character)
+                    return characterService.equip(newCharacter, antidote, "utility2", quantity)
                 }
             }
         }
 
+        // Potion de soin : on retient la plus faible qui emporte le combat.
         var weakestPotion: ItemDetails? = null
         val potions = bankService.getHealingPotions()
             .filter { it.level <= character.level }
             .toMutableList()
-        while( potions.isNotEmpty()){
+        while (potions.isNotEmpty()) {
             weakestPotion = potions.minBy { it.level }
             potions.remove(weakestPotion)
-            fakeCharacter.utility1Slot = weakestPotion.code
-
-            val healingPotionBattle = battleSimulatorService.simulate(monsterCode, character)
-            if(healingPotionBattle.win){
+            val withHealing = character.copy().apply { utility1Slot = weakestPotion!!.code }
+            if (winsAgainst(monsterCode, withHealing)) {
                 var newCharacter = movementService.moveToBank(character)
                 val maxAvailable = bankService.getOne(weakestPotion.code)
-                newCharacter = bankService.withdrawOne(weakestPotion.code, min(100, maxAvailable.quantity), newCharacter)
-                return characterService.equip(newCharacter, weakestPotion.code, "utility1",min(100, maxAvailable.quantity))
+                val quantity = min(100, maxAvailable.quantity)
+                newCharacter = bankService.withdrawOne(weakestPotion.code, quantity, newCharacter)
+                return characterService.equip(newCharacter, weakestPotion.code, "utility1", quantity)
             }
         }
 
-
-
+        // Boost de dégâts sur l'élément d'attaque dominant du monstre, combiné à la potion de soin testée.
         val attacks = mapOf(
             "fire"   to monster.attackFire,
             "earth"  to monster.attackEarth,
@@ -197,30 +194,39 @@ class EquipmentService(
         )
         val bestMonsterElement = attacks.maxByOrNull { it.value }?.key ?: "fire"
         val effectPotion = "${bestMonsterElement}_boost_potion"
-        fakeCharacter.utility2Slot = effectPotion
+        val withBoost = character.copy().apply {
+            utility2Slot = effectPotion
+            weakestPotion?.let { utility1Slot = it.code }
+        }
 
-        val damageBoostBattle = battleSimulatorService.simulate(monsterCode, character)
-
-        if(damageBoostBattle.win){
+        if (winsAgainst(monsterCode, withBoost)) {
             var newCharacter = movementService.moveToBank(character)
-            if(weakestPotion != null){
+            if (weakestPotion != null) {
                 val maxAvailable = bankService.getOne(weakestPotion.code)
-                newCharacter = bankService.withdrawOne(weakestPotion.code, min(100, maxAvailable.quantity), newCharacter)
-                newCharacter = characterService.equip(newCharacter, weakestPotion.code, "utility1",min(100, maxAvailable.quantity))
+                val quantity = min(100, maxAvailable.quantity)
+                newCharacter = bankService.withdrawOne(weakestPotion.code, quantity, newCharacter)
+                newCharacter = characterService.equip(newCharacter, weakestPotion.code, "utility1", quantity)
             }
             val maxAvailable = bankService.getOne(effectPotion)
-            if(maxAvailable.quantity > 0) {
-                newCharacter = bankService.withdrawOne(effectPotion, min(100, maxAvailable.quantity), newCharacter)
-                newCharacter =
-                    characterService.equip(newCharacter, effectPotion, "utility2", min(100, maxAvailable.quantity))
-            }else{
+            if (maxAvailable.quantity > 0) {
+                val quantity = min(100, maxAvailable.quantity)
+                newCharacter = bankService.withdrawOne(effectPotion, quantity, newCharacter)
+                newCharacter = characterService.equip(newCharacter, effectPotion, "utility2", quantity)
+            } else {
+                // On gagnerait avec la potion mais on ne l'a pas : autant admettre la défaite tout de suite.
                 throw BattleLostException(monsterCode)
-            // If we win with the potion, but we don't have some, let's just admit that we lost ahead of time
             }
             return newCharacter
         }
         return character
     }
+
+    /**
+     * Simule le combat contre [monsterCode] via l'API du jeu et juge le combat gagnable si le nombre
+     * de défaites reste sous [MAX_SIMULATED_LOSSES] (même seuil que [BattleService.isFightWinnable]).
+     */
+    private fun winsAgainst(monsterCode: String, character: ArtifactsCharacter): Boolean =
+        battleSimulatorService.simulateWithApi(monsterCode, character).data.losses <= MAX_SIMULATED_LOSSES
 
     /**
      * Selects the two boss-fight potions for [character] against [monster] given its [role].
@@ -615,6 +621,10 @@ class EquipmentService(
 
         /** Threat multiplier applied to the tank so it holds the boss's aggro. */
         const val TANK_THREAT_MULT = 10
+
+        // 10 simulations : au-delà d'une défaite, le loadout de potions est jugé insuffisant
+        // (même seuil que BattleService.MAX_SIMULATED_LOSSES et les monster tasks de TaskService).
+        private const val MAX_SIMULATED_LOSSES = 1
 
         private const val RES_BOOST_PREFIX = "boost_res_"
         private const val DMG_BOOST_PREFIX = "boost_dmg_"

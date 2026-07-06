@@ -8,6 +8,7 @@ import com.tellenn.artifacts.clients.responses.SimulationResult
 import com.tellenn.artifacts.exceptions.BattleLostException
 import com.tellenn.artifacts.exceptions.CharacterInventoryFullException
 import com.tellenn.artifacts.services.battlesim.BattleSimulatorService
+import com.tellenn.artifacts.utils.TimeUtils
 import com.tellenn.artifacts.models.ArtifactsCharacter
 import com.tellenn.artifacts.models.Cooldown
 import com.tellenn.artifacts.models.InventorySlot
@@ -53,7 +54,11 @@ class BattleServiceTest {
     private lateinit var bankService: BankService
     private lateinit var bossFightService: BossFightService
     private lateinit var battleSimulatorService: BattleSimulatorService
+    private lateinit var timeUtils: TimeUtils
     private lateinit var battleService: BattleService
+
+    /** Horloge de test mutable : permet de faire expirer le TTL du cache de faisabilité à volonté. */
+    private var clock: Instant = Instant.parse("2026-07-06T12:00:00Z")
 
     @BeforeEach
     fun setUp() {
@@ -67,9 +72,11 @@ class BattleServiceTest {
         bankService = mock(BankService::class.java)
         bossFightService = mock(BossFightService::class.java)
         battleSimulatorService = mock(BattleSimulatorService::class.java)
+        timeUtils = mock(TimeUtils::class.java)
+        `when`(timeUtils.now()).thenAnswer { clock }
         battleService = BattleService(
             characterService, battleClient, monsterService, mapService, movementService,
-            accountClient, equipmentService, bankService, bossFightService, battleSimulatorService
+            accountClient, equipmentService, bankService, bossFightService, battleSimulatorService, timeUtils
         )
 
         // Par défaut la simulation prédit une victoire nette et le meilleur stuff banque est vide
@@ -170,6 +177,42 @@ class BattleServiceTest {
         // then — pas de second passage de simulation ni de lecture des potions banque
         verify(battleSimulatorService, times(1)).simulateWithApi(anyString(), anyObject<ArtifactsCharacter>())
         verify(bankService, never()).getHealingPotions()
+    }
+
+    @Test
+    fun `isFightWinnable met en cache le verdict et ne re-simule pas dans la fenetre TTL`() {
+        // given — victoire nette (défaut du setUp)
+
+        // when — trois vérifications du même combat dans la même seconde
+        repeat(3) { battleService.isFightWinnable(character(), "chicken") }
+
+        // then — une seule simulation : les re-tests (recette + passes de boucle) sont mémoïsés
+        verify(battleSimulatorService, times(1)).simulateWithApi(anyString(), anyObject<ArtifactsCharacter>())
+    }
+
+    @Test
+    fun `isFightWinnable re-simule une fois le TTL expire`() {
+        // given — un premier verdict est mis en cache
+        battleService.isFightWinnable(character(), "chicken")
+
+        // when — le temps avance au-delà du TTL (5 min) puis on re-teste
+        clock = clock.plusSeconds(6 * 60)
+        battleService.isFightWinnable(character(), "chicken")
+
+        // then — le verdict périmé est recalculé
+        verify(battleSimulatorService, times(2)).simulateWithApi(anyString(), anyObject<ArtifactsCharacter>())
+    }
+
+    @Test
+    fun `isFightWinnable re-simule quand le personnage a change de niveau`() {
+        // given — un verdict mis en cache au niveau 20
+        battleService.isFightWinnable(character(), "chicken")
+
+        // when — le même personnage revient un niveau plus haut
+        battleService.isFightWinnable(character().copy(level = 21), "chicken")
+
+        // then — un level-up doit invalider le verdict précédent
+        verify(battleSimulatorService, times(2)).simulateWithApi(anyString(), anyObject<ArtifactsCharacter>())
     }
 
     @Test

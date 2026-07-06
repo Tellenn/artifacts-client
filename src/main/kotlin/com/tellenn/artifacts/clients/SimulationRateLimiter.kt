@@ -35,8 +35,9 @@ class SimulationRateLimiter(
     }
 
     companion object {
-        /** Fenêtre minimale entre deux simulations (l'API autorise 1 req/s). */
-        internal const val MIN_INTERVAL_MS = 1_000L
+        // L'API autorise 1 req/s sur /simulation/fight, en fenêtre glissante : espacer d'exactement
+        // 1000 ms tombe sur la borne et 429 encore. On garde 100 ms de marge pour rester sous la limite.
+        internal const val MIN_INTERVAL_MS = 1_100L
     }
 }
 

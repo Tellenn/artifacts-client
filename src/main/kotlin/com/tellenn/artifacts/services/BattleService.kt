@@ -7,8 +7,11 @@ import com.tellenn.artifacts.exceptions.BattleLostException
 import com.tellenn.artifacts.exceptions.CharacterInventoryFullException
 import com.tellenn.artifacts.exceptions.MapNotFoundException
 import com.tellenn.artifacts.services.battlesim.BattleSimulatorService
+import com.tellenn.artifacts.utils.TimeUtils
 import org.apache.logging.log4j.LogManager
 import org.springframework.stereotype.Service
+import java.time.Duration
+import java.util.concurrent.ConcurrentHashMap
 
 @Service
 class BattleService(
@@ -21,15 +24,27 @@ class BattleService(
     private val equipmentService: EquipmentService,
     private val bankService: BankService,
     private val bossFightService: BossFightService,
-    private val battleSimulatorService: BattleSimulatorService
+    private val battleSimulatorService: BattleSimulatorService,
+    private val timeUtils: TimeUtils,
 ) {
 
     private val log = LogManager.getLogger(GatheringService::class.java)
+
+    // Verdicts de faisabilité mémoïsés : une même recette (et chaque passe de la boucle crafter) re-teste
+    // sans cesse les mêmes monstres. Sans cache, chaque test relance 1-2 `/simulation/fight` et sature la
+    // limite « 1 req/s ». Le niveau du personnage fait partie de la clé → un level-up réévalue le combat.
+    private data class WinnabilityKey(val characterName: String, val level: Int, val monsterCode: String)
+    private data class WinnabilityVerdict(val winnable: Boolean, val computedAt: java.time.Instant)
+    private val winnabilityCache = ConcurrentHashMap<WinnabilityKey, WinnabilityVerdict>()
 
     companion object {
         // 10 simulations : au-delà d'une défaite, le combat est jugé trop risqué
         // (même seuil que les monster tasks de TaskService).
         private const val MAX_SIMULATED_LOSSES = 1
+
+        // Durée de validité d'un verdict de faisabilité. Assez long pour absorber les re-tests d'une même
+        // boucle crafter, assez court pour retenter un combat devenu gagnable (nouveau stuff en banque).
+        private val WINNABILITY_TTL: Duration = Duration.ofMinutes(5)
     }
 
     /**
@@ -43,6 +58,18 @@ class BattleService(
      * monstre qu'il pourrait obtenir avec une potion.
      */
     fun isFightWinnable(character: ArtifactsCharacter, monsterCode: String): Boolean {
+        val key = WinnabilityKey(character.name, character.level, monsterCode)
+        winnabilityCache[key]?.let { cached ->
+            if (Duration.between(cached.computedAt, timeUtils.now()) < WINNABILITY_TTL) {
+                return cached.winnable
+            }
+        }
+        val winnable = computeFightWinnable(character, monsterCode)
+        winnabilityCache[key] = WinnabilityVerdict(winnable, timeUtils.now())
+        return winnable
+    }
+
+    private fun computeFightWinnable(character: ArtifactsCharacter, monsterCode: String): Boolean {
         val testCharacter = character.copy()
         equipmentService.findBestEquipmentForMonsterInBank(character, monsterCode).forEach { (slot, item) ->
             if (item != null) {
