@@ -29,6 +29,7 @@ class Combatant(
     var greedThresholdsCrossed = 0
     var shellResTurnsLeft = 0
     var shellUsed = false
+    var shellPendingRes = 0
     var berserkUsed = false
     var guardActivations = 0
     var lastMirrorTurn = -99
