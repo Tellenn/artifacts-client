@@ -50,6 +50,34 @@ ne sont pas des stats : ils doivent être **collectés** depuis :
 | Effets des items / potions | `ItemRepository.findByCode(code)` → `ItemDetails.effects` |
 | Stats du personnage | objet `ArtifactsCharacter` fourni par l'appelant |
 
+**Important — la sémantique des effets est dans le code, pas en DB.** Sur un `Effect` porté par
+un item ou un monstre, on ne dispose que de `code` + `value` (+ `description` parfois nulle). Le
+moteur n'a **pas** besoin de la description : chaque effet a un `EffectHandler` qui encode son
+comportement ; le `value` fournit la magnitude, le `code` route vers le handler.
+
+## Sync des effets en DB (référence + garde-fou de couverture)
+
+On ajoute une **sync des effets**, calquée sur `MonsterSyncService` + `PaginatedSyncUtils.syncAll` :
+
+- `EffectClient` — extends `BaseArtifactsClient`, `GET /effects`.
+- `EffectDocument` — `@Document("effects")` : `code`, `name`, `type`, `subtype`, `description`.
+- `EffectRepository` — `MongoRepository<EffectDocument, String>`.
+- `EffectSyncService` — miroir de `MonsterSyncService`.
+
+**Rôle : référence/runtime uniquement, PAS la logique du moteur.** Son intérêt principal est de
+servir de **garde-fou de couverture** : s'assurer qu'aucun effet de type `combat`/`consumable` ne
+reste sans handler.
+
+**Garde-fou = test qui échoue le build (offline, sans DB).** Pour éviter le problème connu
+Testcontainers ✗ Docker Desktop 29.x, le test **ne lit pas la DB** : il compare un **fixture JSON
+committé** (`src/test/resources/battlesim/effects-snapshot.json`, snapshot de `/effects` filtré
+`combat` + `consumable`) aux clés du `EffectRegistry`. Un effet du fixture sans handler → **échec
+du build**. Le fixture est régénérable à partir de `EffectSyncService` quand l'API évolue ; un
+nouvel effet non implémenté casse alors le build à la mise à jour du fixture.
+
+En complément, à l'exécution, un effet inconnu rencontré sur un item/monstre est **ignoré + WARN**
+(filet de sécurité, ne bloque jamais un combat).
+
 ## Architecture
 
 ```
@@ -70,6 +98,15 @@ services/battlesim/
     FightOutcome.kt
     CombatLog.kt
     LocalSimulationResult.kt
+
+services/sync/
+  EffectSyncService.kt             sync /effects → DB (miroir de MonsterSyncService)
+clients/
+  EffectClient.kt                  GET /effects
+db/documents/
+  EffectDocument.kt                @Document("effects")
+db/repositories/
+  EffectRepository.kt              MongoRepository<EffectDocument, String>
 ```
 
 **Isolation / testabilité :**
@@ -206,6 +243,9 @@ Surcharge mono-personnage pour l'ergonomie : `simulateLocally(monsterCode, chara
 4. **Tests d'ordre d'évaluation** dans un hook (poison avant restore, etc.).
 5. **Fixtures JSON** des exemples d'API dans `src/test/resources/battlesim/`, rejouées par un test
    paramétré.
+6. **Test de couverture des effets (build rouge)** : compare `effects-snapshot.json`
+   (codes `combat` + `consumable`) aux clés du `EffectRegistry` ; tout effet sans handler échoue.
+   Pur, offline, **sans Testcontainers** (cf. incompatibilité Docker Desktop 29.x).
 
 Mocks via **Mockito** (`MonsterRepository`, `ItemRepository`), conformément aux conventions projet.
 
