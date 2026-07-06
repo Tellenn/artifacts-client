@@ -11,8 +11,10 @@ import com.tellenn.artifacts.services.battlesim.BattleSimulatorService
 import com.tellenn.artifacts.models.ArtifactsCharacter
 import com.tellenn.artifacts.models.Cooldown
 import com.tellenn.artifacts.models.InventorySlot
+import com.tellenn.artifacts.models.ItemDetails
 import com.tellenn.artifacts.models.MapData
 import com.tellenn.artifacts.models.MonsterData
+import com.tellenn.artifacts.models.SimpleItem
 import java.time.Instant
 import org.junit.jupiter.api.Assertions.assertThrows
 import org.junit.jupiter.api.BeforeEach
@@ -75,6 +77,11 @@ class BattleServiceTest {
             .thenReturn(mutableMapOf())
         stubSimulation(losses = 0)
 
+        // Par défaut : aucune potion en banque et un monstre neutre (jamais null en production)
+        `when`(bankService.getHealingPotions()).thenReturn(emptyList())
+        `when`(bankService.getOne(anyString())).thenReturn(SimpleItem("", 0))
+        `when`(monsterService.getMonster(anyString())).thenReturn(mock(MonsterData::class.java))
+
         val monster = mock(MonsterData::class.java)
         `when`(monster.code).thenReturn("chicken")
         `when`(monster.type).thenReturn("normal")
@@ -134,6 +141,38 @@ class BattleServiceTest {
     }
 
     @Test
+    fun `isFightWinnable retourne true quand le stuff seul perd mais qu'une potion fait gagner`() {
+        // given — le stuff seul perd (8 défaites), mais avec une potion équipée la simulation gagne
+        stubSimulationWithPotions(lossesWithout = 8, lossesWith = 0)
+        stubHealingPotionAvailable("minor_health_potion", level = 20)
+
+        // when / then — la faisabilité doit refléter le loadout potions du combat réel
+        assert(battleService.isFightWinnable(character(), "chicken"))
+    }
+
+    @Test
+    fun `isFightWinnable reste false quand meme avec potions le combat est perdu`() {
+        // given — même potions équipées, la simulation perd toujours
+        stubSimulationWithPotions(lossesWithout = 8, lossesWith = 8)
+        stubHealingPotionAvailable("minor_health_potion", level = 20)
+
+        // when / then — combat vraiment ingagnable : on ne le tente pas
+        assert(!battleService.isFightWinnable(character(), "chicken"))
+    }
+
+    @Test
+    fun `isFightWinnable ne cherche pas de potion quand le stuff seul gagne`() {
+        // given — victoire nette avec le stuff seul (défaut du setUp : losses = 0)
+
+        // when
+        battleService.isFightWinnable(character(), "chicken")
+
+        // then — pas de second passage de simulation ni de lecture des potions banque
+        verify(battleSimulatorService, times(1)).simulateWithApi(anyString(), anyObject<ArtifactsCharacter>())
+        verify(bankService, never()).getHealingPotions()
+    }
+
+    @Test
     fun `fightToGetItem combat normalement quand la simulation predit la victoire`() {
         // given — victoire simulée (défaut du setUp) et un seul combat suffit
         `when`(battleClient.fight("Cloud"))
@@ -150,6 +189,28 @@ class BattleServiceTest {
         val simulation = SimulationResult(wins = 10 - losses, losses = losses, winrate = (10 - losses) * 10, results = emptyList())
         `when`(battleSimulatorService.simulateWithApi(anyString(), anyObject<ArtifactsCharacter>()))
             .thenReturn(ArtifactsResponseBody(simulation))
+    }
+
+    /** Simule [lossesWithout] défaites sans potion équipée, [lossesWith] dès qu'un slot utility est rempli. */
+    private fun stubSimulationWithPotions(lossesWithout: Int, lossesWith: Int) {
+        `when`(battleSimulatorService.simulateWithApi(anyString(), anyObject<ArtifactsCharacter>()))
+            .thenAnswer { invocation ->
+                val character = invocation.getArgument<ArtifactsCharacter>(1)
+                val losses = if (character.utility1Slot != "" || character.utility2Slot != "") lossesWith else lossesWithout
+                val simulation = SimulationResult(wins = 10 - losses, losses = losses, winrate = (10 - losses) * 10, results = emptyList())
+                ArtifactsResponseBody(simulation)
+            }
+    }
+
+    /** Rend disponible en banque une potion de soin de code [code] et de niveau [level]. */
+    private fun stubHealingPotionAvailable(code: String, level: Int) {
+        val potion = mock(ItemDetails::class.java)
+        `when`(potion.code).thenReturn(code)
+        `when`(potion.level).thenReturn(level)
+        `when`(bankService.getHealingPotions()).thenReturn(listOf(potion))
+        `when`(bankService.getOne(anyString())).thenReturn(SimpleItem("", 0))
+        `when`(bankService.getOne(code)).thenReturn(SimpleItem(code, 50))
+        `when`(monsterService.getMonster(anyString())).thenReturn(mock(MonsterData::class.java))
     }
 
     private fun fightResponse(character: ArtifactsCharacter) =

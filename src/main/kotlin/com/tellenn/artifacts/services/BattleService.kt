@@ -36,6 +36,11 @@ class BattleService(
      * Simule le combat contre [monsterCode] avec le meilleur équipement disponible en banque
      * (sans retrait réel), comme le combat effectif l'équipera via
      * [EquipmentService.equipBestAvailableEquipmentForMonsterInBank].
+     *
+     * Si le stuff seul perd, on re-simule avec les meilleures potions de combat disponibles en
+     * banque : le combat réel les équipe (via [EquipmentService.equipBestPotionsForFight]), la
+     * faisabilité doit donc les prendre en compte — sinon un crafter renonce à des composants de
+     * monstre qu'il pourrait obtenir avec une potion.
      */
     fun isFightWinnable(character: ArtifactsCharacter, monsterCode: String): Boolean {
         val testCharacter = character.copy()
@@ -44,7 +49,52 @@ class BattleService(
                 testCharacter["${slot}_slot"] = item.code
             }
         }
-        return battleSimulatorService.simulateWithApi(monsterCode, testCharacter).data.losses <= MAX_SIMULATED_LOSSES
+        if (battleSimulatorService.simulateWithApi(monsterCode, testCharacter).data.losses <= MAX_SIMULATED_LOSSES) {
+            return true
+        }
+        val testCharacterWithPotions = withBestBankPotions(testCharacter, monsterCode) ?: return false
+        return battleSimulatorService.simulateWithApi(monsterCode, testCharacterWithPotions).data.losses <= MAX_SIMULATED_LOSSES
+    }
+
+    /**
+     * Renvoie une copie de [testCharacter] portant, dans ses slots utility, les meilleures potions de
+     * combat effectivement disponibles en banque : la potion de soin de plus haut niveau utilisable
+     * ([utility1Slot]) et le boost de dégâts correspondant à l'élément d'attaque dominant du monstre
+     * ([utility2Slot]) — le loadout maximal que [EquipmentService.equipBestPotionsForFight] sait
+     * équiper. Lecture seule (aucun retrait). Renvoie `null` si aucune potion pertinente n'est en
+     * banque, pour éviter une seconde simulation identique à celle sans potion.
+     *
+     * L'antidote (monstres empoisonnés) n'est pas modélisé ici : il occupe le même slot que le boost
+     * et reste un cas de bord ; la faisabilité y demeure conservatrice, comme avant ce correctif.
+     */
+    private fun withBestBankPotions(testCharacter: ArtifactsCharacter, monsterCode: String): ArtifactsCharacter? {
+        val withPotions = testCharacter.copy()
+        var equippedAny = false
+
+        val bestHealingPotion = bankService.getHealingPotions()
+            .filter { it.level <= withPotions.level && bankService.getOne(it.code).quantity > 0 }
+            .maxByOrNull { it.level }
+        if (bestHealingPotion != null) {
+            withPotions.utility1Slot = bestHealingPotion.code
+            equippedAny = true
+        }
+
+        val monster = monsterService.getMonster(monsterCode)
+        val dominantAttackElement = mapOf(
+            "fire" to monster.attackFire,
+            "earth" to monster.attackEarth,
+            "water" to monster.attackWater,
+            "air" to monster.attackAir,
+        ).maxByOrNull { it.value }?.key
+        if (dominantAttackElement != null) {
+            val boostPotionCode = "${dominantAttackElement}_boost_potion"
+            if (bankService.getOne(boostPotionCode).quantity > 0) {
+                withPotions.utility2Slot = boostPotionCode
+                equippedAny = true
+            }
+        }
+
+        return if (equippedAny) withPotions else null
     }
 
     /**
