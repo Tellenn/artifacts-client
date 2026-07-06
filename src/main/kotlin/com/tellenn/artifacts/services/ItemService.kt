@@ -31,6 +31,14 @@ class ItemService(
         return items
     }
 
+    fun getAllCraftableItemsBySkillAndSubtypesAndMaxLevel(skillType: String, subTypes: List<String>, maxLevel: Int): List<ItemDetails> {
+        logger.debug("Getting resources for skill: $skillType, subtypes: $subTypes with max level: $maxLevel")
+        return subTypes
+            .flatMap { itemRepository.findByCraftSkillAndSubtypeAndLevelLessThanEqualOrderByLevelDesc(skillType, it, maxLevel) }
+            .filter { it.craft != null }
+            .sortedByDescending { it.level }
+    }
+
     fun getInvSizeToCraft(item: ItemDetails) : Int{
         var count = 0
         item.craft?.let { craft ->
