@@ -6,6 +6,7 @@ import com.tellenn.artifacts.db.repositories.CraftedItemRepository
 import com.tellenn.artifacts.models.ArtifactsCharacter
 import com.tellenn.artifacts.models.ItemCraft
 import com.tellenn.artifacts.models.ItemDetails
+import com.tellenn.artifacts.models.RecipeIngredient
 import com.tellenn.artifacts.models.SimpleItem
 import com.tellenn.artifacts.services.AchievementService
 import com.tellenn.artifacts.services.BankService
@@ -22,6 +23,7 @@ import com.tellenn.artifacts.services.RaidService
 import com.tellenn.artifacts.services.TaskService
 import com.tellenn.artifacts.services.UniqueArtifactService
 import org.junit.jupiter.api.Assertions.assertEquals
+import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 import org.mockito.ArgumentMatchers.anyBoolean
@@ -97,8 +99,8 @@ class CrafterJobCleanUpBankTest {
         `when`(bankService.getAllEquipmentsUnderLevel(anyInt())).thenReturn(bankItems)
         `when`(movementService.moveToBank(anyObject(), anyBoolean())).thenReturn(job.character)
         `when`(bankService.emptyInventory(anyObject())).thenReturn(job.character)
-        `when`(bankService.withdrawAllOfOne(anyObject(), anyString())).thenReturn(job.character)
-        // 3 wooden_staff in the bank → the whole stock must be recycled, not a single unit.
+        `when`(bankService.withdrawOne(anyString(), anyInt(), anyObject())).thenReturn(job.character)
+        // 3 wooden_staff in the bank → the whole stock must be recycled (here in a single step).
         `when`(bankService.getOne("wooden_staff")).thenReturn(SimpleItem("wooden_staff", 3))
 
         val destroyedCodes = mutableListOf<String>()
@@ -118,6 +120,42 @@ class CrafterJobCleanUpBankTest {
         // then — wooden_stick destroyed, wooden_staff recycled in full (qty 3), nothing else
         assertEquals(listOf("wooden_stick"), destroyedCodes)
         assertEquals(listOf("wooden_staff" to 3), recycled)
+    }
+
+    @Test
+    fun `un gros stock est recycle par etapes qui ne debordent jamais l'inventaire`() {
+        // given — 40 pièces d'un équipement dont la recette rend jusqu'à 6 matériaux par pièce.
+        // Tout retirer d'un coup débordait l'inventaire de 100 (497 en boucle). Capacité utile
+        // 100 - 5 = 95, footprint 6 → chunk de 15 : 40 se recycle en 15 + 15 + 10.
+        val heavyRecipe = ItemCraft(
+            skill = "gearcrafting", level = 1,
+            items = listOf(RecipeIngredient(code = "iron", quantity = 6)), quantity = 1,
+        )
+        `when`(bankService.getAllEquipmentsUnderLevel(anyInt()))
+            .thenReturn(listOf(equipment("iron_helmet", "helmet", level = 1, craft = heavyRecipe)))
+        `when`(movementService.moveToBank(anyObject(), anyBoolean())).thenReturn(job.character)
+        `when`(bankService.emptyInventory(anyObject())).thenReturn(job.character)
+        `when`(bankService.getOne("iron_helmet")).thenReturn(SimpleItem("iron_helmet", 40))
+
+        val withdrawnSteps = mutableListOf<Int>()
+        `when`(bankService.withdrawOne(anyString(), anyInt(), anyObject())).thenAnswer { invocation ->
+            withdrawnSteps.add(invocation.getArgument(1) as Int)
+            job.character
+        }
+        val recycledSteps = mutableListOf<Int>()
+        `when`(gatheringService.recycle(anyObject(), anyObject(), anyInt(), anyBoolean())).thenAnswer { invocation ->
+            recycledSteps.add(invocation.getArgument(2) as Int)
+            job.character
+        }
+
+        // when
+        job.cleanUpBank()
+
+        // then — recyclé en étapes bornées par le chunk, somme égale au stock, sans jamais retirer plus
+        assertEquals(listOf(15, 15, 10), recycledSteps)
+        assertEquals(40, recycledSteps.sum())
+        assertEquals(withdrawnSteps, recycledSteps)
+        assertTrue(withdrawnSteps.all { it <= 15 })
     }
 
     private fun recipe(skill: String) = ItemCraft(skill = skill, level = 1, items = emptyList(), quantity = 1)

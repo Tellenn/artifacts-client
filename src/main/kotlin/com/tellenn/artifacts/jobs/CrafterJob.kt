@@ -310,7 +310,6 @@ class CrafterJob(
     fun cleanUpBank(): ArtifactsCharacter {
         character = movementService.moveToBank(character)
         character = bankService.emptyInventory(character)
-        val itemsToRecycle = mutableListOf<Pair<ItemDetails, Int>>()
         val minCrafterLevel = min(character.weaponcraftingLevel, min(character.gearcraftingLevel, character.jewelrycraftingLevel)) - 10
         bankService.getAllEquipmentsUnderLevel(minCrafterLevel)
             .mapNotNull { BankItemDocument.toItemDetails(it) }
@@ -320,22 +319,38 @@ class CrafterJob(
                     item.code == "wooden_stick" -> {
                         character = characterService.destroyAllOfOne(character, item.code)
                     }
-                    // Craftable equipment: withdraw the whole stock so it can be recycled in full.
+                    // Craftable equipment: recycled by steps to keep the inventory bounded.
                     item.craft != null -> {
-                        val quantity = bankService.getOne(item.code).quantity
-                        if (quantity > 0) {
-                            character = bankService.withdrawAllOfOne(character, item.code)
-                            itemsToRecycle.add(item to quantity)
-                        }
+                        character = recycleWholeStockInSteps(item)
                     }
                     // Otherwise a dropped, non-craftable item: handled when an event happens.
                 }
             }
-        itemsToRecycle.forEach { (item, quantity) ->
-            character = gatheringService.recycle(character, item, quantity)
-        }
         character = movementService.moveToBank(character)
         return bankService.emptyInventory(character)
+    }
+
+    /**
+     * Recycle tout le stock banque de [item] par étapes tenant dans l'inventaire, en le vidant après
+     * chaque étape. Retirer tout le stock d'un coup (ou cumuler plusieurs équipements avant de
+     * recycler) débordait l'inventaire → 497 en boucle « prend puis repose ». Chaque recyclage rend
+     * des matériaux qui occupent eux aussi l'inventaire : le chunk est borné par [recycleChunkSize].
+     */
+    private fun recycleWholeStockInSteps(item: ItemDetails): ArtifactsCharacter {
+        val ingredientCount = item.craft?.items?.sumOf { it.quantity } ?: return character
+        val perStep = recycleChunkSize(ingredientCount, character.inventoryMaxItems, RECYCLE_INVENTORY_SAFE_MARGIN)
+        var remaining = bankService.getOne(item.code).quantity
+        while (remaining > 0) {
+            val step = min(perStep, remaining)
+            contextService.setStep(character.name, "recyclage de ${step}× ${item.code} ($remaining restants)")
+            character = movementService.moveToBank(character)
+            character = bankService.withdrawOne(item.code, step, character)
+            character = gatheringService.recycle(character, item, step, true)
+            character = movementService.moveToBank(character)
+            character = bankService.emptyInventory(character)
+            remaining -= step
+        }
+        return character
     }
 
     fun claimPendingItems() : ArtifactsCharacter{
@@ -353,6 +368,20 @@ class CrafterJob(
 
 private const val INVENTORY_FULL_BACKOFF_BASE_MS = 1000L
 private const val INVENTORY_FULL_BACKOFF_MAX_MS = 60_000L
+
+/** Marge de sécurité (en items) conservée lors du recyclage par étapes du nettoyage de banque. */
+private const val RECYCLE_INVENTORY_SAFE_MARGIN = 5
+
+/**
+ * Nombre de pièces d'équipement à recycler par étape sans déborder l'inventaire. Un recyclage rend
+ * jusqu'à [recipeIngredientCount] matériaux par pièce ; le chunk est donc borné pour que la totalité
+ * des matériaux récupérés tienne dans la capacité disponible (`inventoryMaxItems - safeMargin`),
+ * au minimum une pièce à la fois.
+ */
+internal fun recycleChunkSize(recipeIngredientCount: Int, inventoryMaxItems: Int, safeMargin: Int = 0): Int {
+    val capacity = (inventoryMaxItems - safeMargin).coerceAtLeast(1)
+    return if (recipeIngredientCount <= 1) capacity else maxOf(1, capacity / recipeIngredientCount)
+}
 
 /**
  * Temps d'attente (ms) avant de re-tenter le leveling après [consecutiveFailures] échecs consécutifs
