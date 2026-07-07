@@ -10,6 +10,7 @@ import com.tellenn.artifacts.config.CharacterConfig
 import com.tellenn.artifacts.services.ThreadService
 import com.tellenn.artifacts.services.sync.BankItemSyncService
 import com.tellenn.artifacts.services.sync.CharacterSyncService
+import com.tellenn.artifacts.services.sync.EffectSyncService
 import com.tellenn.artifacts.services.sync.ItemSyncService
 import com.tellenn.artifacts.services.sync.MapSyncService
 import com.tellenn.artifacts.services.sync.MonsterSyncService
@@ -37,6 +38,7 @@ class MainRuntime(
     private val itemSyncService: ItemSyncService,
     private val mapSyncService: MapSyncService,
     private val monsterSyncService: MonsterSyncService,
+    private val effectSyncService: EffectSyncService,
     private val characterSyncService: CharacterSyncService,
     private val webSocketService: WebSocketService,
     private val bankItemSyncService: BankItemSyncService,
@@ -90,7 +92,12 @@ class MainRuntime(
             val syncedMonstersCount = monsterSyncService.syncAllMonsters()
             log.info("Monsters synchronized with server. Total monsters: $syncedMonstersCount")
             sleep(1000)
-            
+
+            // Synchronize effects from the server
+            val syncedEffectsCount = effectSyncService.syncAllEffects()
+            log.info("Effects synchronized with server. Total effects: $syncedEffectsCount")
+            sleep(1000)
+
             // Synchronize resources from the server
             val syncedResourceCount = resourceSyncService.syncAllResources()
             log.info("Resources synchronized with server. Total resources: $syncedResourceCount")
