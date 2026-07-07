@@ -3,6 +3,8 @@ package com.tellenn.artifacts.services.battlesim.engine
 import com.tellenn.artifacts.models.MonsterData
 import com.tellenn.artifacts.services.battlesim.effects.EffectRegistry
 import com.tellenn.artifacts.services.battlesim.effects.handlers.PoisonHandler
+import com.tellenn.artifacts.services.battlesim.effects.handlers.RestoreHandler
+import com.tellenn.artifacts.services.battlesim.model.ActiveEffect
 import com.tellenn.artifacts.services.battlesim.model.HealPotion
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
@@ -77,6 +79,28 @@ class FightEngineTest {
         assertTrue(outcome.charactersWin)
         assertEquals(0, outcome.finalHp["m"])
         assertEquals(100, outcome.finalHp["hero"]) // mob died to poison before landing its 50-dmg hit
+    }
+
+    @Test
+    fun `damage-over-time death is not undone by a same-turn self-heal`() {
+        // The mob's own `restore` would heal it back above 0 if the engine let it act after the DoT
+        // tick — a heal-bearing monster would become un-poisonable. The poison must land the kill.
+        val engineWithHeal = FightEngine(EffectRegistry(listOf(PoisonHandler(), RestoreHandler())))
+        val hero = hero(hp = 100, attackFire = 1, initiative = 1)
+        val mob = Combatant(
+            name = "healer", isMonster = true, hp = 5, maxHp = 40,
+            attackFire = 50, attackEarth = 0, attackWater = 0, attackAir = 0,
+            dmgGlobal = 0, dmgFire = 0, dmgEarth = 0, dmgWater = 0, dmgAir = 0,
+            resFire = 0, resEarth = 0, resWater = 0, resAir = 0,
+            criticalStrike = 0, initiative = 100, threat = 0,
+            effects = listOf(ActiveEffect("restore", 50)),
+        ).apply { poisonStack = 10 }
+
+        val outcome = engineWithHeal.run(listOf(hero), mob, Random(1))
+
+        assertTrue(outcome.charactersWin)
+        assertEquals(0, outcome.finalHp["healer"])
+        assertEquals(100, outcome.finalHp["hero"]) // mob dies to poison before it can land its 50-dmg hit
     }
 
     @Test

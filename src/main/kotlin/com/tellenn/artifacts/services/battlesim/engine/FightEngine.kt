@@ -41,6 +41,10 @@ class FightEngine(private val registry: EffectRegistry) {
                     owner.burnDamageLeft = (owner.burnDamageLeft * 0.9).toInt()
                 }
 
+                // Death by damage-over-time is final: a combatant killed by the tick above must not
+                // be revived by its own start-of-turn heals (e.g. restore/reconstitution).
+                if (!owner.isAlive) { if (fightOver(characters, monster)) break else continue }
+
                 owner.effects.forEach { e -> handler(e.code)?.onTurnStart(ctx, owner, e.value) }
 
                 if (!owner.isAlive) { if (fightOver(characters, monster)) break else continue }
