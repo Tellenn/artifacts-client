@@ -1,0 +1,11 @@
+{
+  "combat": [
+    "boost_hp","boost_dmg_fire","boost_dmg_water","boost_dmg_air","boost_dmg_earth",
+    "boost_res_fire","boost_res_water","boost_res_air","boost_res_earth",
+    "sun_shield","greed","vampiric_strike","restore","splash_restore","poison","healing",
+    "lifesteal","reconstitution","burn","corrupted","guard","shell","frenzy","void_drain",
+    "berserker_rage","healing_aura","barrier","christmas_magic","protective_bubble",
+    "enchanted_mirror","antipoison"
+  ],
+  "consumable": ["heal"]
+}
