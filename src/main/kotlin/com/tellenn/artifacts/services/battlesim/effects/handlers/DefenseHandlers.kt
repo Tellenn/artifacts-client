@@ -77,7 +77,7 @@ class EnchantedMirrorHandler : EffectHandler {
     ) {
         if (ctx.turn - defender.lastMirrorTurn >= 3) {
             defender.lastMirrorTurn = ctx.turn
-            val reflected = dealt * value / 100
+            val reflected = (dealt * value / 100.0).roundToInt()
             attacker.hp = (attacker.hp - reflected).coerceAtLeast(0)
         }
     }
