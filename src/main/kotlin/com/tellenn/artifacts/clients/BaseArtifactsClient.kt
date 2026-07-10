@@ -35,11 +35,7 @@ abstract class BaseArtifactsClient(deps: BaseClientDependencies) {
     val url: String = deps.url
     private val key: String = deps.key
 
-    private val client = OkHttpClient.Builder()
-        .connectTimeout(30, TimeUnit.SECONDS)
-        .readTimeout(30, TimeUnit.SECONDS)
-        .writeTimeout(30, TimeUnit.SECONDS)
-        .build()
+    private val client = buildArtifactsHttpClient()
 
     val objectMapper = jacksonObjectMapper().apply {
         registerModule(JavaTimeModule())
@@ -350,6 +346,19 @@ abstract class BaseArtifactsClient(deps: BaseClientDependencies) {
         }
     }
 }
+
+/**
+ * Le retry silencieux d'OkHttp est désactivé : sur une connexion poolée cassée (reset quotidien de
+ * l'API à minuit UTC), il rejouait des POST non idempotents déjà traités côté serveur, d'où des
+ * cascades 492/490/478 « action déjà effectuée ». Mieux vaut laisser l'échec réseau remonter :
+ * le thread du personnage redémarre et repart d'un état serveur frais.
+ */
+internal fun buildArtifactsHttpClient(): OkHttpClient = OkHttpClient.Builder()
+    .connectTimeout(30, TimeUnit.SECONDS)
+    .readTimeout(30, TimeUnit.SECONDS)
+    .writeTimeout(30, TimeUnit.SECONDS)
+    .retryOnConnectionFailure(false)
+    .build()
 
 /** Nombre de re-tentatives sur un 429 avant de renoncer et de laisser remonter l'exception. */
 internal const val RATE_LIMIT_MAX_RETRIES = 5

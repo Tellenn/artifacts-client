@@ -11,6 +11,7 @@ import com.tellenn.artifacts.db.documents.BankItemDocument
 import com.tellenn.artifacts.db.repositories.BankItemRepository
 import com.tellenn.artifacts.db.repositories.ItemRepository
 import com.tellenn.artifacts.exceptions.BankCorruptedException
+import com.tellenn.artifacts.exceptions.CharacterGoldInsufficientException
 import com.tellenn.artifacts.exceptions.MapContentNotFoundException
 import com.tellenn.artifacts.exceptions.MissingItemException
 import com.tellenn.artifacts.exceptions.NotFoundException
@@ -110,7 +111,16 @@ class BankService(
         if(amount <= 0){
             return character
         }
-        return bankClient.depositGold(character.name, amount).data.character
+        return try {
+            bankClient.depositGold(character.name, amount).data.character
+        } catch (_: CharacterGoldInsufficientException) {
+            // 492 = l'or a déjà été encaissé côté serveur (état mémoire périmé après une coupure
+            // réseau) : on repart de l'état serveur et on ne redépose que le solde réel.
+            log.warn("492 au dépôt d'or pour {} : état mémoire périmé, resynchronisation", character.name)
+            val fresh = accountClient.getCharacter(character.name).data
+            if (fresh.gold <= 0) fresh
+            else bankClient.depositGold(fresh.name, fresh.gold).data.character
+        }
     }
 
     fun withdrawMoney(character: ArtifactsCharacter, amount: Int) : ArtifactsCharacter{
@@ -159,7 +169,9 @@ class BankService(
                 try {
                     newCharacter = bankClient.depositItems(character.name, itemsToDeposit).data.character
                 }catch (_: MapContentNotFoundException){
-
+                    // Le dépôt n'a pas eu lieu : on restaure le cache avant la re-tentative, sinon
+                    // la récursion recompterait les mêmes items (entrées fantômes en banque).
+                    rollbackCacheUpdates(newBankItems, originalBankItems)
                     newCharacter = accountClient.getCharacter(newCharacter.name).data
                     val closestBank = mapService.findClosestMap(newCharacter, "bank")
                     newCharacter = movementClient.move(newCharacter.name, closestBank.mapId).data.character
@@ -171,20 +183,26 @@ class BankService(
             throw e
         } catch (e: Exception) {
             log.error("Failed to deposit items to bank: ${e.message}")
-
-            newBankItems.forEach {
-                try { bankRepository.delete(it) }
-                catch (ex: Exception) { log.error("Failed to rollback new bank item ${it.code}: ${ex.message}") }
-            }
-            originalBankItems.forEach { (_, originalItem) ->
-                try { bankRepository.save(originalItem) }
-                catch (ex: Exception) { log.error("Failed to rollback bank item ${originalItem.code}: ${ex.message}") }
-            }
-
+            rollbackCacheUpdates(newBankItems, originalBankItems)
             throw e
         }
 
         return newCharacter
+    }
+
+    /** Restaure le cache banque local dans l'état d'avant un [deposit] qui a échoué côté API. */
+    private fun rollbackCacheUpdates(
+        newBankItems: List<BankItemDocument>,
+        originalBankItems: Map<String, BankItemDocument>,
+    ) {
+        newBankItems.forEach {
+            try { bankRepository.delete(it) }
+            catch (ex: Exception) { log.error("Failed to rollback new bank item ${it.code}: ${ex.message}") }
+        }
+        originalBankItems.forEach { (_, originalItem) ->
+            try { bankRepository.save(originalItem) }
+            catch (ex: Exception) { log.error("Failed to rollback bank item ${originalItem.code}: ${ex.message}") }
+        }
     }
 
     fun withdrawOne(itemCode: String, quantity: Int, character: ArtifactsCharacter): ArtifactsCharacter {
