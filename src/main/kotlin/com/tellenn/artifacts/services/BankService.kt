@@ -239,6 +239,12 @@ class BankService(
         if(items.isEmpty()){
             return character
         }
+        // Garde de capacité : un retrait > inventoryMaxItems est rejeté en 497 par l'API même
+        // inventaire vide — échec local immédiat plutôt qu'un aller-retour qui crame le quota.
+        val totalQuantity = items.sumOf { it.quantity }
+        require(totalQuantity <= character.inventoryMaxItems) {
+            "Withdraw of $totalQuantity items impossible: exceeds ${character.name}'s inventory capacity (${character.inventoryMaxItems}). Chunk the withdrawal."
+        }
         var newCharacter = character
         try {
             newCharacter = bankClient.withdrawItems(newCharacter.name, items).data.character

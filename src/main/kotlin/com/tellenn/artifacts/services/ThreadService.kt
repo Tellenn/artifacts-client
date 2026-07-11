@@ -61,7 +61,17 @@ class ThreadService(
     companion object {
         /** Delay before respawning a default-behavior thread that exited unexpectedly. */
         private const val RESTART_DELAY_MS = 1000L
+
+        /** Slice between re-interrupts while waiting for a thread to die. */
+        private const val JOIN_SLICE_MS = 1000L
     }
+
+    /**
+     * Temps maximum d'attente de la mort réelle d'un thread avant d'abandonner un redémarrage.
+     * `internal var` (et non paramètre de constructeur, que Spring ne saurait pas résoudre)
+     * pour que les tests puissent le raccourcir.
+     */
+    internal var threadDeathTimeoutMs = 30_000L
 
     // Map to store character threads by character name
     private val characterThreads = ConcurrentHashMap<String, ManagedCharacterThread>()
@@ -137,12 +147,45 @@ class ThreadService(
     }
 
     /**
+     * Interrupts a thread and waits for it to actually die, re-interrupting on every slice in case
+     * the job consumed the interruption then blocked again (cooldown wait, hung HTTP call).
+     *
+     * @return true if the thread is dead, false if it survived [threadDeathTimeoutMs]
+     */
+    private fun stopAndAwaitDeath(managedThread: ManagedCharacterThread): Boolean {
+        val thread = managedThread.thread
+        if (!thread.isAlive) return true
+        val deadline = System.currentTimeMillis() + threadDeathTimeoutMs
+        while (thread.isAlive && System.currentTimeMillis() < deadline) {
+            thread.interrupt()
+            try {
+                thread.join(JOIN_SLICE_MS)
+            } catch (_: InterruptedException) {
+                Thread.currentThread().interrupt()
+                return !thread.isAlive
+            }
+        }
+        return !thread.isAlive
+    }
+
+    /**
      * Internal method to start a character thread.
      *
+     * Invariant anti-duplication : refuse de démarrer si le thread enregistré est encore vivant —
+     * deux threads sur le même personnage produisent des 486 « action already in progress » et des
+     * désyncs de position/inventaire (cluster de minuit). Le thread courant est exempté : le chemin
+     * d'auto-redémarrage après crash ([restartAfterUnexpectedExit]) s'exécute sur le thread mourant.
+     *
      * @param config The character configuration
+     * @return true if the thread was started, false if a live thread already exists
      */
-    private fun internalStartThread(config: CharacterConfig) {
+    private fun internalStartThread(config: CharacterConfig): Boolean {
         val managedThread = characterThreads[config.name]
+        val existingThread = managedThread?.thread
+        if (existingThread != null && existingThread.isAlive && existingThread !== Thread.currentThread()) {
+            logger.error("Refusing to start a duplicate thread for ${config.name}: previous thread is still alive")
+            return false
+        }
         val isOnMission = managedThread?.isOnMission ?: AtomicBoolean(false)
         val currentPriority = managedThread?.currentPriority ?: AtomicReference(MissionPriority.DEFAULT)
 
@@ -159,6 +202,7 @@ class ThreadService(
             onMission = { characterThreads[config.name]?.isOnMission?.get() == true },
         )
         logger.info("Thread started for character: ${config.name}")
+        return true
     }
 
     /**
@@ -176,7 +220,6 @@ class ThreadService(
             }
 
             internalStartThread(config)
-            true
         } catch (e: Exception) {
             logger.error("Failed to start thread for character: ${config.name}", e)
             false
@@ -228,21 +271,19 @@ class ThreadService(
         val managedThread = getManagedThread(characterName) ?: return false
         
         logger.info("Restarting thread for character: $characterName")
-        
-        // Wait for the current thread to finish if it's still running
-        if (managedThread.thread.isAlive) {
-            try {
-                managedThread.thread.join(5000) // Wait up to 5 seconds
-            } catch (_: InterruptedException) {
-                logger.warn("Interrupted while waiting for thread to finish for $characterName")
-                Thread.currentThread().interrupt()
-            }
+
+        // Convention isOnMission (cf. onDefaultBehaviorStopped) : signale que l'interruption est
+        // intentionnelle, sinon le thread mourant se relancerait lui-même en parallèle du nôtre.
+        managedThread.isOnMission.set(true)
+        if (!stopAndAwaitDeath(managedThread)) {
+            logger.error("Thread for $characterName refuses to die after ${threadDeathTimeoutMs}ms, NOT starting a duplicate")
+            managedThread.isOnMission.set(false)
+            return false
         }
-        
+
         managedThread.isOnMission.set(false)
         managedThread.currentPriority.set(MissionPriority.DEFAULT)
-        internalStartThread(managedThread.config)
-        return true
+        return internalStartThread(managedThread.config)
     }
     
     /**
@@ -270,10 +311,11 @@ class ThreadService(
         val managedThread = getManagedThread(characterName) ?: return false
         if (!managedThread.isOnMission.compareAndSet(false, true)) return false
         managedThread.currentPriority.set(MissionPriority.HUMAN_ORDER)
-        managedThread.thread.interrupt()
-        if (managedThread.thread.isAlive) {
-            try { managedThread.thread.join(5000) }
-            catch (_: InterruptedException) { Thread.currentThread().interrupt() }
+        if (!stopAndAwaitDeath(managedThread)) {
+            logger.error("Thread for $characterName refuses to die after ${threadDeathTimeoutMs}ms, aborting boss fight reservation")
+            managedThread.isOnMission.set(false)
+            managedThread.currentPriority.set(MissionPriority.DEFAULT)
+            return false
         }
         return true
     }
@@ -339,20 +381,25 @@ class ThreadService(
             return false
         }
 
+        logger.info("Executing synchronous mission for character: $characterName with priority: $priority")
+
+        // Try to interrupt with priority check
+        if (!interruptWithPriority(characterName, priority)) {
+            managedThread.isOnMission.set(false)
+            return false
+        }
+
+        // Abandon AVANT le try/finally : son restartCharacterThread ne doit pas s'exécuter ici,
+        // et exécuter la mission en concurrence avec le thread par défaut vivant reproduirait
+        // la duplication (486/désyncs) que cet invariant interdit.
+        if (!stopAndAwaitDeath(managedThread)) {
+            logger.error("Thread for $characterName refuses to die after ${threadDeathTimeoutMs}ms, aborting mission")
+            managedThread.isOnMission.set(false)
+            managedThread.currentPriority.set(MissionPriority.DEFAULT)
+            return false
+        }
+
         return try {
-            logger.info("Executing synchronous mission for character: $characterName with priority: $priority")
-            
-            // Try to interrupt with priority check
-            if (!interruptWithPriority(characterName, priority)) {
-                managedThread.isOnMission.set(false)
-                return false
-            }
-            
-            // Wait for the thread to finish
-            if (managedThread.thread.isAlive) {
-                managedThread.thread.join(5000) // Wait up to 5 seconds
-            }
-            
             // Execute the mission in the current thread
             missionMetrics.timeMission(characterName, priority.name) { mission() }
 
@@ -392,20 +439,23 @@ class ThreadService(
             return false
         }
 
+        logger.info("Assigning async mission to character: $characterName with priority: $priority")
+
+        // Try to interrupt with priority check
+        if (!interruptWithPriority(characterName, priority)) {
+            managedThread.isOnMission.set(false)
+            return false
+        }
+
+        // Même invariant que executeMissionSync : pas de mission tant que l'ancien thread vit
+        if (!stopAndAwaitDeath(managedThread)) {
+            logger.error("Thread for $characterName refuses to die after ${threadDeathTimeoutMs}ms, aborting async mission")
+            managedThread.isOnMission.set(false)
+            managedThread.currentPriority.set(MissionPriority.DEFAULT)
+            return false
+        }
+
         return try {
-            logger.info("Assigning async mission to character: $characterName with priority: $priority")
-            
-            // Try to interrupt with priority check
-            if (!interruptWithPriority(characterName, priority)) {
-                managedThread.isOnMission.set(false)
-                return false
-            }
-            
-            // Wait for the thread to finish
-            if (managedThread.thread.isAlive) {
-                managedThread.thread.join(5000) // Wait up to 5 seconds
-            }
-            
             // Execute the mission in a new thread
             val missionThread = Thread {
                 try {

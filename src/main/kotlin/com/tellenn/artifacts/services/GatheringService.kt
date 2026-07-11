@@ -458,23 +458,50 @@ class GatheringService(
         val npcItem = npcClient.getNpcByItemCode(item.code).data.first()
         require(!(npcItem.currency == "gold" || npcItem.buyPrice == null)) { "Will not buy component with gold currency" }
         val currencyCode = npcItem.currency
+        val usableCapacity = character.inventoryMaxItems - INVENTORY_SAFE_MARGIN
+        require(npcItem.buyPrice <= usableCapacity) {
+            "Cannot buy ${item.code}: unit price ${npcItem.buyPrice} $currencyCode exceeds inventory capacity $usableCapacity"
+        }
         val currencyQty = npcItem.buyPrice * quantity
         var newCharacter = craftOrGather(character, currencyCode, currencyQty, functionLevel + 1, allowFight, shouldTrain)
-        newCharacter = movementService.moveToBank(newCharacter)
-        newCharacter = bankService.emptyInventory(newCharacter)
-        newCharacter = try {
-            bankService.withdrawOne(currencyCode, currencyQty, newCharacter)
-        } catch (_: MissingItemException) {
-            // La devise a été retirée par un autre agent entre la réservation et le retrait effectif
-            log.warn("{} : devise {} volée par un autre agent — re-collecte", newCharacter.name, currencyCode)
-            bankService.releaseReservation(currencyCode, currencyQty, newCharacter.name)
-            val reGathered = craftOrGather(newCharacter, currencyCode, currencyQty, 0, allowFight, shouldTrain)
-            val atBank = movementService.moveToBank(reGathered)
-            val emptied = bankService.emptyInventory(atBank)
-            bankService.withdrawOne(currencyCode, currencyQty, emptied)
+
+        // La devise totale peut dépasser la capacité d'inventaire : un retrait unique serait
+        // rejeté en 497 quel que soit l'état de l'inventaire (livelock Renoir du 2026-07-10).
+        // On achète donc par passages dimensionnés sur la capacité ; les lots déjà achetés
+        // partent en banque au vidage suivant et sont réservés pour n'être volés par personne.
+        val itemsPerTrip = usableCapacity / npcItem.buyPrice
+        var remaining = quantity
+        var boughtAndBanked = 0
+        while (remaining > 0) {
+            val batch = minOf(remaining, itemsPerTrip)
+            val batchCurrency = npcItem.buyPrice * batch
+            newCharacter = movementService.moveToBank(newCharacter)
+            newCharacter = bankService.emptyInventory(newCharacter)
+            newCharacter = try {
+                bankService.withdrawOne(currencyCode, batchCurrency, newCharacter)
+            } catch (_: MissingItemException) {
+                // La devise a été retirée par un autre agent entre la réservation et le retrait effectif
+                log.warn("{} : devise {} volée par un autre agent — re-collecte", newCharacter.name, currencyCode)
+                bankService.releaseReservation(currencyCode, batchCurrency, newCharacter.name)
+                val reGathered = craftOrGather(newCharacter, currencyCode, batchCurrency, 0, allowFight, shouldTrain)
+                val atBank = movementService.moveToBank(reGathered)
+                val emptied = bankService.emptyInventory(atBank)
+                bankService.withdrawOne(currencyCode, batchCurrency, emptied)
+            }
+            newCharacter = movementService.moveToNpc(newCharacter, npcItem.npc)
+            newCharacter = npcClient.buyItem(newCharacter.name, npcItem.code, batch).data.character
+            remaining -= batch
+            if (remaining > 0) {
+                bankService.reserveInBank(item.code, batch, newCharacter.name)
+                boughtAndBanked += batch
+            }
         }
-        newCharacter = movementService.moveToNpc(newCharacter, npcItem.npc)
-        return npcClient.buyItem(newCharacter.name, npcItem.code, quantity).data.character
+        if (boughtAndBanked > 0) {
+            // Post-condition inchangée : tout l'achat repart avec le personnage en inventaire
+            newCharacter = movementService.moveToBank(newCharacter)
+            newCharacter = bankService.withdrawOne(item.code, boughtAndBanked, newCharacter)
+        }
+        return newCharacter
     }
 
     private fun tradeTaskItem(character: ArtifactsCharacter, itemDetails: ItemDetails, quantity: Int): ArtifactsCharacter{
