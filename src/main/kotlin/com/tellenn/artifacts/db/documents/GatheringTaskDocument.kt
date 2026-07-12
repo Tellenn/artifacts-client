@@ -10,6 +10,8 @@ import java.util.UUID
  *
  * `materialCode` sert d'`@Id` : un seul document par matériau (déduplication naturelle).
  * `remaining` est la quantité encore non réservée, tirée atomiquement par les workers.
+ * `bankQuantityAtPost` est la photo du stock banque disponible au moment du dernier post
+ * (information : le besoin publié est déjà net de ce stock).
  */
 @Document(collection = "gathering_tasks")
 data class GatheringTaskDocument(
@@ -18,6 +20,7 @@ data class GatheringTaskDocument(
     val targetQuantity: Int,
     val remaining: Int,
     val producedQuantity: Int = 0,
+    val bankQuantityAtPost: Int = 0,
     val reservations: List<SliceReservation> = emptyList(),
     val createdAt: Instant = Instant.now()
 )

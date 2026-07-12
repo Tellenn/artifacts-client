@@ -23,8 +23,12 @@ interface GatheringTaskRepositoryCustom {
     /** Relâche la réservation [reservationId] : rend [amount] unités à `remaining`. */
     fun releaseSlice(materialCode: String, reservationId: String, amount: Int)
 
-    /** Crée ou augmente la cible d'un matériau pour couvrir un nouveau manque. */
-    fun upsertTarget(materialCode: String, skill: String, quantity: Int)
+    /**
+     * Crée ou augmente la cible d'un matériau pour couvrir un nouveau manque.
+     * [bankQuantity] est la photo du stock banque disponible au moment du post,
+     * stockée à titre informatif et rafraîchie à chaque nouveau post.
+     */
+    fun upsertTarget(materialCode: String, skill: String, quantity: Int, bankQuantity: Int = 0)
 
     /**
      * Restitue les réservations orphelines : plus anciennes que [olderThan] et dont l'id

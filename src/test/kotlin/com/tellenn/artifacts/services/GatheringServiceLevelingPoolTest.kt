@@ -8,7 +8,6 @@ import com.tellenn.artifacts.models.ArtifactsCharacter
 import com.tellenn.artifacts.models.ItemCraft
 import com.tellenn.artifacts.models.ItemDetails
 import com.tellenn.artifacts.models.RecipeIngredient
-import com.tellenn.artifacts.models.SimpleItem
 import java.time.Instant
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.BeforeEach
@@ -111,8 +110,9 @@ class GatheringServiceLevelingPoolTest {
             level = 10, tradeable = true, craft = null, effects = emptyList(), conditions = emptyList()
         )
 
-    private fun bankHas(code: String, quantity: Int) {
-        `when`(bankService.getOne(code)).thenReturn(SimpleItem(code, quantity))
+    /** Stock banque disponible, réservations des autres personnages déjà déduites. */
+    private fun bankHasAvailable(code: String, quantity: Int) {
+        `when`(bankService.availableQuantity(code)).thenReturn(quantity)
     }
 
     @Test
@@ -121,7 +121,7 @@ class GatheringServiceLevelingPoolTest {
         `when`(itemService.getInvSizeToCraft(anyObject())).thenReturn(2)
         `when`(gatheringTaskService.produceOpenSlices(anyString(), anyString(), anyInt(), anyObject()))
             .thenReturn(12)
-        bankHas("iron_bar", 12)
+        bankHasAvailable("iron_bar", 12)
 
         // when
         gatheringService.gatherLevelingMaterials(character, ironDagger(), quantity = 4, allowFight = false)
@@ -141,7 +141,7 @@ class GatheringServiceLevelingPoolTest {
                 invocation.getArgument<(Int) -> Unit>(3).invoke(10)
                 10
             }
-        bankHas("iron_bar", 12)
+        bankHasAvailable("iron_bar", 12)
 
         // when
         gatheringService.gatherLevelingMaterials(character, ironDagger(), quantity = 4, allowFight = false)
@@ -159,7 +159,7 @@ class GatheringServiceLevelingPoolTest {
         `when`(itemService.getInvSizeToCraft(anyObject())).thenReturn(2)
         `when`(gatheringTaskService.produceOpenSlices(anyString(), anyString(), anyInt(), anyObject()))
             .thenReturn(0)
-        bankHas("iron_bar", 5)
+        bankHasAvailable("iron_bar", 5)
 
         // when
         gatheringService.gatherLevelingMaterials(character, ironDagger(), quantity = 4, allowFight = false)
@@ -175,7 +175,7 @@ class GatheringServiceLevelingPoolTest {
         `when`(itemService.getInvSizeToCraft(anyObject())).thenReturn(20)
         `when`(gatheringTaskService.produceOpenSlices(anyString(), anyString(), anyInt(), anyObject()))
             .thenReturn(0)
-        bankHas("iron_bar", 0)
+        bankHasAvailable("iron_bar", 0)
 
         // when
         gatheringService.gatherLevelingMaterials(character, ironDagger(), quantity = 4, allowFight = false)

@@ -13,6 +13,7 @@ data class GatheringTaskStatus(
     val remaining: Int,
     val reserved: Int,
     val progressPercent: Int,
+    val bankQuantityAtPost: Int,
     val reservations: List<ReservationStatus>,
     val createdAt: Instant,
 )

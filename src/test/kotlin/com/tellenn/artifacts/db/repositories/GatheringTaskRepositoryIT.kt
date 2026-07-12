@@ -89,6 +89,23 @@ class GatheringTaskRepositoryIT {
     }
 
     @Test
+    fun `upsertTarget stores the bank snapshot and refreshes it on each post`() {
+        repository.upsertTarget("iron_bar", "mining", 10, bankQuantity = 3)
+        assertEquals(3, find("iron_bar")!!.bankQuantityAtPost)
+
+        // Le stock banque évolue entre deux posts : la task reflète la dernière photo.
+        repository.upsertTarget("iron_bar", "mining", 12, bankQuantity = 8)
+        assertEquals(8, find("iron_bar")!!.bankQuantityAtPost)
+    }
+
+    @Test
+    fun `upsertTarget defaults the bank snapshot to zero`() {
+        repository.upsertTarget("iron_bar", "mining", 10)
+
+        assertEquals(0, find("iron_bar")!!.bankQuantityAtPost)
+    }
+
+    @Test
     fun `upsertTarget raise preserves remaining already consumed by reservations`() {
         repository.upsertTarget("iron_bar", "mining", 10)
         repository.reserveSlice("iron_bar", "Kepo", 4) // remaining 10 -> 6

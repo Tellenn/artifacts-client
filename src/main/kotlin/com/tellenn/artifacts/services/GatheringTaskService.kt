@@ -33,12 +33,14 @@ class GatheringTaskService(
     /**
      * Publie une tâche par manque positif. Les matériaux assemblés par le crafter
      * (compétence de craft) sont ignorés — le crafter les produit lui-même.
+     * [bankQuantities] est la photo du stock banque disponible par matériau au moment du post,
+     * jointe à la task à titre informatif (le manque publié en est déjà net).
      */
-    fun postShortfalls(materials: Map<String, Int>) {
+    fun postShortfalls(materials: Map<String, Int>, bankQuantities: Map<String, Int> = emptyMap()) {
         materials.forEach { (code, qty) ->
             if (qty <= 0) return@forEach
             val skill = materialResponsibility.skillFor(code) ?: return@forEach
-            repository.upsertTarget(code, skill, qty)
+            repository.upsertTarget(code, skill, qty, bankQuantities[code] ?: 0)
         }
     }
 
@@ -130,6 +132,7 @@ class GatheringTaskService(
         remaining = remaining,
         reserved = reservations.sumOf { it.amount },
         progressPercent = if (targetQuantity > 0) producedQuantity * 100 / targetQuantity else 0,
+        bankQuantityAtPost = bankQuantityAtPost,
         reservations = reservations.map { ReservationStatus(it.owner, it.amount, it.reservedAt) },
         createdAt = createdAt,
     )

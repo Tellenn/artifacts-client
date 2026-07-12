@@ -56,8 +56,25 @@ class GatheringTaskServiceTest {
         service.postShortfalls(mapOf("iron_bar" to 5, "iron_sword" to 3, "ash_plank" to 0))
 
         // then : seul iron_bar est publié ; iron_sword (crafter) et ash_plank (qty 0) sont ignorés
-        verify(repository).upsertTarget("iron_bar", "mining", 5)
+        verify(repository).upsertTarget("iron_bar", "mining", 5, 0)
         verifyNoMoreInteractions(repository)
+    }
+
+    @Test
+    fun `postShortfalls transmet la photo du stock banque de chaque materiau`() {
+        // given
+        `when`(materialResponsibility.skillFor("iron_bar")).thenReturn("mining")
+        `when`(materialResponsibility.skillFor("ash_plank")).thenReturn("woodcutting")
+
+        // when
+        service.postShortfalls(
+            mapOf("iron_bar" to 7, "ash_plank" to 8),
+            mapOf("iron_bar" to 5, "ash_plank" to 0),
+        )
+
+        // then : chaque task porte le stock banque observé au moment du post
+        verify(repository).upsertTarget("iron_bar", "mining", 7, 5)
+        verify(repository).upsertTarget("ash_plank", "woodcutting", 8, 0)
     }
 
     @Test
@@ -212,6 +229,7 @@ class GatheringTaskServiceTest {
         val task = GatheringTaskDocument(
             materialCode = "iron_bar", skill = "mining",
             targetQuantity = 100, remaining = 30, producedQuantity = 40,
+            bankQuantityAtPost = 25,
             reservations = listOf(
                 SliceReservation("Kepo", 20, reservedAt),
                 SliceReservation("Gustave", 10, reservedAt),
@@ -227,7 +245,7 @@ class GatheringTaskServiceTest {
             GatheringTaskStatus(
                 materialCode = "iron_bar", skill = "mining",
                 targetQuantity = 100, producedQuantity = 40, remaining = 30,
-                reserved = 30, progressPercent = 40,
+                reserved = 30, progressPercent = 40, bankQuantityAtPost = 25,
                 reservations = listOf(
                     ReservationStatus("Kepo", 20, reservedAt),
                     ReservationStatus("Gustave", 10, reservedAt),

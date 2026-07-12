@@ -76,7 +76,7 @@ class GatheringTaskRepositoryImpl : GatheringTaskRepositoryCustom {
         )
     }
 
-    override fun upsertTarget(materialCode: String, skill: String, quantity: Int) {
+    override fun upsertTarget(materialCode: String, skill: String, quantity: Int, bankQuantity: Int) {
         val pipeline = listOf(
             Document(
                 "\$set", Document()
@@ -96,6 +96,8 @@ class GatheringTaskRepositoryImpl : GatheringTaskRepositoryCustom {
                     .append("targetQuantity", Document("\$max", listOf(Document("\$ifNull", listOf("\$targetQuantity", 0)), quantity)))
                     .append("skill", Document("\$ifNull", listOf("\$skill", skill)))
                     .append("producedQuantity", Document("\$ifNull", listOf("\$producedQuantity", 0)))
+                    // Photo du stock banque au moment du post : toujours rafraîchie (dernier post gagne).
+                    .append("bankQuantityAtPost", bankQuantity)
                     .append("createdAt", Document("\$ifNull", listOf("\$createdAt", Date.from(Instant.now()))))
             )
         )

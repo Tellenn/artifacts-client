@@ -7,7 +7,6 @@ import com.tellenn.artifacts.clients.NpcClient
 import com.tellenn.artifacts.models.ItemCraft
 import com.tellenn.artifacts.models.ItemDetails
 import com.tellenn.artifacts.models.RecipeIngredient
-import com.tellenn.artifacts.models.SimpleItem
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 import org.mockito.ArgumentMatchers.anyMap
@@ -48,8 +47,8 @@ class GatheringServiceShortfallTest {
             materialResponsibility = materialResponsibility,
             characterContextService = mock(CharacterContextService::class.java),
         )
-        // Default: nothing banked.
-        `when`(bankService.getOne(anyString())).thenReturn(SimpleItem("", 0))
+        // Default: nothing banked (availableQuantity = stock réservations déduites).
+        `when`(bankService.availableQuantity(anyString())).thenReturn(0)
     }
 
     private fun item(vararg ingredients: Pair<String, Int>): ItemDetails =
@@ -69,8 +68,41 @@ class GatheringServiceShortfallTest {
         // when
         gatheringService.postLevelingShortfalls(item("iron_bar" to 3, "ash_plank" to 2), batchSize = 4)
 
+        // then : manques publiés avec la photo du stock banque au moment du post
+        verify(gatheringTaskService).postShortfalls(
+            mapOf("iron_bar" to 12, "ash_plank" to 8),
+            mapOf("iron_bar" to 0, "ash_plank" to 0),
+        )
+    }
+
+    @Test
+    fun `le stock banque disponible (reservations deduites) est soustrait et publie avec la task`() {
+        // given : 5 iron_bar disponibles en banque (réservations déjà déduites par availableQuantity)
+        `when`(materialResponsibility.skillFor("iron_bar")).thenReturn("mining")
+        `when`(materialResponsibility.skillFor("ash_plank")).thenReturn("woodcutting")
+        `when`(bankService.availableQuantity("iron_bar")).thenReturn(5)
+
+        // when : besoin de 12 iron_bar et 8 ash_plank
+        gatheringService.postLevelingShortfalls(item("iron_bar" to 3, "ash_plank" to 2), batchSize = 4)
+
+        // then : seuls les 7 manquants sont publiés, le stock banque est joint pour information
+        verify(gatheringTaskService).postShortfalls(
+            mapOf("iron_bar" to 7, "ash_plank" to 8),
+            mapOf("iron_bar" to 5, "ash_plank" to 0),
+        )
+    }
+
+    @Test
+    fun `le stock banque est lu via availableQuantity et jamais via la quantite brute`() {
+        // given : deux délégables — getOne (quantité brute, réservations ignorées) ne doit pas être consulté
+        `when`(materialResponsibility.skillFor("iron_bar")).thenReturn("mining")
+        `when`(materialResponsibility.skillFor("ash_plank")).thenReturn("woodcutting")
+
+        // when
+        gatheringService.postLevelingShortfalls(item("iron_bar" to 3, "ash_plank" to 2), batchSize = 4)
+
         // then
-        verify(gatheringTaskService).postShortfalls(mapOf("iron_bar" to 12, "ash_plank" to 8))
+        verify(bankService, never()).getOne(anyString())
     }
 
     @Test
@@ -82,7 +114,7 @@ class GatheringServiceShortfallTest {
         gatheringService.postLevelingShortfalls(item("iron_bar" to 3), batchSize = 4)
 
         // then : le crafter le collecte lui-même
-        verify(gatheringTaskService, never()).postShortfalls(anyMap<String, Int>())
+        verify(gatheringTaskService, never()).postShortfalls(anyMap<String, Int>(), anyMap<String, Int>())
     }
 
     @Test
@@ -95,7 +127,7 @@ class GatheringServiceShortfallTest {
         gatheringService.postLevelingShortfalls(item("iron_bar" to 3, "iron_handle" to 1), batchSize = 4)
 
         // then : un seul délégable ⇒ pas de publication
-        verify(gatheringTaskService, never()).postShortfalls(anyMap<String, Int>())
+        verify(gatheringTaskService, never()).postShortfalls(anyMap<String, Int>(), anyMap<String, Int>())
     }
 
     @Test
@@ -103,7 +135,7 @@ class GatheringServiceShortfallTest {
         // given : deux délégables, mais le pool échoue
         `when`(materialResponsibility.skillFor("iron_bar")).thenReturn("mining")
         `when`(materialResponsibility.skillFor("ash_plank")).thenReturn("woodcutting")
-        `when`(gatheringTaskService.postShortfalls(anyMap<String, Int>())).thenThrow(RuntimeException("mongo down"))
+        `when`(gatheringTaskService.postShortfalls(anyMap<String, Int>(), anyMap<String, Int>())).thenThrow(RuntimeException("mongo down"))
 
         // when - then : aucune exception ne remonte
         gatheringService.postLevelingShortfalls(item("iron_bar" to 3, "ash_plank" to 2), batchSize = 4)

@@ -281,7 +281,9 @@ class GatheringService(
 
             gatheringTaskService.produceOpenSlices(ingredient.code, newCharacter.name, chunk, ::gatherChunkToBank)
 
-            val missing = (totalNeeded - bankService.getOne(ingredient.code).quantity).coerceAtLeast(0)
+            // availableQuantity (réservations déduites) : le stock réservé par un autre personnage
+            // sera retiré par lui — le compter comme disponible sous-estimerait le manque.
+            val missing = (totalNeeded - bankService.availableQuantity(ingredient.code)).coerceAtLeast(0)
             var got = 0
             while (got < missing) {
                 val n = minOf(chunk, missing - got)
@@ -304,11 +306,13 @@ class GatheringService(
     internal fun postLevelingShortfalls(item: ItemDetails, batchSize: Int) {
         try {
             val craft = item.craft ?: return
-            val bankQuantities = craft.items.associate { it.code to bankService.getOne(it.code).quantity }
+            // availableQuantity (réservations déduites) : le stock réservé par un autre personnage
+            // n'est pas disponible pour ce batch — le compter sous-estimerait le manque publié.
+            val bankQuantities = craft.items.associate { it.code to bankService.availableQuantity(it.code) }
             val shortfalls = levelingShortfalls(item, batchSize, bankQuantities)
             val delegatable = shortfalls.keys.count { materialResponsibility.skillFor(it) != null }
             if (delegatable <= 1) return
-            gatheringTaskService.postShortfalls(shortfalls)
+            gatheringTaskService.postShortfalls(shortfalls, bankQuantities)
         } catch (e: Exception) {
             log.warn(
                 "Échec de publication des manques de matériaux pour {} : {} — le crafter collectera lui-même",
