@@ -1,6 +1,7 @@
 package com.tellenn.artifacts.services
 
 import com.tellenn.artifacts.clients.AccountClient
+import com.tellenn.artifacts.clients.responses.ArtifactsResponseBody
 import com.tellenn.artifacts.db.documents.BankItemDocument
 import com.tellenn.artifacts.db.repositories.ItemRepository
 import com.tellenn.artifacts.exceptions.NotFoundException
@@ -28,6 +29,7 @@ class EquipmentServiceTest {
     private lateinit var monsterService: MonsterService
     private lateinit var itemService: ItemService
     private lateinit var movementService: MovementService
+    private lateinit var accountClient: AccountClient
     private lateinit var service: EquipmentService
 
     @BeforeEach
@@ -37,6 +39,7 @@ class EquipmentServiceTest {
         monsterService = mock(MonsterService::class.java)
         itemService = mock(ItemService::class.java)
         movementService = mock(MovementService::class.java)
+        accountClient = mock(AccountClient::class.java)
         service = EquipmentService(
             bankService = bankService,
             monsterService = monsterService,
@@ -46,9 +49,17 @@ class EquipmentServiceTest {
             movementService = movementService,
             battleSimulatorService = mock(BattleSimulatorService::class.java),
             bankItemSyncService = mock(BankItemSyncService::class.java),
-            accountClient = mock(AccountClient::class.java),
+            accountClient = accountClient,
             merchantService = mock(MerchantService::class.java),
         )
+    }
+
+    /** Stub la resynchronisation d'entrée : le serveur renvoie [fresh] pour ce nom. */
+    private fun stubServerCharacter(fresh: ArtifactsCharacter) {
+        @Suppress("UNCHECKED_CAST")
+        val response = mock(ArtifactsResponseBody::class.java) as ArtifactsResponseBody<ArtifactsCharacter>
+        `when`(response.data).thenReturn(fresh)
+        `when`(accountClient.getCharacter(fresh.name)).thenReturn(response)
     }
 
     @Test
@@ -118,9 +129,29 @@ class EquipmentServiceTest {
     }
 
     @Test
+    fun `l'equipement repart de l'etat serveur plutot que du snapshot en memoire`() {
+        // given — le snapshot dit map 1, le serveur dit map 99 : c'est l'état serveur qui doit
+        // piloter le déplacement banque (sinon 598/490 sur la première opération banque).
+        val staleHero = character(level = 10, mapId = 1)
+        val freshHero = character(level = 10, mapId = 99)
+        stubServerCharacter(freshHero)
+        `when`(monsterService.getMonster("chicken")).thenReturn(monster(attackFire = 10))
+        `when`(movementService.moveToBank(freshHero)).thenReturn(freshHero)
+        `when`(bankService.emptyInventory(freshHero)).thenReturn(freshHero)
+        `when`(bankService.withdrawMany(ArrayList(), freshHero)).thenReturn(freshHero)
+
+        // when
+        val result = service.equipBestAvailableEquipmentForMonsterInBank(staleHero, "chicken", equipPotions = false)
+
+        // then — tout le flux est parti du personnage resynchronisé
+        assertEquals(freshHero, result)
+    }
+
+    @Test
     fun `la mission d'equipement continue sans nourriture quand le cache banque est perime`() {
         // given — le cache local annonce du cooked_chicken mais la vraie banque renvoie 404
         val hero = character(level = 10)
+        stubServerCharacter(hero)
         `when`(monsterService.getMonster("chicken")).thenReturn(monster(attackFire = 10))
         `when`(movementService.moveToBank(hero)).thenReturn(hero)
         `when`(bankService.emptyInventory(hero)).thenReturn(hero)
@@ -198,9 +229,9 @@ class EquipmentServiceTest {
         initiative = 0, type = "boss",
     )
 
-    private fun character(level: Int, weaponSlot: String? = null) = ArtifactsCharacter(
+    private fun character(level: Int, weaponSlot: String? = null, mapId: Int = 1) = ArtifactsCharacter(
         name = "Hero", account = "acc", level = level, gold = 0, hp = 100, maxHp = 100, x = 0, y = 0,
-        mapId = 1, layer = "main", inventory = arrayOf(), cooldown = 0, skin = null, task = null,
+        mapId = mapId, layer = "main", inventory = arrayOf(), cooldown = 0, skin = null, task = null,
         initiative = 0, threat = 0, dmg = 0, wisdom = 0, prospecting = 0, criticalStrike = 0, speed = 0,
         haste = 0, xp = 0, maxXp = 100, taskType = null, taskTotal = 0, taskProgress = 0,
         miningXp = 0, miningMaxXp = 100, miningLevel = 1, woodcuttingXp = 0, woodcuttingMaxXp = 100,

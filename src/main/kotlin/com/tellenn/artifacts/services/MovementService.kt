@@ -19,7 +19,8 @@ class MovementService(
     private val accountClient: AccountClient,
     private val mapService: MapService,
     private val bankService: BankService,
-    private val teleportService: TeleportService
+    private val teleportService: TeleportService,
+    private val achievementCacheService: AchievementCacheService
 ) {
     private val log = LoggerFactory.getLogger(MovementService::class.java)
 
@@ -114,7 +115,7 @@ class MovementService(
                         canUsePath && bankService.isInBank(condition.code, condition.value)
                     }
                     "achievement_unlocked" -> {
-                        canUsePath && accountClient.getAccountAchievements(character.account, true).data.any { it.code == condition.code }
+                        canUsePath && achievementCacheService.isUnlocked(character.account, condition.code)
                     }
                     else -> {
                         false

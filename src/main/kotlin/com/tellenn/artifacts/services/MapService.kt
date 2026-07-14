@@ -1,6 +1,5 @@
 package com.tellenn.artifacts.services
 
-import com.tellenn.artifacts.clients.AccountClient
 import com.tellenn.artifacts.clients.MapClient
 import com.tellenn.artifacts.models.ArtifactsCharacter
 import com.tellenn.artifacts.models.MapData
@@ -21,7 +20,7 @@ import kotlin.math.sqrt
 class MapService(
     private val mapMongoClient: MapMongoClient,
     private val transitionMapperRepository: TransitionMapperRepository,
-    private val accountClient: AccountClient,
+    private val achievementCacheService: AchievementCacheService,
     private val mapClient: MapClient
 ) {
     private val logger = LoggerFactory.getLogger(MapService::class.java)
@@ -101,14 +100,10 @@ class MapService(
             maps
         }
         if (checkAchievement) {
-            val achievements = accountClient.getAccountAchievements(character.account, true).data
             filteredMaps = filteredMaps.filter { mapData ->
                 mapData.access?.conditions?.all { condition ->
-                    if (condition.operator == "achievement_unlocked") {
-                        achievements.any { it.code == condition.code }
-                    } else {
-                        true
-                    }
+                    condition.operator != "achievement_unlocked" ||
+                        achievementCacheService.isUnlocked(character.account, condition.code)
                 } ?: true
             }
         }

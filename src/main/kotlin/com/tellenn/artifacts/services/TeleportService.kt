@@ -1,6 +1,5 @@
 package com.tellenn.artifacts.services
 
-import com.tellenn.artifacts.clients.AccountClient
 import com.tellenn.artifacts.clients.CharacterClient
 import com.tellenn.artifacts.db.clients.MapMongoClient
 import com.tellenn.artifacts.db.repositories.BankItemRepository
@@ -29,7 +28,7 @@ class TeleportService(
     private val characterClient: CharacterClient,
     private val itemRepository: ItemRepository,
     private val bankItemRepository: BankItemRepository,
-    private val accountClient: AccountClient,
+    private val achievementCacheService: AchievementCacheService,
     private val mapMongoClient: MapMongoClient,
     private val mapService: MapService,
 ) {
@@ -133,9 +132,8 @@ class TeleportService(
     fun canUse(character: ArtifactsCharacter, item: ItemDetails): Boolean =
         item.conditions?.all { condition ->
             when (condition.operator) {
-                "achievement_unlocked" -> accountClient
-                    .getAccountAchievements(character.account, true)
-                    .data.any { it.code == condition.code }
+                "achievement_unlocked" -> achievementCacheService
+                    .isUnlocked(character.account, condition.code)
                 "gt"       -> character.getStat(condition.code) > condition.value
                 "lt"       -> character.getStat(condition.code) < condition.value
                 "eq"       -> character.getStat(condition.code) == condition.value

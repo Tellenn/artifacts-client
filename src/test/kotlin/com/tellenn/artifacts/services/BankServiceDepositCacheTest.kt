@@ -19,10 +19,12 @@ import org.junit.jupiter.api.Test
 import org.mockito.Mockito.any
 import org.mockito.Mockito.anyBoolean
 import org.mockito.Mockito.anyInt
+import org.mockito.Mockito.anyString
 import org.mockito.Mockito.argThat
 import org.mockito.Mockito.atLeastOnce
 import org.mockito.Mockito.eq
 import org.mockito.Mockito.mock
+import org.mockito.Mockito.never
 import org.mockito.Mockito.verify
 import org.mockito.Mockito.`when`
 
@@ -110,6 +112,31 @@ class BankServiceDepositCacheTest {
 
         // then — l'entrée insérée est retirée du cache avant la re-tentative
         verify(bankRepository, atLeastOnce()).delete(argMatchDoc { it.code == "old_boots" })
+    }
+
+    @Test
+    fun `deposit ne se redeplace pas quand le personnage resynchronise est deja a la banque`() {
+        // given — 598 à la 1re tentative, mais l'état serveur montre le perso déjà sur la banque
+        // (545) : re-déplacer déclencherait un 490 « character already at destination ».
+        val character = buildCharacter()
+        val successResponse = depositResponse(character)
+        val accountResponse = characterResponse(character)
+        val bankMap = mock(MapData::class.java)
+        `when`(bankMap.mapId).thenReturn(545) // même case que le personnage
+        `when`(itemRepository.findByCode("old_boots")).thenReturn(boots())
+        `when`(bankRepository.findByCode("old_boots")).thenReturn(bankedBoots(quantity = 5))
+        `when`(bankClient.depositItems(eqObject("Renoir"), anyObject()))
+            .thenThrow(MapContentNotFoundException())
+            .thenReturn(successResponse)
+        `when`(accountClient.getCharacter("Renoir")).thenReturn(accountResponse)
+        `when`(mapService.findClosestMap(anyObject(), any(), any(), anyBoolean(), anyObject()))
+            .thenReturn(bankMap)
+
+        // when
+        service.deposit(character, listOf(SimpleItem("old_boots", 3)))
+
+        // then — aucun déplacement : le dépôt est simplement re-tenté sur place
+        verify(movementClient, never()).move(anyString(), anyInt())
     }
 
     private fun stubBankRelocation(character: ArtifactsCharacter) {

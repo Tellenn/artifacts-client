@@ -1,8 +1,6 @@
 package com.tellenn.artifacts.services
 
 import com.tellenn.artifacts.clients.CharacterClient
-import com.tellenn.artifacts.clients.AccountClient
-import com.tellenn.artifacts.clients.responses.ArtifactsArrayResponseBody
 import com.tellenn.artifacts.clients.responses.ArtifactsResponseBody
 import com.tellenn.artifacts.clients.responses.UseItemResponseBody
 import com.tellenn.artifacts.db.clients.MapMongoClient
@@ -10,7 +8,6 @@ import com.tellenn.artifacts.db.documents.BankItemDocument
 import com.tellenn.artifacts.db.repositories.BankItemRepository
 import com.tellenn.artifacts.db.repositories.ItemRepository
 import com.tellenn.artifacts.models.*
-import com.tellenn.artifacts.models.Achievement
 import org.junit.jupiter.api.Assertions.*
 import org.junit.jupiter.api.Test
 import org.mockito.Mockito.*
@@ -20,12 +17,12 @@ class TeleportServiceTest {
     private val characterClient = mock(CharacterClient::class.java)
     private val itemRepository = mock(ItemRepository::class.java)
     private val bankItemRepository = mock(BankItemRepository::class.java)
-    private val accountClient = mock(AccountClient::class.java)
+    private val achievementCacheService = mock(AchievementCacheService::class.java)
     private val mapMongoClient = mock(MapMongoClient::class.java)
     private val mapService = mock(MapService::class.java)
 
     private val service = TeleportService(
-        characterClient, itemRepository, bankItemRepository, accountClient, mapMongoClient, mapService
+        characterClient, itemRepository, bankItemRepository, achievementCacheService, mapMongoClient, mapService
     )
 
     private fun buildCharacter(
@@ -92,10 +89,7 @@ class TeleportServiceTest {
         val potion = buildPotion("tp_potion", 545,
             conditions = listOf(ItemCondition("draconic_harvest", "achievement_unlocked", 1)))
         val character = buildCharacter()
-        val achievement = mock(Achievement::class.java)
-        `when`(achievement.code).thenReturn("draconic_harvest")
-        `when`(accountClient.getAccountAchievements(character.account, true))
-            .thenReturn(ArtifactsArrayResponseBody(listOf(achievement), 1, 1, 50, 1))
+        `when`(achievementCacheService.isUnlocked(character.account, "draconic_harvest")).thenReturn(true)
         assertTrue(service.canUse(character, potion))
     }
 
@@ -104,8 +98,7 @@ class TeleportServiceTest {
         val potion = buildPotion("tp_potion", 545,
             conditions = listOf(ItemCondition("draconic_harvest", "achievement_unlocked", 1)))
         val character = buildCharacter()
-        `when`(accountClient.getAccountAchievements(character.account, true))
-            .thenReturn(ArtifactsArrayResponseBody(emptyList(), 0, 1, 50, 0))
+        `when`(achievementCacheService.isUnlocked(character.account, "draconic_harvest")).thenReturn(false)
         assertFalse(service.canUse(character, potion))
     }
 

@@ -11,6 +11,7 @@ import com.tellenn.artifacts.db.documents.BankItemDocument
 import com.tellenn.artifacts.db.repositories.BankItemRepository
 import com.tellenn.artifacts.db.repositories.ItemRepository
 import com.tellenn.artifacts.exceptions.BankCorruptedException
+import com.tellenn.artifacts.exceptions.CharacterAlreadyMapException
 import com.tellenn.artifacts.exceptions.CharacterGoldInsufficientException
 import com.tellenn.artifacts.exceptions.MapContentNotFoundException
 import com.tellenn.artifacts.exceptions.MissingItemException
@@ -172,10 +173,7 @@ class BankService(
                     // Le dépôt n'a pas eu lieu : on restaure le cache avant la re-tentative, sinon
                     // la récursion recompterait les mêmes items (entrées fantômes en banque).
                     rollbackCacheUpdates(newBankItems, originalBankItems)
-                    newCharacter = accountClient.getCharacter(newCharacter.name).data
-                    val closestBank = mapService.findClosestMap(newCharacter, "bank")
-                    newCharacter = movementClient.move(newCharacter.name, closestBank.mapId).data.character
-                    return deposit(newCharacter, items)
+                    return deposit(relocateToBank(newCharacter.name), items)
                 }
             }
 
@@ -188,6 +186,25 @@ class BankService(
         }
 
         return newCharacter
+    }
+
+    /**
+     * Resynchronise le personnage depuis le serveur et le ramène à la banque si besoin.
+     * Utilisé après un 598 : seul l'état serveur fait foi, le snapshot mémoire était périmé.
+     * N'utilise pas MovementService (dépendance circulaire) : déplacement direct, et le 490
+     * « déjà sur place » d'un déplacement concurrent est traité comme un succès.
+     */
+    private fun relocateToBank(characterName: String): ArtifactsCharacter {
+        val freshCharacter = accountClient.getCharacter(characterName).data
+        val closestBank = mapService.findClosestMap(freshCharacter, "bank")
+        if (freshCharacter.mapId == closestBank.mapId) {
+            return freshCharacter
+        }
+        return try {
+            movementClient.move(freshCharacter.name, closestBank.mapId).data.character
+        } catch (_: CharacterAlreadyMapException) {
+            accountClient.getCharacter(freshCharacter.name).data
+        }
     }
 
     /** Restaure le cache banque local dans l'état d'avant un [deposit] qui a échoué côté API. */
@@ -260,6 +277,10 @@ class BankService(
             // 404 = l'item n'existe plus du tout dans la vraie banque : le cache local est périmé
             bankItemSyncService.syncAllItems()
             throw e
+        }catch (_: MapContentNotFoundException){
+            // 598 = le personnage n'est pas à la banque (snapshot mémoire périmé) :
+            // on resynchronise sa position depuis le serveur puis on re-tente le retrait.
+            return withdrawMany(items, relocateToBank(character.name))
         }
 
         // Remove items from the local database

@@ -1,6 +1,5 @@
 package com.tellenn.artifacts.services
 
-import com.tellenn.artifacts.clients.AccountClient
 import com.tellenn.artifacts.clients.MapClient
 import com.tellenn.artifacts.db.clients.MapMongoClient
 import com.tellenn.artifacts.db.repositories.TransitionMapperRepository
@@ -17,15 +16,13 @@ class MapServiceTransitionTest {
 
     private lateinit var transitionMapperRepository: TransitionMapperRepository
     private lateinit var mapMongoClient: MapMongoClient
-    private lateinit var accountClient: AccountClient
     private lateinit var mapService: MapService
 
     @BeforeEach
     fun setUp() {
         mapMongoClient = mock(MapMongoClient::class.java)
         transitionMapperRepository = mock(TransitionMapperRepository::class.java)
-        accountClient = mock(AccountClient::class.java)
-        mapService = MapService(mapMongoClient, transitionMapperRepository, accountClient, mock(MapClient::class.java))
+        mapService = MapService(mapMongoClient, transitionMapperRepository, mock(AchievementCacheService::class.java), mock(MapClient::class.java))
     }
 
     @Test

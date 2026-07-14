@@ -15,7 +15,10 @@ class MovementServiceTeleportTest {
     private val bankService = mock(BankService::class.java)
     private val teleportService = mock(TeleportService::class.java)
 
-    private val service = MovementService(movementClient, accountClient, mapService, bankService, teleportService)
+    private val service = MovementService(
+        movementClient, accountClient, mapService, bankService, teleportService,
+        mock(AchievementCacheService::class.java),
+    )
 
     private fun buildCharacter(mapId: Int = 1, name: String = "Cloud", x: Int = 0, y: Int = 0): ArtifactsCharacter =
         ArtifactsCharacter(

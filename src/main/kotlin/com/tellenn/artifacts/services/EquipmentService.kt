@@ -44,6 +44,13 @@ class EquipmentService(
     private val merchantService: MerchantService
 ) {
     fun equipBestAvailableEquipmentForMonsterInBank(character: ArtifactsCharacter, monsterCode: String, threatScoreMult:Int = 1, equipPotions: Boolean = true) : ArtifactsCharacter{
+        // Ce chemin arrive souvent avec un snapshot périmé (retour de tâche, thread relancé) :
+        // on repart de l'état serveur, sinon moveToBank saute le déplacement (598/490 en banque).
+        val freshCharacter = accountClient.getCharacter(character.name).data
+        return equipBestEquipmentFromBank(freshCharacter, monsterCode, threatScoreMult, equipPotions)
+    }
+
+    private fun equipBestEquipmentFromBank(character: ArtifactsCharacter, monsterCode: String, threatScoreMult: Int, equipPotions: Boolean) : ArtifactsCharacter{
         val bis = findBestEquipmentForMonsterInBank(character, monsterCode, threatScoreMult)
         var newCharacter = movementService.moveToBank(character)
         newCharacter = bankService.emptyInventory(newCharacter)

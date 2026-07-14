@@ -1,6 +1,5 @@
 package com.tellenn.artifacts.services
 
-import com.tellenn.artifacts.clients.AccountClient
 import com.tellenn.artifacts.clients.MapClient
 import com.tellenn.artifacts.models.*
 import com.tellenn.artifacts.clients.responses.ArtifactsArrayResponseBody
@@ -18,7 +17,7 @@ class MapProximityServiceTest {
 
     private lateinit var transitionMapperRepository: TransitionMapperRepository
     private lateinit var mapMongoClient: MapMongoClient
-    private lateinit var accountClient: AccountClient
+    private lateinit var achievementCacheService: AchievementCacheService
     private lateinit var mapClient: MapClient
     private lateinit var mapService: MapService
 
@@ -26,9 +25,9 @@ class MapProximityServiceTest {
     fun setUp() {
         mapMongoClient = mock(MapMongoClient::class.java)
         transitionMapperRepository = mock(TransitionMapperRepository::class.java)
-        accountClient = mock(AccountClient::class.java)
+        achievementCacheService = mock(AchievementCacheService::class.java)
         mapClient = mock(MapClient::class.java)
-        mapService = MapService(mapMongoClient, transitionMapperRepository, accountClient, mapClient)
+        mapService = MapService(mapMongoClient, transitionMapperRepository, achievementCacheService, mapClient)
     }
 
     @Test
@@ -136,14 +135,7 @@ class MapProximityServiceTest {
         )).thenReturn(response)
 
         // Mock achievements: character does NOT have "locked_ach"
-        val achievementsResponse = ArtifactsArrayResponseBody(
-            data = listOf(createAchievement("some_other_ach")),
-            total = 1,
-            page = 1,
-            size = 1,
-            pages = 1
-        )
-        `when`(accountClient.getAccountAchievements("TestAccount", true)).thenReturn(achievementsResponse)
+        `when`(achievementCacheService.isUnlocked("TestAccount", "locked_ach")).thenReturn(false)
 
         // When
         val result = mapService.findClosestMap(character, checkAchievement = true)
@@ -180,14 +172,7 @@ class MapProximityServiceTest {
         )).thenReturn(response)
 
         // Mock achievements: character HAS "locked_ach"
-        val achievementsResponse = ArtifactsArrayResponseBody(
-            data = listOf(createAchievement("locked_ach")),
-            total = 1,
-            page = 1,
-            size = 1,
-            pages = 1
-        )
-        `when`(accountClient.getAccountAchievements("TestAccount", true)).thenReturn(achievementsResponse)
+        `when`(achievementCacheService.isUnlocked("TestAccount", "locked_ach")).thenReturn(true)
 
         // When
         val result = mapService.findClosestMap(character, checkAchievement = true)
@@ -249,18 +234,6 @@ class MapProximityServiceTest {
             access = access,
             interactions = null,
             region = 1
-        )
-    }
-
-    private fun createAchievement(code: String): Achievement {
-        return Achievement(
-            name = "Achievement $code",
-            code = code,
-            description = "Desc",
-            points = 10,
-            objectives = emptyList(),
-            rewards = Rewards(0,null),
-            completedAt = "now"
         )
     }
 
