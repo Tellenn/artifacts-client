@@ -208,6 +208,126 @@ class GatheringTaskRepositoryIT {
         assertEquals(fresh.id, task.reservations.first().id)
     }
 
+    // --- absorbExternalProduction : production hors pool (complément direct du crafter) ---
+
+    @Test
+    fun `absorbExternalProduction credits produced and shrinks remaining`() {
+        repository.upsertTarget("iron_bar", "mining", 10)
+
+        repository.absorbExternalProduction("iron_bar", 4)
+
+        val task = find("iron_bar")!!
+        assertEquals(4, task.producedQuantity)
+        assertEquals(6, task.remaining)
+    }
+
+    @Test
+    fun `absorbExternalProduction floors remaining at zero`() {
+        repository.upsertTarget("iron_bar", "mining", 10)
+        repository.reserveSlice("iron_bar", "Kepo", 8) // remaining 2
+
+        repository.absorbExternalProduction("iron_bar", 5)
+
+        val task = find("iron_bar")!!
+        assertEquals(5, task.producedQuantity)
+        assertEquals(0, task.remaining) // jamais négatif
+    }
+
+    @Test
+    fun `absorbExternalProduction removes the task once the target is covered`() {
+        repository.upsertTarget("iron_bar", "mining", 10)
+        repository.absorbExternalProduction("iron_bar", 6)
+
+        repository.absorbExternalProduction("iron_bar", 4)
+
+        assertNull(find("iron_bar"))
+    }
+
+    @Test
+    fun `absorbExternalProduction is a no-op when no task exists`() {
+        repository.absorbExternalProduction("iron_bar", 5)
+
+        assertNull(find("iron_bar")) // pas de document créé par accident
+    }
+
+    // --- lastPostedAt + deleteStaleTasks : filet contre les tâches zombies ---
+
+    @Test
+    fun `upsertTarget refreshes lastPostedAt on each post`() {
+        repository.upsertTarget("iron_bar", "mining", 10)
+        val backdated = Instant.now().minus(3, ChronoUnit.DAYS)
+        mongoTemplate.updateFirst(
+            Query.query(Criteria.where("_id").`is`("iron_bar")),
+            Update().set("lastPostedAt", backdated),
+            GatheringTaskDocument::class.java
+        )
+
+        repository.upsertTarget("iron_bar", "mining", 12)
+
+        assertTrue(find("iron_bar")!!.lastPostedAt.isAfter(backdated.plus(1, ChronoUnit.DAYS)))
+    }
+
+    @Test
+    fun `deleteStaleTasks removes unreserved tasks not posted since the cutoff`() {
+        repository.upsertTarget("iron_bar", "mining", 10)
+        mongoTemplate.updateFirst(
+            Query.query(Criteria.where("_id").`is`("iron_bar")),
+            Update().set("lastPostedAt", Instant.now().minus(3, ChronoUnit.DAYS)),
+            GatheringTaskDocument::class.java
+        )
+
+        val deleted = repository.deleteStaleTasks(Instant.now().minus(24, ChronoUnit.HOURS))
+
+        assertEquals(1, deleted)
+        assertNull(find("iron_bar"))
+    }
+
+    @Test
+    fun `deleteStaleTasks keeps freshly posted tasks`() {
+        repository.upsertTarget("iron_bar", "mining", 10)
+
+        val deleted = repository.deleteStaleTasks(Instant.now().minus(24, ChronoUnit.HOURS))
+
+        assertEquals(0, deleted)
+        assertNotNull(find("iron_bar"))
+    }
+
+    @Test
+    fun `deleteStaleTasks spares stale tasks still holding reservations`() {
+        repository.upsertTarget("iron_bar", "mining", 10)
+        repository.reserveSlice("iron_bar", "Kepo", 4)
+        mongoTemplate.updateFirst(
+            Query.query(Criteria.where("_id").`is`("iron_bar")),
+            Update().set("lastPostedAt", Instant.now().minus(3, ChronoUnit.DAYS)),
+            GatheringTaskDocument::class.java
+        )
+
+        val deleted = repository.deleteStaleTasks(Instant.now().minus(24, ChronoUnit.HOURS))
+
+        assertEquals(0, deleted)
+        assertNotNull(find("iron_bar")) // une production en cours n'est jamais purgée
+    }
+
+    @Test
+    fun `deleteStaleTasks falls back to createdAt for legacy tasks without lastPostedAt`() {
+        // Document hérité d'avant l'introduction de lastPostedAt (ex. la tâche zombie en prod)
+        mongoTemplate.getCollection("gathering_tasks").insertOne(
+            org.bson.Document(
+                mapOf(
+                    "_id" to "hardwood_plank", "skill" to "woodcutting",
+                    "targetQuantity" to 548, "remaining" to 67, "producedQuantity" to 481,
+                    "reservations" to emptyList<Any>(),
+                    "createdAt" to java.util.Date.from(Instant.now().minus(3, ChronoUnit.DAYS)),
+                )
+            )
+        )
+
+        val deleted = repository.deleteStaleTasks(Instant.now().minus(24, ChronoUnit.HOURS))
+
+        assertEquals(1, deleted)
+        assertNull(find("hardwood_plank"))
+    }
+
     @Test
     fun `releaseOrphanedReservations spares old reservations still held by an active production`() {
         repository.upsertTarget("iron_bar", "mining", 10)

@@ -12,6 +12,8 @@ import java.util.UUID
  * `remaining` est la quantité encore non réservée, tirée atomiquement par les workers.
  * `bankQuantityAtPost` est la photo du stock banque disponible au moment du dernier post
  * (information : le besoin publié est déjà net de ce stock).
+ * `lastPostedAt` est rafraîchi à chaque post : une tâche sans post ni réservation récents
+ * est périmée (batch terminé hors pool) et purgée par le filet.
  */
 @Document(collection = "gathering_tasks")
 data class GatheringTaskDocument(
@@ -22,7 +24,8 @@ data class GatheringTaskDocument(
     val producedQuantity: Int = 0,
     val bankQuantityAtPost: Int = 0,
     val reservations: List<SliceReservation> = emptyList(),
-    val createdAt: Instant = Instant.now()
+    val createdAt: Instant = Instant.now(),
+    val lastPostedAt: Instant = Instant.now(),
 )
 
 /** Réservation d'une tranche (slice) en cours de production par un worker. */

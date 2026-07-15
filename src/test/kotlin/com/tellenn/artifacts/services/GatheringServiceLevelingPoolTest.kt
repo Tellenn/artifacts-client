@@ -187,6 +187,55 @@ class GatheringServiceLevelingPoolTest {
             .craftOrGather(anyObject(), eqObject("iron_bar"), eq(2), anyInt(), anyBoolean(), anyBoolean())
     }
 
+    // --- absorption du complément : la collecte directe doit créditer la tâche du pool,
+    // sinon elle reste zombie (remaining figé) et les workers sur-produisent ---
+
+    @Test
+    fun `le complement collecte directement est absorbe par la tache du pool`() {
+        // given : pool vide, 5 en banque sur les 12 requis → complément direct de 7
+        `when`(itemService.getInvSizeToCraft(anyObject())).thenReturn(2)
+        `when`(gatheringTaskService.produceOpenSlices(anyString(), anyString(), anyInt(), anyObject()))
+            .thenReturn(0)
+        bankHasAvailable("iron_bar", 5)
+
+        // when
+        gatheringService.gatherLevelingMaterials(character, ironDagger(), quantity = 4, allowFight = false)
+
+        // then : les 7 produits hors pool sont crédités à la tâche
+        verify(gatheringTaskService).absorbExternalProduction("iron_bar", 7)
+    }
+
+    @Test
+    fun `chaque chunk du complement est absorbe des son depot en banque`() {
+        // given : footprint 20 → chunk = 5 ; rien en banque ni dans le pool → 12 en 5 + 5 + 2
+        `when`(itemService.getInvSizeToCraft(anyObject())).thenReturn(20)
+        `when`(gatheringTaskService.produceOpenSlices(anyString(), anyString(), anyInt(), anyObject()))
+            .thenReturn(0)
+        bankHasAvailable("iron_bar", 0)
+
+        // when
+        gatheringService.gatherLevelingMaterials(character, ironDagger(), quantity = 4, allowFight = false)
+
+        // then : l'absorption suit le rythme des dépôts, pas un report unique en fin de phase
+        verify(gatheringTaskService, times(2)).absorbExternalProduction("iron_bar", 5)
+        verify(gatheringTaskService).absorbExternalProduction("iron_bar", 2)
+    }
+
+    @Test
+    fun `rien n'est absorbe quand la banque couvre deja le besoin`() {
+        // given : le pool a tout produit, la banque est complète → pas de complément
+        `when`(itemService.getInvSizeToCraft(anyObject())).thenReturn(2)
+        `when`(gatheringTaskService.produceOpenSlices(anyString(), anyString(), anyInt(), anyObject()))
+            .thenReturn(12)
+        bankHasAvailable("iron_bar", 12)
+
+        // when
+        gatheringService.gatherLevelingMaterials(character, ironDagger(), quantity = 4, allowFight = false)
+
+        // then
+        verify(gatheringTaskService, never()).absorbExternalProduction(anyString(), anyInt())
+    }
+
     private fun character(inventoryMaxItems: Int) = ArtifactsCharacter(
         name = "Renoir", account = "tellenn", level = 20, gold = 0, hp = 100, maxHp = 100, x = 0, y = 0,
         mapId = 1, layer = "main", inventory = arrayOf(), cooldown = 0, skin = null, task = null,

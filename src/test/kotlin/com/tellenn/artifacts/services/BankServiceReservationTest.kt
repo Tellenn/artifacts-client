@@ -3,9 +3,9 @@ package com.tellenn.artifacts.services
 import com.tellenn.artifacts.clients.AccountClient
 import com.tellenn.artifacts.clients.BankClient
 import com.tellenn.artifacts.clients.MovementClient
-import com.tellenn.artifacts.clients.responses.ArtifactsArrayResponseBody
 import com.tellenn.artifacts.clients.responses.ArtifactsResponseBody
 import com.tellenn.artifacts.clients.responses.BankItemTransaction
+import com.tellenn.artifacts.db.documents.BankItemDocument
 import com.tellenn.artifacts.db.repositories.BankItemRepository
 import com.tellenn.artifacts.db.repositories.ItemRepository
 import com.tellenn.artifacts.models.ArtifactsCharacter
@@ -81,8 +81,8 @@ class BankServiceReservationTest {
     }
 
     private fun stubBankedQuantity(code: String, quantity: Int) {
-        `when`(bankClient.getBankedItems(code))
-            .thenReturn(ArtifactsArrayResponseBody(listOf(SimpleItem(code, quantity)), 1, 1, 1, 1))
+        `when`(bankRepository.findByCode(code))
+            .thenReturn(BankItemDocument(code, code, "", "resource", "", 1, true, true, null, null, null, quantity))
     }
 
     private fun transaction(character: ArtifactsCharacter) = BankItemTransaction(

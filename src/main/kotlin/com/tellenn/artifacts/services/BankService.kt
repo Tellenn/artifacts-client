@@ -227,14 +227,17 @@ class BankService(
         return withdrawMany(ArrayList(listOf(SimpleItem(itemCode, quantity))), character)
     }
 
+    // Lecture sur le cache Mongo (synchronisé par BankItemSyncService + resync sur 404) et non
+    // sur l'API live : ces méthodes sont appelées dans les boucles de sélection des jobs et
+    // saturaient le quota horaire (~1300 req/h sur /my/bank/items).
     fun isInBank(item: String?, quantityLeft: Int = 1): Boolean {
-        val bankedItem = bankClient.getBankedItems(item).data.firstOrNull() ?: return false
+        val bankedItem = item?.let { bankRepository.findByCode(it) } ?: return false
         return bankedItem.quantity - reservedQuantity(item) >= quantityLeft
     }
 
     /** Quantité en banque encore disponible pour [code], réservations de tous les personnages déduites. */
     fun availableQuantity(code: String): Int {
-        val banked = bankClient.getBankedItems(code).data.firstOrNull()?.quantity ?: 0
+        val banked = bankRepository.findByCode(code)?.quantity ?: 0
         return (banked - reservedQuantity(code)).coerceAtLeast(0)
     }
 

@@ -1,5 +1,7 @@
 package com.tellenn.artifacts.db.repositories
 
+import com.mongodb.client.model.FindOneAndUpdateOptions
+import com.mongodb.client.model.ReturnDocument
 import com.mongodb.client.model.UpdateOptions
 import com.tellenn.artifacts.db.documents.GatheringTaskDocument
 import com.tellenn.artifacts.db.documents.SliceReservation
@@ -99,6 +101,8 @@ class GatheringTaskRepositoryImpl : GatheringTaskRepositoryCustom {
                     // Photo du stock banque au moment du post : toujours rafraîchie (dernier post gagne).
                     .append("bankQuantityAtPost", bankQuantity)
                     .append("createdAt", Document("\$ifNull", listOf("\$createdAt", Date.from(Instant.now()))))
+                    // Horodatage d'activité pour la purge des tâches périmées : toujours rafraîchi.
+                    .append("lastPostedAt", Date.from(Instant.now()))
             )
         )
         mongoTemplate.execute<Void?>(GatheringTaskDocument::class.java) { collection ->
@@ -109,6 +113,57 @@ class GatheringTaskRepositoryImpl : GatheringTaskRepositoryCustom {
             )
             null
         }
+    }
+
+    override fun absorbExternalProduction(materialCode: String, amount: Int) {
+        val pipeline = listOf(
+            Document(
+                "\$set", Document()
+                    .append(
+                        "producedQuantity",
+                        Document("\$add", listOf(Document("\$ifNull", listOf("\$producedQuantity", 0)), amount))
+                    )
+                    .append(
+                        "remaining",
+                        Document(
+                            "\$max", listOf(
+                                0,
+                                Document("\$subtract", listOf(Document("\$ifNull", listOf("\$remaining", 0)), amount))
+                            )
+                        )
+                    )
+            )
+        )
+        val updated = mongoTemplate.execute<Document?>(GatheringTaskDocument::class.java) { collection ->
+            collection.findOneAndUpdate(
+                Document("_id", materialCode),
+                pipeline,
+                FindOneAndUpdateOptions().returnDocument(ReturnDocument.AFTER)
+            )
+        } ?: return
+
+        if (updated.getInteger("producedQuantity", 0) >= updated.getInteger("targetQuantity", 0)) {
+            mongoTemplate.remove(
+                Query.query(Criteria.where("_id").`is`(materialCode)),
+                GatheringTaskDocument::class.java
+            )
+        }
+    }
+
+    override fun deleteStaleTasks(cutoff: Instant): Long {
+        val staleActivity = Criteria().orOperator(
+            Criteria.where("lastPostedAt").lt(cutoff),
+            // Documents antérieurs à l'introduction de lastPostedAt : repli sur createdAt.
+            Criteria().andOperator(
+                Criteria.where("lastPostedAt").exists(false),
+                Criteria.where("createdAt").lt(cutoff),
+            )
+        )
+        // `reservations.0` absent = liste vide ou champ manquant : aucune production en cours.
+        val query = Query.query(
+            Criteria().andOperator(Criteria.where("reservations.0").exists(false), staleActivity)
+        )
+        return mongoTemplate.remove(query, GatheringTaskDocument::class.java).deletedCount
     }
 
     override fun releaseOrphanedReservations(activeIds: Set<String>, olderThan: Instant) {

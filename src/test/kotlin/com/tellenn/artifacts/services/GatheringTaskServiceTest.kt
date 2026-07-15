@@ -361,6 +361,67 @@ class GatheringTaskServiceTest {
         assertTrue(scheduled.initialDelay <= 0, "le premier sweep doit s'exécuter dès le démarrage")
     }
 
+    // --- absorbExternalProduction : la collecte directe (hors pool) du crafter doit créditer
+    // la tâche, sinon elle survit en zombie avec un remaining jamais consommé ---
+
+    @Test
+    fun `absorbExternalProduction credite le repository`() {
+        // when
+        service.absorbExternalProduction("iron_bar", 7)
+
+        // then
+        verify(repository).absorbExternalProduction("iron_bar", 7)
+    }
+
+    @Test
+    fun `absorbExternalProduction ignore les quantites non positives`() {
+        // when
+        service.absorbExternalProduction("iron_bar", 0)
+        service.absorbExternalProduction("iron_bar", -3)
+
+        // then
+        org.mockito.Mockito.verifyNoInteractions(repository)
+    }
+
+    @Test
+    fun `absorbExternalProduction est best-effort quand le pool est injoignable`() {
+        // given : le pool est indisponible — la collecte directe ne doit pas en pâtir
+        org.mockito.Mockito.doThrow(RuntimeException("mongo down"))
+            .`when`(repository).absorbExternalProduction("iron_bar", 7)
+
+        // when - then : aucune exception ne remonte
+        service.absorbExternalProduction("iron_bar", 7)
+    }
+
+    // --- purgeStaleTasks : filet contre les tâches zombies (batch terminé hors pool,
+    // crash du crafter…) — sans réservation ni post récent, la tâche est périmée ---
+
+    @Test
+    fun `purgeStaleTasks purge les taches sans activite depuis 24 heures`() {
+        // when
+        service.purgeStaleTasks()
+
+        // then : le cutoff transmis laisse 24 h de vie aux tâches
+        val cutoff = org.mockito.Mockito.mockingDetails(repository).invocations
+            .single { it.method.name == "deleteStaleTasks" }
+            .getArgument<Instant>(0)
+        val expected = Instant.now().minus(java.time.Duration.ofHours(24))
+        assertTrue(java.time.Duration.between(cutoff, expected).abs().seconds < 5)
+    }
+
+    @Test
+    fun `purgeStaleTasks est planifiee periodiquement et des le demarrage`() {
+        // given : sans @Scheduled, les tâches zombies ne sont jamais nettoyées
+        val scheduled = GatheringTaskService::class.java
+            .getMethod("purgeStaleTasks")
+            .getAnnotation(org.springframework.scheduling.annotation.Scheduled::class.java)
+
+        // then : périodique, et premier passage dès le démarrage (purge post-redémarrage)
+        org.junit.jupiter.api.Assertions.assertNotNull(scheduled, "purgeStaleTasks doit être planifiée via @Scheduled")
+        assertTrue(scheduled.fixedRate > 0, "la purge doit être périodique (fixedRate)")
+        assertTrue(scheduled.initialDelay <= 0, "la première purge doit s'exécuter dès le démarrage")
+    }
+
     @Test
     fun `getQueueStatus returns an empty list when the pool is empty`() {
         // given

@@ -288,6 +288,9 @@ class GatheringService(
             while (got < missing) {
                 val n = minOf(chunk, missing - got)
                 gatherChunkToBank(n)
+                // Absorption par la tâche du pool : sans elle, la tâche reste zombie (remaining
+                // figé) et les workers sur-produisent un besoin déjà couvert par ce complément.
+                gatheringTaskService.absorbExternalProduction(ingredient.code, n)
                 got += n
             }
         }

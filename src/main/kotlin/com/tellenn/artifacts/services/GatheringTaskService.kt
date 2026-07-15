@@ -55,6 +55,23 @@ class GatheringTaskService(
     fun reportProduced(materialCode: String, reservationId: String, amount: Int) =
         repository.reportProduced(materialCode, reservationId, amount)
 
+    /**
+     * Crédite à la tâche une production réalisée hors pool (complément direct du crafter) :
+     * sans cette absorption, la tâche survit en zombie (remaining figé) et les workers
+     * sur-produisent un matériau dont le besoin est déjà couvert. Best-effort : un échec est
+     * journalisé, la purge des tâches périmées sert de filet.
+     */
+    fun absorbExternalProduction(materialCode: String, amount: Int) {
+        if (amount <= 0) return
+        runCatching { repository.absorbExternalProduction(materialCode, amount) }
+            .onFailure {
+                logger.warn(
+                    "Absorption de production hors pool impossible pour {} — la purge des tâches périmées servira de filet",
+                    materialCode
+                )
+            }
+    }
+
     fun releaseSlice(materialCode: String, reservationId: String, amount: Int) =
         repository.releaseSlice(materialCode, reservationId, amount)
 
@@ -150,10 +167,25 @@ class GatheringTaskService(
     fun releaseOrphanedReservations() =
         repository.releaseOrphanedReservations(activeReservations.toSet(), Instant.now().minus(ORPHAN_GRACE))
 
+    /**
+     * Filet contre les tâches zombies : une tâche sans réservation ni post depuis [STALE_TASK_TTL]
+     * appartient à un batch terminé (besoin couvert hors pool) ou abandonné — la garder ferait
+     * sur-produire les workers. Premier passage dès le démarrage pour purger les reliquats.
+     */
+    @Scheduled(fixedRate = STALE_SWEEP_MS)
+    fun purgeStaleTasks() {
+        val deleted = repository.deleteStaleTasks(Instant.now().minus(STALE_TASK_TTL))
+        if (deleted > 0) {
+            logger.info("Purge de {} tâche(s) de récolte périmée(s) (aucune activité depuis {})", deleted, STALE_TASK_TTL)
+        }
+    }
+
     companion object {
         private val logger = LogManager.getLogger(GatheringTaskService::class.java)
         private const val ORPHAN_SWEEP_MS = 60_000L
         private val ORPHAN_GRACE: Duration = Duration.ofMinutes(2)
+        private const val STALE_SWEEP_MS = 3_600_000L
+        private val STALE_TASK_TTL: Duration = Duration.ofHours(24)
         private const val MOB_SKILL = "mob"
         private const val MAX_MOB_SLICE = 20
     }

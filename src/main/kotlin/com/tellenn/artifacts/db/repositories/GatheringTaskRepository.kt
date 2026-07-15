@@ -35,6 +35,20 @@ interface GatheringTaskRepositoryCustom {
      * n'appartient pas à [activeIds] (les tranches encore détenues par une production en cours).
      */
     fun releaseOrphanedReservations(activeIds: Set<String>, olderThan: Instant)
+
+    /**
+     * Crédite [amount] unités produites hors pool (collecte directe du crafter) : incrémente
+     * `producedQuantity`, consomme `remaining` (plancher 0) et supprime la tâche une fois la
+     * cible couverte. No-op si aucune tâche n'existe pour [materialCode].
+     */
+    fun absorbExternalProduction(materialCode: String, amount: Int)
+
+    /**
+     * Supprime les tâches périmées : aucune réservation en cours et dernier post antérieur à
+     * [cutoff] (repli sur `createdAt` pour les documents antérieurs à `lastPostedAt`).
+     * @return le nombre de tâches supprimées.
+     */
+    fun deleteStaleTasks(cutoff: Instant): Long
 }
 
 @Repository
