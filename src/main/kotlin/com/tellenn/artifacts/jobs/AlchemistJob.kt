@@ -3,6 +3,7 @@ package com.tellenn.artifacts.jobs
 import com.tellenn.artifacts.AppConfig.maxLevel
 import com.tellenn.artifacts.clients.AccountClient
 import com.tellenn.artifacts.db.repositories.ItemRepository
+import com.tellenn.artifacts.exceptions.CharacterSkillTooLow
 import com.tellenn.artifacts.exceptions.MapContentNotFoundException
 import com.tellenn.artifacts.exceptions.NoCraftableItemException
 import com.tellenn.artifacts.models.ArtifactsCharacter
@@ -71,12 +72,18 @@ class AlchemistJob(
                 var craftedPotions = false
                 itemService.getPotions().forEach { potion ->
                     if(!bankService.isInBank(potion.code, 400)){
+                        val quantity = (character.inventoryMaxItems - 40) / itemService.getInvSizeToCraft(itemService.getItem(potion.code))
+                        if (!gatheringService.isRecipeObtainable(character, potion.code, quantity)) {
+                            log.debug("${character.name} skips ${potion.code} stock: recipe currently unobtainable")
+                            return@forEach
+                        }
                         log.info("${character.name} is crafting ${potion.code} for stocks")
                         contextService.setObjective(characterName, "Stock de ${potion.code} pour l'équipe (cible : 400)")
-                        character = gatheringService.craftOrGather(character, potion.code, (character.inventoryMaxItems - 40) / itemService.getInvSizeToCraft(itemService.getItem(potion.code)) )
-                        character = movementService.moveToBank(character)
-                        character = bankService.emptyInventory(character)
-                        craftedPotions = true
+                        if (craftOrSkipUnobtainable(potion.code) {
+                                gatheringService.craftOrGather(character, potion.code, quantity)
+                            }) {
+                            craftedPotions = true
+                        }
                     }
                 }
                 if(craftedPotions){ continue}
@@ -88,13 +95,19 @@ class AlchemistJob(
             }else if(character.alchemyLevel < character.fishingLevel){
                 val itemsToCraft = ArrayList<SimpleItem>()
                 if(character.alchemyLevel >= 20 && !bankService.isInBank("small_antidote", 10)){
-                    itemsToCraft.add(SimpleItem("small_antidote", (character.inventoryMaxItems - 10) / itemService.getInvSizeToCraft(itemService.getItem("small_antidote")) ))
+                    val quantity = (character.inventoryMaxItems - 10) / itemService.getInvSizeToCraft(itemService.getItem("small_antidote"))
+                    if (gatheringService.isRecipeObtainable(character, "small_antidote", quantity)) {
+                        itemsToCraft.add(SimpleItem("small_antidote", quantity))
+                    }
                 }
                 val greaterHealthPotionLevel = itemService.getItem("greater_health_potion").level
                 getHealingPotions().forEach {
                     val readyToCraft = it.code != "greater_health_potion" || character.alchemyLevel >= greaterHealthPotionLevel + 5
                     if (!bankService.isInBank(it.code, 400) && readyToCraft) {
-                        itemsToCraft.add(SimpleItem(it.code, (character.inventoryMaxItems - 10) / itemService.getInvSizeToCraft(it)))
+                        val quantity = (character.inventoryMaxItems - 10) / itemService.getInvSizeToCraft(it)
+                        if (gatheringService.isRecipeObtainable(character, it.code, quantity)) {
+                            itemsToCraft.add(SimpleItem(it.code, quantity))
+                        }
                     } else if (!readyToCraft) {
                         log.debug("${character.name} needs alchemy level ${greaterHealthPotionLevel + 5} to craft ${it.code}, currently ${character.alchemyLevel}")
                     }
@@ -105,9 +118,9 @@ class AlchemistJob(
                     itemsToCraft.forEach {
                         log.info("${character.name} is crafting ${it.code} for stocks")
                         contextService.setObjective(characterName, "Stock de potions : ${it.code} (cible : 400)")
-                        character = gatheringService.craftOrGather(character, it.code, it.quantity, allowFight = true)
-                        character = movementService.moveToBank(character)
-                        character = bankService.emptyInventory(character)
+                        craftOrSkipUnobtainable(it.code) {
+                            gatheringService.craftOrGather(character, it.code, it.quantity, allowFight = true)
+                        }
                     }
                     continue
                     // Otherwise levelup
@@ -135,15 +148,14 @@ class AlchemistJob(
 
                     log.info("${character.name} is crafting ${item.code} to level up their alchemy")
                     contextService.setObjective(characterName, "Level up alchimie → craft de ${item.code} (niv. ${character.alchemyLevel})")
-                    character = gatheringService.craftOrGather(
-                        character = character,
-                        itemCode = item.code,
-                        quantity = craftBatchSize(item),
-                        allowFight = true
-
-                    )
-                    character = movementService.moveToBank(character)
-                    character = bankService.emptyInventory(character)
+                    craftOrSkipUnobtainable(item.code) {
+                        gatheringService.craftOrGather(
+                            character = character,
+                            itemCode = item.code,
+                            quantity = craftBatchSize(item),
+                            allowFight = true
+                        )
+                    }
                     continue
                     // Or do some tasks to get task coins
                 }
@@ -156,6 +168,11 @@ class AlchemistJob(
                         gatheringService.craftOrGather(character, itemsToCraft.code, character.inventoryMaxItems - 30)
                 }catch (e: MapContentNotFoundException){
                     log.error("Tried to gather something that wasn't there. Investigate why?", e)
+                }catch (e: CharacterSkillTooLow){
+                    // La banque a pu être vidée d'un ingrédient entre le contrôle de faisabilité
+                    // et le retrait (course entre personnages) : on repart sur une sélection fraîche.
+                    log.warn("${character.name} cannot finish their food craft: ${e.skill} level ${e.level} too low for a sub component, skipping")
+                    character = accountClient.getCharacter(character.name).data
                 }
             }
         }while(true)
@@ -163,6 +180,28 @@ class AlchemistJob(
 
     private fun craftBatchSize(item: ItemDetails): Int =
         (character.inventoryMaxItems - INVENTORY_MARGIN) / itemService.getInvSizeToCraft(item)
+
+    /**
+     * Lance un craft et absorbe une [CharacterSkillTooLow] survenue en cours d'exécution : la
+     * banque a pu être vidée d'un ingrédient entre le contrôle de faisabilité et le retrait
+     * (course entre personnages). Le thread survit et la boucle repart sur une sélection fraîche
+     * au lieu de mourir puis d'être relancé en boucle par le ThreadService.
+     *
+     * @return true si le craft s'est terminé, false s'il a été abandonné.
+     */
+    private fun craftOrSkipUnobtainable(itemCode: String, craft: () -> ArtifactsCharacter): Boolean {
+        val completed = try {
+            character = craft()
+            true
+        } catch (e: CharacterSkillTooLow) {
+            log.warn("${character.name} cannot finish $itemCode: ${e.skill} level ${e.level} too low for a sub component, skipping")
+            character = accountClient.getCharacter(character.name).data
+            false
+        }
+        character = movementService.moveToBank(character)
+        character = bankService.emptyInventory(character)
+        return completed
+    }
 
     private fun getHealingPotions(): List<ItemDetails>{
         val potions = itemService.getAllCraftableItemsBySkillAndSubtypeAndMaxLevel("alchemy", "potion", character.alchemyLevel).toMutableList()
@@ -232,16 +271,16 @@ class AlchemistJob(
                     1 -> {
                         val craftableItem = craftableItems.first()
                         if (craftableItem.craft?.items?.size == 1 && bankService.canCraftFromBank(craftableItem, 1)) {
-                            character = gatheringService.craftOrGather(
-                                character,
-                                craftableItem.code,
-                                Math.floorDiv(
-                                    min(character.inventoryMaxItems - 20, it.quantity),
-                                    craftableItem.craft.items[0].quantity
+                            craftOrSkipUnobtainable(craftableItem.code) {
+                                gatheringService.craftOrGather(
+                                    character,
+                                    craftableItem.code,
+                                    Math.floorDiv(
+                                        min(character.inventoryMaxItems - 20, it.quantity),
+                                        craftableItem.craft.items[0].quantity
+                                    )
                                 )
-                            )
-                            character = movementService.moveToBank(character)
-                            character = bankService.emptyInventory(character)
+                            }
                         } else {
                             log.debug("We have 1 craft, but it requires other items, unsure what to do so we abort")
                         }

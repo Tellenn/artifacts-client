@@ -41,7 +41,8 @@ private class ManagedCharacterThread(
     val config: CharacterConfig,
     val thread: Thread,
     val isOnMission: AtomicBoolean = AtomicBoolean(false),
-    val currentPriority: AtomicReference<MissionPriority> = AtomicReference(MissionPriority.DEFAULT)
+    val currentPriority: AtomicReference<MissionPriority> = AtomicReference(MissionPriority.DEFAULT),
+    val startedAtMs: Long = System.currentTimeMillis(),
 )
 
 /**
@@ -62,9 +63,17 @@ class ThreadService(
         /** Delay before respawning a default-behavior thread that exited unexpectedly. */
         private const val RESTART_DELAY_MS = 1000L
 
+        /** Cap of the exponential restart backoff for a crash-looping character. */
+        private const val MAX_RESTART_DELAY_MS = 60_000L
+
+        /** Uptime after which a thread is considered healthy and its backoff counter reset. */
+        private const val HEALTHY_UPTIME_MS = 600_000L
+
         /** Slice between re-interrupts while waiting for a thread to die. */
         private const val JOIN_SLICE_MS = 1000L
     }
+
+    private val restartBackoff = RestartBackoff(RESTART_DELAY_MS, MAX_RESTART_DELAY_MS, HEALTHY_UPTIME_MS)
 
     /**
      * Temps maximum d'attente de la mort réelle d'un thread avant d'abandonner un redémarrage.
@@ -129,17 +138,22 @@ class ThreadService(
             return
         }
 
+        // Backoff exponentiel : un job qui meurt en boucle (ex. CharacterSkillTooLow sur une
+        // recette hors de portée) relancé à 1 s d'intervalle refait ses appels API à chaque
+        // cycle et finit par cramer le quota horaire.
+        val uptimeMs = managed?.startedAtMs?.let { System.currentTimeMillis() - it } ?: 0L
+        val delayMs = restartBackoff.nextDelayMs(config.name, uptimeMs)
         logger.warn(
-            "Character ${config.name} default behavior stopped unexpectedly ({}), restarting thread",
-            cause.javaClass.simpleName, cause
+            "Character ${config.name} default behavior stopped unexpectedly ({}), restarting thread in {} ms",
+            cause.javaClass.simpleName, delayMs, cause
         )
-        restartAfterUnexpectedExit(config)
+        restartAfterUnexpectedExit(config, delayMs)
     }
 
     /** Restarts a character's default behavior after an unexpected exit, leaving the map entry intact. */
-    private fun restartAfterUnexpectedExit(config: CharacterConfig) {
+    private fun restartAfterUnexpectedExit(config: CharacterConfig, delayMs: Long) {
         try {
-            Thread.sleep(RESTART_DELAY_MS)
+            Thread.sleep(delayMs)
             internalStartThread(config)
         } catch (restartException: Exception) {
             logger.error("Failed to restart character thread for ${config.name}", restartException)
