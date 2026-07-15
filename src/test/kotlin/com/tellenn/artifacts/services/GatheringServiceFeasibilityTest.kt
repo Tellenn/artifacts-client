@@ -10,7 +10,9 @@ import com.tellenn.artifacts.models.ArtifactsCharacter
 import com.tellenn.artifacts.models.ItemCraft
 import com.tellenn.artifacts.models.ItemDetails
 import com.tellenn.artifacts.models.RecipeIngredient
+import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertThrows
+import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 import org.mockito.ArgumentMatchers.any
@@ -151,6 +153,33 @@ class GatheringServiceFeasibilityTest {
         }
         verify(battleService, never()).isFightForItemWinnable(anyObject(), anyString())
         verify(bankService, never()).reserveInBank(anyString(), anyInt(), anyString())
+    }
+
+    @Test
+    fun `isRecipeObtainable renvoie false quand un sous-composant exige un craft hors de portee`() {
+        // given — cas Aerith/antidote : l'ingrédient maple_sap se craft en woodcutting 40,
+        // le personnage est woodcutting 1 et la banque est vide
+        `when`(itemService.getItem("antidote")).thenReturn(
+            item("antidote", subtype = "potion", craft = ItemCraft("weaponcrafting", 10, listOf(
+                RecipeIngredient("maple_sap", 1),
+            ), 1))
+        )
+        `when`(itemService.getItem("maple_sap")).thenReturn(
+            item("maple_sap", subtype = "sap", craft = ItemCraft("woodcutting", 40, listOf(
+                RecipeIngredient("maple_wood", 15),
+            ), 1))
+        )
+
+        // when / then
+        assertFalse(gatheringService.isRecipeObtainable(character, "antidote", 1))
+    }
+
+    @Test
+    fun `isRecipeObtainable renvoie true quand la recette est entierement realisable`() {
+        // given — iron_dagger du setUp : weaponcrafting 10 et mining 5, tous deux à portée
+
+        // when / then
+        assertTrue(gatheringService.isRecipeObtainable(character, "iron_dagger", 1))
     }
 
     private fun item(code: String, subtype: String = "bar", level: Int = 10, craft: ItemCraft? = null) = ItemDetails(

@@ -122,19 +122,23 @@ class AlchemistJob(
                             )
                         continue
                     }
-                    val item =
-                        itemService.getBestCraftableItemsBySkillAndSubtypeAndMaxLevel(
-                            skill,
-                            "potion",
-                            character.alchemyLevel
-                        ) ?: throw NoCraftableItemException(skill, character.alchemyLevel)
+                    // Le meilleur item par niveau peut exiger un ingrédient hors de portée
+                    // (ex. antidote → maple_sap, craft woodcutting 40) : on écarte ces recettes
+                    // au lieu de laisser CharacterSkillTooLow relancer le thread en boucle.
+                    val item = itemService.getAllCraftableItemsBySkillAndSubtypeAndMaxLevel(
+                        skill,
+                        "potion",
+                        character.alchemyLevel
+                    ).firstOrNull { candidate ->
+                        gatheringService.isRecipeObtainable(character, candidate.code, craftBatchSize(candidate))
+                    } ?: throw NoCraftableItemException(skill, character.alchemyLevel)
 
                     log.info("${character.name} is crafting ${item.code} to level up their alchemy")
                     contextService.setObjective(characterName, "Level up alchimie → craft de ${item.code} (niv. ${character.alchemyLevel})")
                     character = gatheringService.craftOrGather(
                         character = character,
                         itemCode = item.code,
-                        quantity = (character.inventoryMaxItems -10 )/ itemService.getInvSizeToCraft(item),
+                        quantity = craftBatchSize(item),
                         allowFight = true
 
                     )
@@ -156,6 +160,9 @@ class AlchemistJob(
             }
         }while(true)
     }
+
+    private fun craftBatchSize(item: ItemDetails): Int =
+        (character.inventoryMaxItems - INVENTORY_MARGIN) / itemService.getInvSizeToCraft(item)
 
     private fun getHealingPotions(): List<ItemDetails>{
         val potions = itemService.getAllCraftableItemsBySkillAndSubtypeAndMaxLevel("alchemy", "potion", character.alchemyLevel).toMutableList()

@@ -73,6 +73,23 @@ class GatheringService(
     }
 
     /**
+     * Variante non-jetante du garde-fou de faisabilité : permet aux jobs d'écarter une recette
+     * hors de portée AVANT de la lancer, au lieu de laisser [CharacterSkillTooLow] tuer leur
+     * thread et repartir en boucle de restart sur le même item.
+     */
+    fun isRecipeObtainable(character: ArtifactsCharacter, itemCode: String, quantity: Int, shouldTrain: Boolean = true): Boolean =
+        try {
+            assertRecipeObtainable(character, itemService.getItem(itemCode), quantity, shouldTrain)
+            true
+        } catch (e: CharacterSkillTooLow) {
+            log.debug("Recette {} hors de portée pour {} : {}", itemCode, character.name, e.message)
+            false
+        } catch (e: BattleLostException) {
+            log.debug("Recette {} hors de portée pour {} : {}", itemCode, character.name, e.message)
+            false
+        }
+
+    /**
      * Parcourt la recette complète avant toute collecte et échoue immédiatement si un composant
      * manquant est hors de portée : combat perdu d'avance, niveau de récolte ou de craft
      * insuffisant. Sans ce garde-fou, le blocage n'est découvert qu'en arrivant au composant
