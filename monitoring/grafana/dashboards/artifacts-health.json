@@ -4,7 +4,7 @@
   "tags": ["artifacts", "santé"],
   "timezone": "browser",
   "schemaVersion": 39,
-  "version": 1,
+  "version": 2,
   "refresh": "30s",
   "time": { "from": "now-6h", "to": "now" },
   "editable": true,
@@ -55,17 +55,24 @@
     {
       "id": 3,
       "type": "stat",
-      "title": "Requêtes API /s (5m)",
+      "title": "Requêtes API sur l'heure",
       "gridPos": { "x": 8, "y": 0, "w": 4, "h": 4 },
       "datasource": { "type": "prometheus", "uid": "prometheus" },
       "targets": [
-        { "refId": "A", "expr": "sum(rate(artifacts_api_request_seconds_count[5m]))" }
+        { "refId": "A", "expr": "sum(increase(artifacts_api_request_seconds_count[1h]))" }
       ],
       "fieldConfig": {
         "defaults": {
-          "unit": "reqps",
-          "decimals": 2,
-          "thresholds": { "mode": "absolute", "steps": [{ "color": "#3987e5", "value": null }] }
+          "unit": "none",
+          "decimals": 0,
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "#0ca30c", "value": null },
+              { "color": "#fab219", "value": 1500 },
+              { "color": "#d03b3b", "value": 1900 }
+            ]
+          }
         },
         "overrides": []
       },
@@ -74,13 +81,13 @@
     {
       "id": 4,
       "type": "stat",
-      "title": "Taux d'erreur API (5m)",
+      "title": "Taux d'erreur API",
       "gridPos": { "x": 12, "y": 0, "w": 4, "h": 4 },
       "datasource": { "type": "prometheus", "uid": "prometheus" },
       "targets": [
         {
           "refId": "A",
-          "expr": "sum(rate(artifacts_api_request_seconds_count{status!~\"2..\"}[5m])) / sum(rate(artifacts_api_request_seconds_count[5m]))"
+          "expr": "sum(rate(artifacts_api_request_seconds_count{status!~\"2..\"}[$__range])) / sum(rate(artifacts_api_request_seconds_count[$__range]))"
         }
       ],
       "fieldConfig": {
@@ -103,13 +110,13 @@
     {
       "id": 5,
       "type": "stat",
-      "title": "Latence API p95 (5m)",
+      "title": "Délai moyen API",
       "gridPos": { "x": 16, "y": 0, "w": 4, "h": 4 },
       "datasource": { "type": "prometheus", "uid": "prometheus" },
       "targets": [
         {
           "refId": "A",
-          "expr": "histogram_quantile(0.95, sum by (le) (rate(artifacts_api_request_seconds_bucket[5m])))"
+          "expr": "sum(rate(artifacts_api_request_seconds_sum[$__range])) / sum(rate(artifacts_api_request_seconds_count[$__range]))"
         }
       ],
       "fieldConfig": {
@@ -219,7 +226,7 @@
       "targets": [
         {
           "refId": "A",
-          "expr": "histogram_quantile(0.95, sum by (le, character) (rate(artifacts_mission_duration_seconds_bucket[10m])))",
+          "expr": "histogram_quantile(0.95, sum by (le, character) (rate(artifacts_mission_duration_seconds_bucket[$__rate_interval])))",
           "legendFormat": "{{character}}"
         }
       ],
@@ -266,36 +273,37 @@
     {
       "id": 20,
       "type": "timeseries",
-      "title": "Requêtes API /s par client",
+      "title": "Appels API par heure par endpoint",
       "gridPos": { "x": 0, "y": 19, "w": 12, "h": 8 },
       "datasource": { "type": "prometheus", "uid": "prometheus" },
       "targets": [
         {
           "refId": "A",
-          "expr": "sum by (client) (rate(artifacts_api_request_seconds_count[5m]))",
-          "legendFormat": "{{client}}"
+          "expr": "sum by (uri) (increase(artifacts_api_request_seconds_count[1h]))",
+          "legendFormat": "{{uri}}"
         }
       ],
       "fieldConfig": {
         "defaults": {
-          "unit": "reqps",
+          "unit": "none",
+          "decimals": 0,
           "custom": { "lineWidth": 2, "fillOpacity": 0, "showPoints": "never" }
         },
         "overrides": []
       },
-      "options": { "legend": { "displayMode": "table", "placement": "right", "calcs": ["mean"] }, "tooltip": { "mode": "multi", "sort": "desc" } }
+      "options": { "legend": { "displayMode": "table", "placement": "right", "calcs": ["lastNotNull", "max"], "sortBy": "Last *", "sortDesc": true }, "tooltip": { "mode": "multi", "sort": "desc" } }
     },
     {
       "id": 21,
       "type": "timeseries",
-      "title": "Latence API p95 par client",
+      "title": "Délai moyen par endpoint",
       "gridPos": { "x": 12, "y": 19, "w": 12, "h": 8 },
       "datasource": { "type": "prometheus", "uid": "prometheus" },
       "targets": [
         {
           "refId": "A",
-          "expr": "histogram_quantile(0.95, sum by (le, client) (rate(artifacts_api_request_seconds_bucket[5m])))",
-          "legendFormat": "{{client}}"
+          "expr": "sum by (uri) (rate(artifacts_api_request_seconds_sum[$__rate_interval])) / sum by (uri) (rate(artifacts_api_request_seconds_count[$__rate_interval]))",
+          "legendFormat": "{{uri}}"
         }
       ],
       "fieldConfig": {
@@ -316,7 +324,7 @@
       "targets": [
         {
           "refId": "A",
-          "expr": "sum by (status) (rate(artifacts_api_request_seconds_count{status!~\"2..\"}[5m]))",
+          "expr": "sum by (status) (rate(artifacts_api_request_seconds_count{status!~\"2..\"}[$__rate_interval]))",
           "legendFormat": "{{status}}"
         }
       ],
@@ -340,7 +348,7 @@
       "targets": [
         {
           "refId": "A",
-          "expr": "histogram_quantile(0.95, sum by (le, uri) (rate(artifacts_api_request_seconds_bucket[5m])))",
+          "expr": "histogram_quantile(0.95, sum by (le, uri) (rate(artifacts_api_request_seconds_bucket[$__rate_interval])))",
           "legendFormat": "{{uri}}"
         }
       ],
@@ -388,7 +396,7 @@
       "targets": [
         {
           "refId": "A",
-          "expr": "sum by (action) (rate(jvm_gc_pause_seconds_sum[5m]))",
+          "expr": "sum by (action) (rate(jvm_gc_pause_seconds_sum[$__rate_interval]))",
           "legendFormat": "{{action}}"
         }
       ],
