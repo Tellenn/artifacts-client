@@ -13,6 +13,7 @@ import com.tellenn.artifacts.services.ItemService
 import com.tellenn.artifacts.services.AchievementService
 import com.tellenn.artifacts.services.CharacterContextService
 import com.tellenn.artifacts.services.MapService
+import com.tellenn.artifacts.services.MonsterTaskWorkerService
 import com.tellenn.artifacts.services.MovementService
 import com.tellenn.artifacts.services.TaskService
 import com.tellenn.artifacts.services.sync.BankItemSyncService
@@ -38,6 +39,7 @@ class MinerJob(
     private val bankItemSyncService: BankItemSyncService,
     private val achievementService: AchievementService,
     private val contextService: CharacterContextService,
+    private val monsterTaskWorkerService: MonsterTaskWorkerService,
 ) : GenericJob(mapService, movementService, bankService, characterService, accountClient, taskService) {
 
     lateinit var character: ArtifactsCharacter
@@ -55,10 +57,10 @@ class MinerJob(
                 character = achievementService.executeAchievement(character, "miner")
                 continue
             }
-            if (gatheringWorkerService.hasOpenTasks(listOf(skill), mapOf(skill to character.miningLevel))) {
+            if (gatheringWorkerService.hasOpenTasks(poolSkills(), poolLevels())) {
                 contextService.setObjective(characterName, "Production pour le pool du crafter")
                 val poolResult = gatheringWorkerService.workOpenTasks(
-                    character, listOf(skill), mapOf(skill to character.miningLevel)
+                    character, poolSkills(), poolLevels(), allowFight = character.miningLevel >= maxLevel
                 )
                 character = poolResult.character
                 if (poolResult.produced > 0) continue
@@ -106,16 +108,18 @@ class MinerJob(
                 character = movementService.moveToBank(character)
                 character = bankService.emptyInventory(character)
 
-                // Or do some tasks to get task coins
+                // Or do some monster tasks to get task coins
             }else{
-                log.info("${character.name} is doing a new itemTask")
-                contextService.setObjective(characterName, "Tâche d'item (niv. max atteint)")
-                if(character.task.isNullOrEmpty()){
-                    character = taskService.getNewItemTask(character)
+                contextService.setObjective(characterName, "Tâche monstre (niv. max atteint)")
+                character = monsterTaskWorkerService.runCycle(character) {
+                    gatheringWorkerService.hasOpenTasks(poolSkills(), poolLevels())
                 }
-                character = taskService.doCharacterTask(character)
             }
 
         }while(true)
     }
+
+    private fun poolSkills() = poolSkillsFor(skill, character.miningLevel)
+
+    private fun poolLevels() = mapOf(skill to character.miningLevel, "mob" to character.level)
 }

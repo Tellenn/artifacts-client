@@ -17,6 +17,15 @@ class MonsterService(
         return mapClient.getMaps(content_code = monsterCode).data.first()
     }
 
+    fun findMonsterMapOrNull(monsterCode: String): MapData? {
+        // Using the client instead of the database because of the dynamic event.
+        return mapClient.getMaps(content_code = monsterCode).data.firstOrNull()
+    }
+
+    fun findMonstersUnderLevel(level: Int): List<MonsterData> {
+        return monsterRepository.findByLevelLessThanEqualOrderByLevelDesc(level.coerceAtLeast(1))
+    }
+
     fun findMonsterThatDrop(itemCode: String) : MonsterData?{
         return  monsterRepository.findFirstByDropsCodeOrderByLevelAsc(itemCode)
     }

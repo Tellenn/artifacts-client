@@ -68,6 +68,13 @@ class GenericJob(
         return newCharacter
     }
 
+    /**
+     * Compétences que le personnage peut couvrir sur le pool de récolte partagé :
+     * sa compétence propre, plus les matériaux de monstres ("mob") quand elle est maxée.
+     */
+    fun poolSkillsFor(skill: String, skillLevel: Int): List<String> =
+        if (skillLevel >= maxLevel) listOf(skill, "mob") else listOf(skill)
+
     fun isCrafterMaxLevel(): Boolean {
         val crafter = accountClient.getCharacter(getPredefinedCharacters().first { it.job == "crafter" }.name).data
         return crafter.weaponcraftingLevel >= maxLevel

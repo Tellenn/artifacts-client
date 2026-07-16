@@ -14,4 +14,6 @@ interface MonsterRepository : MongoRepository<MonsterData, String> {
 
     fun findFirstByLevelLessThanEqualOrderByLevelDesc(level: Int): MonsterData
 
+    fun findByLevelLessThanEqualOrderByLevelDesc(level: Int): List<MonsterData>
+
 }
