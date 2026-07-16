@@ -106,27 +106,47 @@ class GatheringServiceShortfallTest {
     }
 
     @Test
-    fun `ne publie rien quand un seul materiau delegable est manquant`() {
-        // given : un seul ingrédient récoltable
+    fun `publie le manque meme quand un seul materiau delegable est manquant`() {
+        // given : un seul ingrédient récoltable — le pool le produit pendant que le crafter
+        // craft pour la banque
         `when`(materialResponsibility.skillFor("iron_bar")).thenReturn("mining")
 
         // when
         gatheringService.postLevelingShortfalls(item("iron_bar" to 3), batchSize = 4)
 
-        // then : le crafter le collecte lui-même
-        verify(gatheringTaskService, never()).postShortfalls(anyMap<String, Int>(), anyMap<String, Int>())
+        // then
+        verify(gatheringTaskService).postShortfalls(
+            mapOf("iron_bar" to 12),
+            mapOf("iron_bar" to 0),
+        )
     }
 
     @Test
-    fun `un materiau assemble par le crafter ne compte pas comme delegable`() {
-        // given : un seul récoltable + un sous-composant assemblé par le crafter (skillFor null)
+    fun `publie des qu'un delegable manque meme accompagne d'un materiau assemble par le crafter`() {
+        // given : un récoltable + un sous-composant assemblé par le crafter (skillFor null,
+        // filtré en aval par GatheringTaskService.postShortfalls)
         `when`(materialResponsibility.skillFor("iron_bar")).thenReturn("mining")
         `when`(materialResponsibility.skillFor("iron_handle")).thenReturn(null)
 
         // when
         gatheringService.postLevelingShortfalls(item("iron_bar" to 3, "iron_handle" to 1), batchSize = 4)
 
-        // then : un seul délégable ⇒ pas de publication
+        // then : publication (le filtrage par compétence reste la responsabilité du pool)
+        verify(gatheringTaskService).postShortfalls(
+            mapOf("iron_bar" to 12, "iron_handle" to 4),
+            mapOf("iron_bar" to 0, "iron_handle" to 0),
+        )
+    }
+
+    @Test
+    fun `ne publie rien quand aucun materiau delegable ne manque`() {
+        // given : uniquement des matériaux assemblés par le crafter lui-même
+        `when`(materialResponsibility.skillFor("iron_handle")).thenReturn(null)
+
+        // when
+        gatheringService.postLevelingShortfalls(item("iron_handle" to 2), batchSize = 4)
+
+        // then : rien à déléguer ⇒ pas de publication
         verify(gatheringTaskService, never()).postShortfalls(anyMap<String, Int>(), anyMap<String, Int>())
     }
 

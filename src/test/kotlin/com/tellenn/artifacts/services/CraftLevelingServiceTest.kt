@@ -430,6 +430,53 @@ class CraftLevelingServiceTest {
         assertEquals(106600, service().xpToGainLevels(currentLevel = 48, currentXp = 0, levels = 2))
     }
 
+    // ------------------------------------------------------------------------------------------
+    // Couverture banque d'un batch de leveling (isLevelingBatchReady)
+    // ------------------------------------------------------------------------------------------
+
+    @Test
+    fun `le batch est prêt quand la banque couvre tous les ingrédients directs`() {
+        val ring = cleanRing("clean_ring", level = 20) // gold_bar × 3
+        `when`(bankService.availableQuantity("gold_bar")).thenReturn(30)
+
+        assertTrue(service(mock(ItemService::class.java)).isLevelingBatchReady(ring, batchSize = 10))
+    }
+
+    @Test
+    fun `le batch n'est pas prêt quand un ingrédient manque d'une unité`() {
+        val ring = cleanRing("clean_ring", level = 20) // gold_bar × 3
+        `when`(bankService.availableQuantity("gold_bar")).thenReturn(29) // besoin : 30
+
+        assertEquals(false, service(mock(ItemService::class.java)).isLevelingBatchReady(ring, batchSize = 10))
+    }
+
+    @Test
+    fun `le besoin est multiplié par la taille du batch pour chaque ingrédient`() {
+        val staff = ItemDetails(
+            code = "staff", name = "staff", description = "", type = "weapon", subtype = "",
+            level = 20, tradeable = true,
+            craft = ItemCraft(
+                "weaponcrafting", 20,
+                listOf(RecipeIngredient("gold_bar", 3), RecipeIngredient("ash_plank", 2)), 1
+            ),
+            effects = emptyList(), conditions = emptyList()
+        )
+        `when`(bankService.availableQuantity("gold_bar")).thenReturn(12) // 3 × 4 = 12 ✓
+        `when`(bankService.availableQuantity("ash_plank")).thenReturn(7) // 2 × 4 = 8 ✗
+
+        assertEquals(false, service(mock(ItemService::class.java)).isLevelingBatchReady(staff, batchSize = 4))
+    }
+
+    @Test
+    fun `un item non craftable n'est jamais prêt`() {
+        val raw = ItemDetails(
+            code = "gold_bar", name = "gold_bar", description = "", type = "resource", subtype = "bar",
+            level = 10, tradeable = true, craft = null, effects = emptyList(), conditions = emptyList()
+        )
+
+        assertEquals(false, service(mock(ItemService::class.java)).isLevelingBatchReady(raw, batchSize = 1))
+    }
+
     @Test
     fun `selectSkillToLevel renvoie null quand toutes les compétences sont bloquées`() {
         val svc = mock(ItemService::class.java)

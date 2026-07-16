@@ -108,6 +108,16 @@ class CraftLevelingService(
             .firstOrNull { selectLevelingCraft(character, it) is LevelingChoice.Craft }
 
     /**
+     * Vrai si la banque couvre déjà (réservations déduites) la totalité des ingrédients directs
+     * de [item] pour [batchSize] crafts : le crafter peut assembler immédiatement, sans phase de
+     * collecte. Un item non craftable n'est jamais prêt.
+     */
+    fun isLevelingBatchReady(item: ItemDetails, batchSize: Int): Boolean =
+        item.craft?.items?.all { ingredient ->
+            bankService.availableQuantity(ingredient.code) >= ingredient.quantity * batchSize
+        } ?: false
+
+    /**
      * Nombre de crafts de [item] nécessaires pour amener [skill] jusqu'au prochain palier de
      * [MILESTONE_STEP] niveaux (5, 10, 15, …), à partir du niveau et de l'XP courants du personnage.
      *

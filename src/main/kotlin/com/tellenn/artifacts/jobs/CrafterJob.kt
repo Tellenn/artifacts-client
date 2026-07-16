@@ -97,68 +97,21 @@ class CrafterJob(
                 character = tryGatherUniqueArtifact(artifact)
             }
 
-            val itemsToCraft = getListOfItemToCraftUnderLevel(
-                character,
-                listOf("weaponcrafting","gearcrafting","jewelrycrafting")
-            )
-            //tryBossFight("king_slime","king_slimeball",1)
-
-            if (!itemsToCraft.isEmpty()) {
-                var instantCraft = false
-                for (itemDetail in itemsToCraft) {
-                    if(bankService.canCraftFromBank(itemDetail)){
-                        try {
-                            log.info("${character.name} is crafting a ${itemDetail.code} from items in bank for use in bank")
-                            contextService.setObjective(character.name, "Craft de ${itemDetail.code} depuis la banque (stock)")
-                            character =
-                                gatheringService.craftOrGather(character, itemDetail.code, 1, allowFight = false)
-                            character = movementService.moveToBank(character)
-                            character = bankService.emptyInventory(character)
-                            saveOrUpdateCraftedItem(itemDetail)
-                            instantCraft = true
-                            break
-                        }catch (e: CharacterSkillTooLow){
-                            log.warn("A sub component of the crafting of ${itemDetail.code} failed because the character has too low ${e.skill} level. Required : ${e.level}")
-                        }
-                    }
-                }
-                if(instantCraft){
-                    continue
-                }
-
-                for (itemDetail in itemsToCraft) {
-                    try{
-                        log.info("${character.name} is gathering and crafting a ${itemDetail.code} for use in bank")
-                        contextService.setObjective(character.name, "Collecte et craft de ${itemDetail.code} pour la banque")
-                        character = gatheringService.craftOrGather(character, itemDetail.code, 1, allowFight = true, shouldTrain = false)
-                        character = movementService.moveToBank(character)
-                        character = bankService.emptyInventory(character)
-                        saveOrUpdateCraftedItem(itemDetail)
-                    }catch (e : UnknownMapException){
-                        // Event monsters may not be on the map — this is expected, skip silently
-                        log.info("Skipping ${itemDetail.code}: required monster not found on map (${e.message})")
-                        character = accountClient.getCharacter(character.name).data
-                    }catch (e: MissingItemException){
-                        // This case happens when we try to craft something, but we fail to battle, but still try to craft the item
-                        log.warn("Could not craft item ${itemDetail.code} because an item is missing, probably due to a lost fight. Should not happen again", e)
-                        character = accountClient.getCharacter(character.name).data
-                    }catch (e: BattleLostException){
-                        log.warn("Failed to get items for crafting ${itemDetail.code}", e)
-                        character = accountClient.getCharacter(character.name).data
-                        character = movementService.moveToBank(character)
-                        character = bankService.emptyInventory(character)
-                    }catch (e: CharacterSkillTooLow){
-                        log.warn("A sub component of the crafting of ${itemDetail.code} failed because the character has too low skill level")
-                        log.debug(e)
-                        character = accountClient.getCharacter(character.name).data
-                        character = movementService.moveToBank(character)
-                        character = bankService.emptyInventory(character)
-                    } // TODO Another failure case can be because of an event base requirement. Need to do something about it
-                }
+            // Leveling prioritaire : publier les manques au pool au plus tôt pour que les
+            // récolteurs produisent en parallèle, puis assembler dès que la banque couvre le batch.
+            // En attendant, le crafter reste utile : un craft banque par cycle, re-check entre chaque.
+            val skillToLevel = craftLevelingService.selectSkillToLevel(character, CRAFTER_SKILLS)
+            val levelingChoice = skillToLevel?.let {
+                craftLevelingService.selectLevelingCraft(character, it) as? LevelingChoice.Craft
             }
-            val skillToLevel = craftLevelingService.selectSkillToLevel(
-                character, listOf("weaponcrafting", "gearcrafting", "jewelrycrafting")
-            )
+            levelingChoice?.let { gatheringService.postLevelingShortfalls(it.item, it.batchSize) }
+            val levelingReady = levelingChoice != null &&
+                craftLevelingService.isLevelingBatchReady(levelingChoice.item, levelingChoice.batchSize)
+
+            if (!levelingReady && craftOneItemForBank()) {
+                continue
+            }
+
             if (skillToLevel == null) {
                 // Aucune recette « sans matériau rare » ni couverte par un surplus : on protège la
                 // réserve et on laisse la boucle principale faire autre chose (nettoyage, crafts
@@ -235,6 +188,65 @@ class CrafterJob(
             log.warn("${character.name} failed to gather artifact ${artifact.code}: ${e.message}")
             accountClient.getCharacter(character.name).data
         }
+    }
+
+    /**
+     * Craft **un seul** item manquant pour la banque — priorité aux crafts instantanés depuis le
+     * stock, sinon collecte + craft du premier candidat réalisable. Un item par appel : l'appelant
+     * re-vérifie entre chaque craft si le batch de leveling est devenu couvert par le pool.
+     *
+     * @return vrai si un item a été crafté (et déposé en banque).
+     */
+    internal fun craftOneItemForBank(): Boolean {
+        val itemsToCraft = getListOfItemToCraftUnderLevel(character, CRAFTER_SKILLS)
+
+        for (itemDetail in itemsToCraft) {
+            if (bankService.canCraftFromBank(itemDetail)) {
+                try {
+                    log.info("${character.name} is crafting a ${itemDetail.code} from items in bank for use in bank")
+                    contextService.setObjective(character.name, "Craft de ${itemDetail.code} depuis la banque (stock)")
+                    character = gatheringService.craftOrGather(character, itemDetail.code, 1, allowFight = false)
+                    character = movementService.moveToBank(character)
+                    character = bankService.emptyInventory(character)
+                    saveOrUpdateCraftedItem(itemDetail)
+                    return true
+                } catch (e: CharacterSkillTooLow) {
+                    log.warn("A sub component of the crafting of ${itemDetail.code} failed because the character has too low ${e.skill} level. Required : ${e.level}")
+                }
+            }
+        }
+
+        for (itemDetail in itemsToCraft) {
+            try {
+                log.info("${character.name} is gathering and crafting a ${itemDetail.code} for use in bank")
+                contextService.setObjective(character.name, "Collecte et craft de ${itemDetail.code} pour la banque")
+                character = gatheringService.craftOrGather(character, itemDetail.code, 1, allowFight = true, shouldTrain = false)
+                character = movementService.moveToBank(character)
+                character = bankService.emptyInventory(character)
+                saveOrUpdateCraftedItem(itemDetail)
+                return true
+            } catch (e: UnknownMapException) {
+                // Event monsters may not be on the map — this is expected, skip silently
+                log.info("Skipping ${itemDetail.code}: required monster not found on map (${e.message})")
+                character = accountClient.getCharacter(character.name).data
+            } catch (e: MissingItemException) {
+                // This case happens when we try to craft something, but we fail to battle, but still try to craft the item
+                log.warn("Could not craft item ${itemDetail.code} because an item is missing, probably due to a lost fight. Should not happen again", e)
+                character = accountClient.getCharacter(character.name).data
+            } catch (e: BattleLostException) {
+                log.warn("Failed to get items for crafting ${itemDetail.code}", e)
+                character = accountClient.getCharacter(character.name).data
+                character = movementService.moveToBank(character)
+                character = bankService.emptyInventory(character)
+            } catch (e: CharacterSkillTooLow) {
+                log.warn("A sub component of the crafting of ${itemDetail.code} failed because the character has too low skill level")
+                log.debug(e)
+                character = accountClient.getCharacter(character.name).data
+                character = movementService.moveToBank(character)
+                character = bankService.emptyInventory(character)
+            } // TODO Another failure case can be because of an event base requirement. Need to do something about it
+        }
+        return false
     }
 
     private fun getListOfItemToCraftUnderLevel(character : ArtifactsCharacter, skills : List<String>) : List<ItemDetails>{
@@ -364,6 +376,10 @@ class CrafterJob(
         character = movementService.moveToBank(character)
         character = bankService.emptyInventory(character)
         return character
+    }
+
+    companion object {
+        private val CRAFTER_SKILLS = listOf("weaponcrafting", "gearcrafting", "jewelrycrafting")
     }
 }
 

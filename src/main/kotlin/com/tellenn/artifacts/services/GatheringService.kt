@@ -316,9 +316,9 @@ class GatheringService(
 
     /**
      * Publie dans le pool partagé les manques de matériaux récoltables d'un batch de leveling, pour
-     * que les récolteurs les produisent en parallèle — **uniquement** si au moins deux matériaux
-     * délégables manquent. Avec un seul manque délégable, la parallélisation n'apporte rien : le
-     * crafter le collecte lui-même (comportement de [gatherLevelingMaterials] inchangé).
+     * que les récolteurs les produisent en parallèle — dès qu'au moins un matériau délégable
+     * manque : pendant que le pool produit, le crafter reste utile (crafts pour la banque) et
+     * assemble dès que la banque couvre le batch.
      *
      * Publication best-effort : un échec du pool est journalisé et le crafter poursuit sa propre
      * collecte (la publication n'est pas un échec de tâche).
@@ -330,8 +330,7 @@ class GatheringService(
             // n'est pas disponible pour ce batch — le compter sous-estimerait le manque publié.
             val bankQuantities = craft.items.associate { it.code to bankService.availableQuantity(it.code) }
             val shortfalls = levelingShortfalls(item, batchSize, bankQuantities)
-            val delegatable = shortfalls.keys.count { materialResponsibility.skillFor(it) != null }
-            if (delegatable <= 1) return
+            if (shortfalls.keys.none { materialResponsibility.skillFor(it) != null }) return
             gatheringTaskService.postShortfalls(shortfalls, bankQuantities)
         } catch (e: Exception) {
             log.warn(
