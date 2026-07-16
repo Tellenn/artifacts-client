@@ -95,6 +95,26 @@ class BankServiceStockQueryTest {
         assertEquals(0, service.availableQuantity("iron"))
     }
 
+    @Test
+    fun `quantityInBank retourne la quantite brute sans deduire les reservations`() {
+        // given — 10 en banque dont 8 réservés : on en POSSÈDE toujours 10
+        `when`(bankRepository.findByCode("iron")).thenReturn(bankedItem("iron", 10))
+        service.reserveInBank("iron", 8, "Renoir")
+
+        // when / then
+        assertEquals(10, service.quantityInBank("iron"))
+        verify(bankClient, never()).getBankedItems(anyString(), anyInt())
+    }
+
+    @Test
+    fun `quantityInBank retourne 0 quand l'item est absent du cache`() {
+        // given
+        `when`(bankRepository.findByCode("iron")).thenReturn(null)
+
+        // when / then
+        assertEquals(0, service.quantityInBank("iron"))
+    }
+
     private fun bankedItem(code: String, quantity: Int): BankItemDocument =
         BankItemDocument(code, code, "", "resource", "", 1, true, true, null, null, null, quantity)
 }

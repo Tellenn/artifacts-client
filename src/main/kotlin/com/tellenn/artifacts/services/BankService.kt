@@ -241,6 +241,9 @@ class BankService(
         return (banked - reservedQuantity(code)).coerceAtLeast(0)
     }
 
+    /** Quantité brute en banque pour [code] (cache Mongo), réservations NON déduites — compte ce qu'on possède. */
+    fun quantityInBank(code: String): Int = bankRepository.findByCode(code)?.quantity ?: 0
+
     fun getAllEquipmentsUnderLevel(level: Int) : List<BankItemDocument>{
         val dbItem = ArrayList<BankItemDocument>()
         dbItem.addAll(bankRepository.findByTypeInAndLevelIsLessThanEqual(
