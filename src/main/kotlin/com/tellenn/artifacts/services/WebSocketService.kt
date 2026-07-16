@@ -240,16 +240,23 @@ class WebSocketService(
                                     val npcCode = event.map.interactions.content.code
                                     logger.info("Merchant spawned: $npcCode")
 
-                                    // Only interrupt Aerith if there is actually something to sell.
-                                    // The eligibility check is read-only and needs no character thread.
-                                    if (merchantService.findSellableItems(npcCode).isEmpty()) {
-                                        logger.info("Nothing to sell to $npcCode, leaving Aerith on her current task")
+                                    // Only interrupt Aerith if there is actually something to buy or sell.
+                                    // Both eligibility checks are read-only and need no character thread.
+                                    val hasPendingPurchases = merchantService.findPendingOneTimePurchases(npcCode).isNotEmpty()
+                                    val hasSellableItems = merchantService.findSellableItems(npcCode).isNotEmpty()
+                                    if (!hasPendingPurchases && !hasSellableItems) {
+                                        logger.info("Nothing to buy from or sell to $npcCode, leaving Aerith on her current task")
                                     } else {
                                         // Execute synchronously in the WebSocket thread with AUTOMATIC priority
                                         // Will not interrupt human-ordered tasks
                                         threadService.executeMissionSync("Aerith", MissionPriority.AUTOMATIC) {
-                                            val character = accountClient.getCharacter("Aerith").data
-                                            merchantService.sellBankItemTo(character, npcCode)
+                                            var character = accountClient.getCharacter("Aerith").data
+                                            if (hasPendingPurchases) {
+                                                character = merchantService.buyOneTimePurchases(character, npcCode)
+                                            }
+                                            if (hasSellableItems) {
+                                                merchantService.sellBankItemTo(character, npcCode)
+                                            }
                                         }
                                     }
                                 }else if (event.map.interactions?.content?.type == "resource") {

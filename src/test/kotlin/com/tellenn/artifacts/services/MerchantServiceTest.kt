@@ -1,5 +1,6 @@
 package com.tellenn.artifacts.services
 
+import com.tellenn.artifacts.clients.AccountClient
 import com.tellenn.artifacts.clients.NpcClient
 import com.tellenn.artifacts.clients.responses.ArtifactsArrayResponseBody
 import com.tellenn.artifacts.models.ItemCraft
@@ -17,6 +18,7 @@ class MerchantServiceTest {
     private lateinit var bankService: BankService
     private lateinit var movementService: MovementService
     private lateinit var itemService: ItemService
+    private lateinit var accountClient: AccountClient
     private lateinit var merchantService: MerchantService
 
     private val npcName = "herbal_merchant"
@@ -27,7 +29,8 @@ class MerchantServiceTest {
         bankService = mock(BankService::class.java)
         movementService = mock(MovementService::class.java)
         itemService = mock(ItemService::class.java)
-        merchantService = MerchantService(npcClient, bankService, movementService, itemService)
+        accountClient = mock(AccountClient::class.java)
+        merchantService = MerchantService(npcClient, bankService, movementService, itemService, accountClient)
     }
 
     private fun npcItem(code: String, sellPrice: Int?) =
