@@ -66,7 +66,7 @@ class GrandExchangeService(
         var newCharacter = movementService.moveToBank(character)
         newCharacter = bankService.withdrawGold(goldNeeded, newCharacter)
         newCharacter = movementService.moveToGrandExchange(newCharacter)
-        newCharacter = grandExchangeClient.buyItem(newCharacter.name, item.code, quantity, lowestOrder.price).data.character
+        newCharacter = grandExchangeClient.buyItem(newCharacter.name, lowestOrder.id, quantity).data.character
 
         log.info("{} bought {} x{} from GE for {}g/u", newCharacter.name, item.code, quantity, lowestOrder.price)
         return newCharacter

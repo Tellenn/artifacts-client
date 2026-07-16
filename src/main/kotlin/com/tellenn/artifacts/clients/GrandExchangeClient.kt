@@ -17,10 +17,33 @@ class GrandExchangeClient(deps: BaseClientDependencies) : BaseArtifactsClient(de
         }
     }
 
-    fun buyItem(characterName: String, itemCode: String, quantity: Int, price: Int): ArtifactsResponseBody<GEBuyTransaction> {
+    /** Achète [quantity] unités de l'ordre de vente [orderId] — l'API achète par id d'ordre. */
+    fun buyItem(characterName: String, orderId: String, quantity: Int): ArtifactsResponseBody<GEBuyTransaction> {
         return sendPostRequest(
             "/my/$characterName/action/grandexchange/buy",
+            """{"id": "$orderId", "quantity": $quantity}"""
+        ).use { response ->
+            val responseBody = response.body!!.string()
+            objectMapper.readValue<ArtifactsResponseBody<GEBuyTransaction>>(responseBody)
+        }
+    }
+
+    /** Crée un ordre de vente au Grand Exchange (le personnage doit y être, items en inventaire). */
+    fun createSellOrder(characterName: String, itemCode: String, quantity: Int, price: Int): ArtifactsResponseBody<GEBuyTransaction> {
+        return sendPostRequest(
+            "/my/$characterName/action/grandexchange/create_sell_order",
             """{"code": "$itemCode", "quantity": $quantity, "price": $price}"""
+        ).use { response ->
+            val responseBody = response.body!!.string()
+            objectMapper.readValue<ArtifactsResponseBody<GEBuyTransaction>>(responseBody)
+        }
+    }
+
+    /** Annule un de nos ordres — les items invendus reviennent dans l'inventaire du personnage. */
+    fun cancelOrder(characterName: String, orderId: String): ArtifactsResponseBody<GEBuyTransaction> {
+        return sendPostRequest(
+            "/my/$characterName/action/grandexchange/cancel",
+            """{"id": "$orderId"}"""
         ).use { response ->
             val responseBody = response.body!!.string()
             objectMapper.readValue<ArtifactsResponseBody<GEBuyTransaction>>(responseBody)
