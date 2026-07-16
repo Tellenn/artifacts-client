@@ -209,8 +209,8 @@ class GrandExchangeOrderServiceTest {
     }
 
     private fun order(id: String, price: Int, quantity: Int) = GEOrder(
-        id = id, itemCode = "iron_ore", itemName = "Iron Ore", quantity = quantity,
-        price = price, total = price * quantity, createdAt = Instant.now(), status = "active",
+        id = id, type = "sell", account = "someone", code = "iron_ore",
+        quantity = quantity, price = price, createdAt = Instant.now(),
     )
 
     private fun character(name: String) = ArtifactsCharacter(

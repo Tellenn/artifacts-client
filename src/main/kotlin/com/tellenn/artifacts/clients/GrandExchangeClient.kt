@@ -10,8 +10,9 @@ import org.springframework.stereotype.Component
 @Component
 class GrandExchangeClient(deps: BaseClientDependencies) : BaseArtifactsClient(deps) {
 
+    /** Ordres de vente publics d'un item. Le filtre est `code` : `item_code` est ignoré par l'API (renvoie tout le carnet). */
     fun getPublicSellOrders(itemCode: String): ArtifactsArrayResponseBody<GEOrder> {
-        return sendGetRequest("/grandexchange/orders?item_code=$itemCode").use { response ->
+        return sendGetRequest("/grandexchange/orders?code=$itemCode").use { response ->
             val responseBody = response.body!!.string()
             objectMapper.readValue<ArtifactsArrayResponseBody<GEOrder>>(responseBody)
         }
