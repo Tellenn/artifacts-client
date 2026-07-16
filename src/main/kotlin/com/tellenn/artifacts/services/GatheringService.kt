@@ -59,7 +59,7 @@ class GatheringService(
             // Une recette interrompue laisserait sinon des réservations fantômes qui rendent le
             // stock banque invisible pour tous les personnages (spirale de re-collecte).
             return try {
-                assertRecipeObtainable(character, itemService.getItem(itemCode), quantity, shouldTrain)
+                assertRecipeObtainable(character, itemService.getItem(itemCode), quantity, shouldTrain, allowBankStock = false)
                 resolveCraftOrGather(character, itemCode, quantity, functionLevel, allowFight, shouldTrain)
             } catch (e: Exception) {
                 bankService.releaseAllReservations(character.name)
@@ -79,7 +79,7 @@ class GatheringService(
      */
     fun isRecipeObtainable(character: ArtifactsCharacter, itemCode: String, quantity: Int, shouldTrain: Boolean = true): Boolean =
         try {
-            assertRecipeObtainable(character, itemService.getItem(itemCode), quantity, shouldTrain)
+            assertRecipeObtainable(character, itemService.getItem(itemCode), quantity, shouldTrain, allowBankStock = false)
             true
         } catch (e: CharacterSkillTooLow) {
             log.debug("Recette {} hors de portée pour {} : {}", itemCode, character.name, e.message)
@@ -96,9 +96,12 @@ class GatheringService(
      * fautif — après avoir déjà collecté les précédents pour rien.
      * Les composants déjà couverts par la banque n'ont rien à prouver ; les personnages en mode
      * entraînement ([shouldTrain]) assument leurs défaites, leur combat n'est donc pas simulé.
+     * Le nœud RACINE ne compte jamais le stock banque ([allowBankStock] = false) :
+     * [resolveCraftOrGather] au niveau 0 produit toujours l'item final au lieu de le retirer de la
+     * banque — s'en satisfaire ici validerait une recette dont l'exécution échoue (boucle antidote).
      */
-    private fun assertRecipeObtainable(character: ArtifactsCharacter, itemDetails: ItemDetails, quantity: Int, shouldTrain: Boolean) {
-        if (bankService.availableQuantity(itemDetails.code) >= quantity) {
+    private fun assertRecipeObtainable(character: ArtifactsCharacter, itemDetails: ItemDetails, quantity: Int, shouldTrain: Boolean, allowBankStock: Boolean = true) {
+        if (allowBankStock && bankService.availableQuantity(itemDetails.code) >= quantity) {
             return
         }
         val craft = itemDetails.craft

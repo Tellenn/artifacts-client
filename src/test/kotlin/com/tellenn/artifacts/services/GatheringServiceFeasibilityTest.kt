@@ -175,6 +175,28 @@ class GatheringServiceFeasibilityTest {
     }
 
     @Test
+    fun `isRecipeObtainable ignore le stock banque de l'item final car le craft racine le produit toujours`() {
+        // given — boucle antidote Aerith (2026-07-16) : la banque couvre l'item FINAL (20 antidotes),
+        // mais resolveCraftOrGather au niveau racine produit toujours l'item au lieu de le retirer
+        // de la banque ; se satisfaire du stock banque du nœud racine rend la recette "obtenable"
+        // alors que l'exécution échoue sur maple_sap (woodcutting 40, personnage woodcutting 1)
+        `when`(itemService.getItem("antidote")).thenReturn(
+            item("antidote", subtype = "potion", craft = ItemCraft("alchemy", 1, listOf(
+                RecipeIngredient("maple_sap", 1),
+            ), 1))
+        )
+        `when`(itemService.getItem("maple_sap")).thenReturn(
+            item("maple_sap", subtype = "sap", craft = ItemCraft("woodcutting", 40, listOf(
+                RecipeIngredient("maple_wood", 15),
+            ), 1))
+        )
+        `when`(bankService.availableQuantity("antidote")).thenReturn(20)
+
+        // when / then
+        assertFalse(gatheringService.isRecipeObtainable(character, "antidote", 4))
+    }
+
+    @Test
     fun `isRecipeObtainable renvoie true quand la recette est entierement realisable`() {
         // given — iron_dagger du setUp : weaponcrafting 10 et mining 5, tous deux à portée
 
