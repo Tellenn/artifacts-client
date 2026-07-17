@@ -112,7 +112,15 @@ class MovementService(
             transitionMapper.conditions?.forEach { condition ->
                 canUsePath = when (condition.operator) {
                     "cost", "has_item" -> {
-                        canUsePath && bankService.isInBank(condition.code, condition.value)
+                        // L'or est le solde monétaire de la banque, pas un item : isInBank("gold", …)
+                        // renverrait toujours false. On interroge donc le solde comme le fait la
+                        // boucle de retrait plus bas (condition.code == "gold" -> withdrawMoney).
+                        val hasResource = if (condition.code == "gold") {
+                            bankService.getBankDetails().gold >= condition.value
+                        } else {
+                            bankService.isInBank(condition.code, condition.value)
+                        }
+                        canUsePath && hasResource
                     }
                     "achievement_unlocked" -> {
                         canUsePath && achievementCacheService.isUnlocked(character.account, condition.code)
@@ -175,7 +183,7 @@ class MovementService(
     }
 
     fun moveToGrandExchange(character: ArtifactsCharacter): ArtifactsCharacter {
-        val geMap = mapService.findClosestMap(character = character, contentCode = "grandexchange")
+        val geMap = mapService.findClosestMap(character = character, contentCode = "grand_exchange")
         return moveCharacterToCell(geMap.mapId, character)
     }
 }
