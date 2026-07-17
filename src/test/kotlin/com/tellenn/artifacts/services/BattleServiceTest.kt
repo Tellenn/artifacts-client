@@ -7,6 +7,7 @@ import com.tellenn.artifacts.clients.responses.CombatResponseBody
 import com.tellenn.artifacts.clients.responses.SimulationResult
 import com.tellenn.artifacts.exceptions.BattleLostException
 import com.tellenn.artifacts.exceptions.CharacterInventoryFullException
+import com.tellenn.artifacts.exceptions.UnknownMapException
 import com.tellenn.artifacts.services.battlesim.BattleSimulatorService
 import com.tellenn.artifacts.utils.TimeUtils
 import com.tellenn.artifacts.models.ArtifactsCharacter
@@ -55,6 +56,7 @@ class BattleServiceTest {
     private lateinit var bossFightService: BossFightService
     private lateinit var battleSimulatorService: BattleSimulatorService
     private lateinit var timeUtils: TimeUtils
+    private lateinit var eventService: EventService
     private lateinit var battleService: BattleService
 
     /** Horloge de test mutable : permet de faire expirer le TTL du cache de faisabilité à volonté. */
@@ -73,10 +75,12 @@ class BattleServiceTest {
         bossFightService = mock(BossFightService::class.java)
         battleSimulatorService = mock(BattleSimulatorService::class.java)
         timeUtils = mock(TimeUtils::class.java)
+        eventService = mock(EventService::class.java)
         `when`(timeUtils.now()).thenAnswer { clock }
         battleService = BattleService(
             characterService, battleClient, monsterService, mapService, movementService,
-            accountClient, equipmentService, bankService, bossFightService, battleSimulatorService, timeUtils
+            accountClient, equipmentService, bankService, bossFightService, battleSimulatorService,
+            timeUtils, eventService
         )
 
         // Par défaut la simulation prédit une victoire nette et le meilleur stuff banque est vide
@@ -226,6 +230,70 @@ class BattleServiceTest {
 
         // then
         verify(battleClient, times(1)).fight("Cloud")
+    }
+
+    @Test
+    fun `isMonsterForItemOnMap renvoie true pour un monstre permanent sans requete live`() {
+        // given — chicken n'est pas un monstre d'événement (défaut du setUp)
+
+        // when / then — toujours présent sur la carte : aucune requête /maps live
+        assert(battleService.isMonsterForItemOnMap("feather"))
+        verify(monsterService, never()).findMonsterMapOrNull(anyString())
+    }
+
+    @Test
+    fun `isMonsterForItemOnMap renvoie false quand le monstre d'evenement n'est pas apparu`() {
+        // given — chicken est un monstre d'événement et aucune map live ne le contient
+        `when`(eventService.isEventMonster("chicken")).thenReturn(true)
+        `when`(monsterService.findMonsterMapOrNull("chicken")).thenReturn(null)
+
+        // when / then
+        assert(!battleService.isMonsterForItemOnMap("feather"))
+    }
+
+    @Test
+    fun `isMonsterForItemOnMap renvoie true quand le monstre d'evenement est apparu`() {
+        // given — l'événement est actif : le monstre est sur une map live
+        `when`(eventService.isEventMonster("chicken")).thenReturn(true)
+        `when`(monsterService.findMonsterMapOrNull("chicken")).thenReturn(mock(MapData::class.java))
+
+        // when / then
+        assert(battleService.isMonsterForItemOnMap("feather"))
+    }
+
+    @Test
+    fun `fightToGetItem resout la map en direct pour un monstre d'evenement`() {
+        // given — chicken est un monstre d'événement apparu : sa position vient de l'API live,
+        // le cache local peut pointer sur une ancienne apparition
+        `when`(eventService.isEventMonster("chicken")).thenReturn(true)
+        val liveMap = mock(MapData::class.java)
+        `when`(liveMap.mapId).thenReturn(7)
+        `when`(mapService.findClosestMapFromApi(anyObject(), anyObject(), anyObject(), anyBoolean(), anyObject()))
+            .thenReturn(liveMap)
+        `when`(battleClient.fight("Cloud"))
+            .thenReturn(fightResponse(character(InventorySlot(1, "feather", 20))))
+
+        // when
+        battleService.fightToGetItem(character(), "feather", 20)
+
+        // then
+        verify(mapService).findClosestMapFromApi(anyObject(), anyObject(), anyObject(), anyBoolean(), anyObject())
+        verify(mapService, never()).findClosestMap(anyObject(), anyObject(), anyObject(), anyBoolean(), anyObject())
+    }
+
+    @Test
+    fun `fightToGetItem propage UnknownMapException quand le monstre d'evenement n'est pas apparu`() {
+        // given — l'événement est inactif : la résolution live ne trouve aucune map
+        `when`(eventService.isEventMonster("chicken")).thenReturn(true)
+        `when`(mapService.findClosestMapFromApi(anyObject(), anyObject(), anyObject(), anyBoolean(), anyObject()))
+            .thenThrow(UnknownMapException(null, "chicken"))
+
+        // when / then — le CrafterJob attrape UnknownMapException pour passer à l'item suivant
+        assertThrows(UnknownMapException::class.java) {
+            battleService.fightToGetItem(character(), "feather", 20)
+        }
+        verify(battleClient, never()).fight(anyString())
+        verify(movementService, never()).moveCharacterToCell(anyInt(), anyObject())
     }
 
     private fun stubSimulation(losses: Int) {

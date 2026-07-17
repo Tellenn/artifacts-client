@@ -17,6 +17,17 @@ class EventService(
 ) {
     private val logger = LoggerFactory.getLogger(EventService::class.java)
 
+    // Les définitions d'événements sont statiques pour la saison : une seule requête suffit.
+    // La présence effective du monstre sur la carte reste à vérifier en live via /maps.
+    private val eventMonsterCodes: Set<String> by lazy {
+        eventClient.getEvents(type = "monster")
+            .data
+            .map { it.content.code }
+            .toSet()
+    }
+
+    fun isEventMonster(monsterCode: String): Boolean = monsterCode in eventMonsterCodes
+
     fun getAllEventMaterials() : List<String>{
         val drops : MutableList<String> = mutableListOf()
         eventClient.getEvents(type = "monster")

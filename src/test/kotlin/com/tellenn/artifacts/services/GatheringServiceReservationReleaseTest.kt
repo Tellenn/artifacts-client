@@ -38,6 +38,7 @@ class GatheringServiceReservationReleaseTest {
     private lateinit var itemService: ItemService
     private lateinit var movementService: MovementService
     private lateinit var characterService: CharacterService
+    private lateinit var battleService: BattleService
     private lateinit var gatheringService: GatheringService
 
     private val character = character()
@@ -48,6 +49,7 @@ class GatheringServiceReservationReleaseTest {
         itemService = mock(ItemService::class.java)
         movementService = mock(MovementService::class.java)
         characterService = mock(CharacterService::class.java)
+        battleService = mock(BattleService::class.java)
 
         gatheringService = GatheringService(
             gatheringClient = mock(GatheringClient::class.java),
@@ -58,7 +60,7 @@ class GatheringServiceReservationReleaseTest {
             craftingClient = mock(CraftingClient::class.java),
             resourceService = mock(ResourceService::class.java),
             itemService = itemService,
-            battleService = mock(BattleService::class.java),
+            battleService = battleService,
             equipmentService = mock(EquipmentService::class.java),
             accountClient = mock(AccountClient::class.java),
             npcClient = mock(NpcClient::class.java),
@@ -71,6 +73,8 @@ class GatheringServiceReservationReleaseTest {
         `when`(movementService.moveToBank(anyObject(), anyBoolean())).thenReturn(character)
         `when`(bankService.emptyInventory(anyObject())).thenReturn(character)
         `when`(itemService.getInvSizeToCraft(anyObject())).thenReturn(1)
+        // Par défaut, les monstres qui droppent les ingrédients sont présents sur la carte
+        `when`(battleService.isMonsterForItemOnMap(anyString())).thenReturn(true)
     }
 
     @Test

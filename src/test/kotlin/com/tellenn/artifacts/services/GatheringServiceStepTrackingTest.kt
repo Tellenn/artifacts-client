@@ -82,6 +82,8 @@ class GatheringServiceStepTrackingTest {
                 (invocation.getArgument(2) as () -> ArtifactsCharacter)()
             }
         `when`(battleService.fightToGetItem(anyObject(), anyString(), anyInt(), anyBoolean())).thenReturn(character)
+        // Par défaut, les monstres qui droppent les ingrédients sont présents sur la carte
+        `when`(battleService.isMonsterForItemOnMap(anyString())).thenReturn(true)
         `when`(accountClient.getCharacter("Renoir"))
             .thenReturn(com.tellenn.artifacts.clients.responses.ArtifactsResponseBody(character))
     }

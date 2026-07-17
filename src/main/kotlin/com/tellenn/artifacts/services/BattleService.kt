@@ -26,6 +26,7 @@ class BattleService(
     private val bossFightService: BossFightService,
     private val battleSimulatorService: BattleSimulatorService,
     private val timeUtils: TimeUtils,
+    private val eventService: EventService,
 ) {
 
     private val log = LogManager.getLogger(GatheringService::class.java)
@@ -137,6 +138,20 @@ class BattleService(
         return isFightWinnable(character, monster.code)
     }
 
+    /**
+     * Vérifie que le monstre qui drop [itemCode] est actuellement présent sur une map (API live).
+     * Les monstres d'événement n'existent sur la carte que pendant leur événement — le cache
+     * local de maps peut prétendre le contraire. Les monstres permanents sont toujours présents,
+     * aucune requête live n'est faite pour eux ; un item sans monstre connu est non bloquant.
+     */
+    fun isMonsterForItemOnMap(itemCode: String): Boolean {
+        val monster = monsterService.findMonsterThatDrop(itemCode) ?: return true
+        if (!eventService.isEventMonster(monster.code)) {
+            return true
+        }
+        return monsterService.findMonsterMapOrNull(monster.code) != null
+    }
+
 
     fun battleUntilInvIsFull(character: ArtifactsCharacter, monsterCode: String): ArtifactsCharacter{
         var currentCharacter = character
@@ -172,7 +187,15 @@ class BattleService(
             log.info("{} ne combat pas {} pour {} : la simulation prédit une défaite", character.name, monster.code, itemCode)
             throw BattleLostException(monster.code)
         }
-        val map = mapService.findClosestMap(character, contentCode = monster.code)
+        // Un monstre d'événement n'a de map que pendant son événement et change de position à
+        // chaque apparition : résolution via l'API live, qui jette UnknownMapException si
+        // l'événement est inactif — au lieu d'envoyer le personnage sur une position périmée
+        // du cache où le combat échouerait en 598.
+        val map = if (eventService.isEventMonster(monster.code)) {
+            mapService.findClosestMapFromApi(character, contentCode = monster.code)
+        } else {
+            mapService.findClosestMap(character, contentCode = monster.code)
+        }
         var newCharacter = equipmentService.equipBestAvailableEquipmentForMonsterInBank(character, monster.code)
         newCharacter = movementService.moveCharacterToCell(map.mapId, newCharacter)
         // Les drops annexes remplissent l'inventaire bien avant la quantité cible : on mémorise

@@ -6,6 +6,7 @@ import com.tellenn.artifacts.clients.GatheringClient
 import com.tellenn.artifacts.clients.NpcClient
 import com.tellenn.artifacts.exceptions.BattleLostException
 import com.tellenn.artifacts.exceptions.CharacterSkillTooLow
+import com.tellenn.artifacts.exceptions.UnknownMapException
 import com.tellenn.artifacts.models.ArtifactsCharacter
 import com.tellenn.artifacts.models.ItemCraft
 import com.tellenn.artifacts.models.ItemDetails
@@ -75,6 +76,9 @@ class GatheringServiceFeasibilityTest {
             materialResponsibility = mock(MaterialResponsibility::class.java),
             characterContextService = mock(CharacterContextService::class.java),
         )
+
+        // Par défaut, les monstres qui droppent les ingrédients sont présents sur la carte
+        `when`(battleService.isMonsterForItemOnMap(anyString())).thenReturn(true)
 
         `when`(itemService.getInvSizeToCraft(anyObject())).thenReturn(1)
         `when`(itemService.getItem("iron_dagger")).thenReturn(
@@ -194,6 +198,40 @@ class GatheringServiceFeasibilityTest {
 
         // when / then
         assertFalse(gatheringService.isRecipeObtainable(character, "antidote", 4))
+    }
+
+    @Test
+    fun `craftOrGather echoue avant toute collecte quand l'ingredient vient d'un monstre d'evenement absent`() {
+        // given — cas snakeskin_armor : l'ogre_eye (2e ingrédient) vient d'un monstre d'événement
+        // qui n'est pas apparu sur la carte ; sans garde-fou, l'iron_ore serait récolté pour rien
+        `when`(battleService.isMonsterForItemOnMap("ogre_eye")).thenReturn(false)
+
+        // when / then
+        assertThrows(UnknownMapException::class.java) {
+            gatheringService.craftOrGather(character, "iron_dagger", 1, allowFight = true, shouldTrain = false)
+        }
+        verifyNoInteractions(gatheringClient)
+    }
+
+    @Test
+    fun `isRecipeObtainable renvoie false quand l'ingredient vient d'un monstre d'evenement absent`() {
+        // given — même situation, via la variante non-jetante utilisée par les jobs
+        `when`(battleService.isMonsterForItemOnMap("ogre_eye")).thenReturn(false)
+
+        // when / then
+        assertFalse(gatheringService.isRecipeObtainable(character, "iron_dagger", 1))
+    }
+
+    @Test
+    fun `un ingredient de monstre d'evenement couvert par la banque n'empeche pas la recette`() {
+        // given — le monstre d'événement est absent, mais la banque possède déjà l'ogre_eye :
+        // le stock banque doit être utilisé comme avant, sans vérifier la présence du monstre
+        `when`(battleService.isMonsterForItemOnMap("ogre_eye")).thenReturn(false)
+        `when`(bankService.availableQuantity("ogre_eye")).thenReturn(1)
+
+        // when / then
+        assertTrue(gatheringService.isRecipeObtainable(character, "iron_dagger", 1))
+        verify(battleService, never()).isMonsterForItemOnMap("ogre_eye")
     }
 
     @Test

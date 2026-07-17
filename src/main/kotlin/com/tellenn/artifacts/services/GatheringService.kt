@@ -13,6 +13,7 @@ import com.tellenn.artifacts.exceptions.CharacterInventoryFullException
 import com.tellenn.artifacts.exceptions.MapContentNotFoundException
 import com.tellenn.artifacts.exceptions.CharacterSkillTooLow
 import com.tellenn.artifacts.exceptions.MissingItemException
+import com.tellenn.artifacts.exceptions.UnknownMapException
 import com.tellenn.artifacts.models.SimpleItem
 import org.apache.logging.log4j.LogManager
 import org.springframework.stereotype.Service
@@ -87,12 +88,15 @@ class GatheringService(
         } catch (e: BattleLostException) {
             log.debug("Recette {} hors de portée pour {} : {}", itemCode, character.name, e.message)
             false
+        } catch (e: UnknownMapException) {
+            log.debug("Recette {} hors de portée pour {} : {}", itemCode, character.name, e.message)
+            false
         }
 
     /**
      * Parcourt la recette complète avant toute collecte et échoue immédiatement si un composant
-     * manquant est hors de portée : combat perdu d'avance, niveau de récolte ou de craft
-     * insuffisant. Sans ce garde-fou, le blocage n'est découvert qu'en arrivant au composant
+     * manquant est hors de portée : monstre d'événement absent de la carte, combat perdu
+     * d'avance, niveau de récolte ou de craft insuffisant. Sans ce garde-fou, le blocage n'est découvert qu'en arrivant au composant
      * fautif — après avoir déjà collecté les précédents pour rien.
      * Les composants déjà couverts par la banque n'ont rien à prouver ; les personnages en mode
      * entraînement ([shouldTrain]) assument leurs défaites, leur combat n'est donc pas simulé.
@@ -107,6 +111,13 @@ class GatheringService(
         val craft = itemDetails.craft
         when {
             itemDetails.subtype == "mob" -> {
+                // Un drop de monstre d'événement n'est collectable que si le monstre est
+                // actuellement apparu : sans ce contrôle, le personnage partirait combattre
+                // sur une position périmée du cache de maps (ex. full_moon_vampire_cape
+                // pour snakeskin_armor hors événement).
+                if (!battleService.isMonsterForItemOnMap(itemDetails.code)) {
+                    throw UnknownMapException("monster", itemDetails.code)
+                }
                 if (!shouldTrain && !battleService.isFightForItemWinnable(character, itemDetails.code)) {
                     throw BattleLostException(itemDetails.code)
                 }
