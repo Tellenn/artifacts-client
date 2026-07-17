@@ -3,6 +3,7 @@ package com.tellenn.artifacts.services
 import com.tellenn.artifacts.clients.AccountClient
 import com.tellenn.artifacts.clients.BattleClient
 import com.tellenn.artifacts.services.battlesim.BattleSimulatorService
+import io.micrometer.core.instrument.simple.SimpleMeterRegistry
 import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.BeforeEach
@@ -32,6 +33,7 @@ class BossFightServiceTest {
             characterService = mock(CharacterService::class.java),
             bankService = mock(BankService::class.java),
             merchantService = mock(MerchantService::class.java),
+            combatMetrics = CombatMetrics(SimpleMeterRegistry()),
         )
     }
 

@@ -19,6 +19,7 @@ class RaidFightService(
     private val bossFightService: BossFightService,
     private val characterService: CharacterService,
     private val battleClient: BattleClient,
+    private val combatMetrics: CombatMetrics,
     private val timeUtils: TimeUtils,
     @param:Value("\${raids.poll-interval-ms:30000}") private val pollIntervalMs: Long,
     @param:Value("\${raids.max-wait-minutes:10}") private val maxWaitMinutes: Long,
@@ -88,7 +89,9 @@ class RaidFightService(
             // Refresh the party from the fight result: the next rest() must see the
             // post-fight HP, otherwise it reads stale full HP, skips resting, and the
             // party fights on until it dies.
-            battleClient.fightBoss(c1.name, c2.name, c3.name).data.characters.forEach {
+            val result = battleClient.fightBoss(c1.name, c2.name, c3.name)
+            combatMetrics.recordFight(c1.name, result.data.fight)
+            result.data.characters.forEach {
                 when (it.name) {
                     c1.name -> c1 = it
                     c2.name -> c2 = it

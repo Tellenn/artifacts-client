@@ -27,6 +27,7 @@ class BattleService(
     private val battleSimulatorService: BattleSimulatorService,
     private val timeUtils: TimeUtils,
     private val eventService: EventService,
+    private val combatMetrics: CombatMetrics,
 ) {
 
     private val log = LogManager.getLogger(GatheringService::class.java)
@@ -71,12 +72,7 @@ class BattleService(
     }
 
     private fun computeFightWinnable(character: ArtifactsCharacter, monsterCode: String): Boolean {
-        val testCharacter = character.copy()
-        equipmentService.findBestEquipmentForMonsterInBank(character, monsterCode).forEach { (slot, item) ->
-            if (item != null) {
-                testCharacter["${slot}_slot"] = item.code
-            }
-        }
+        val testCharacter = equipmentService.bestEquippedCopyForSimulation(character, monsterCode)
         if (battleSimulatorService.simulateWithApi(monsterCode, testCharacter).data.losses <= MAX_SIMULATED_LOSSES) {
             return true
         }
@@ -254,6 +250,7 @@ class BattleService(
     fun battle(character: ArtifactsCharacter, monsterCode: String) : ArtifactsCharacter{
         var currentCharacter = character
         val response = battleClient.fight(currentCharacter.name)
+        combatMetrics.recordFight(currentCharacter.name, response.data.fight)
 
         // Update character with the latest data
         currentCharacter = response.data.characters.first()

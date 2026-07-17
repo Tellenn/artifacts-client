@@ -4,7 +4,7 @@
   "tags": ["artifacts", "santé"],
   "timezone": "browser",
   "schemaVersion": 39,
-  "version": 2,
+  "version": 4,
   "refresh": "30s",
   "time": { "from": "now-6h", "to": "now" },
   "editable": true,
@@ -12,23 +12,18 @@
     {
       "id": 1,
       "type": "stat",
-      "title": "Threads personnages vivants",
+      "title": "Monstres tués (total)",
+      "description": "Compteur cumulatif depuis le dernier démarrage de l'application (les compteurs Prometheus repartent de zéro au redémarrage).",
       "gridPos": { "x": 0, "y": 0, "w": 4, "h": 4 },
       "datasource": { "type": "prometheus", "uid": "prometheus" },
       "targets": [
-        { "refId": "A", "expr": "sum(artifacts_character_thread_alive)", "instant": true }
+        { "refId": "A", "expr": "sum(artifacts_combat_result_total{outcome=\"win\"})", "instant": true }
       ],
       "fieldConfig": {
         "defaults": {
           "unit": "none",
-          "thresholds": {
-            "mode": "absolute",
-            "steps": [
-              { "color": "#d03b3b", "value": null },
-              { "color": "#fab219", "value": 4 },
-              { "color": "#0ca30c", "value": 5 }
-            ]
-          }
+          "decimals": 0,
+          "thresholds": { "mode": "absolute", "steps": [{ "color": "#0ca30c", "value": null }] }
         },
         "overrides": []
       },
@@ -37,20 +32,21 @@
     {
       "id": 2,
       "type": "stat",
-      "title": "Personnages en mission",
+      "title": "Monstres tués (dernière heure)",
       "gridPos": { "x": 4, "y": 0, "w": 4, "h": 4 },
       "datasource": { "type": "prometheus", "uid": "prometheus" },
       "targets": [
-        { "refId": "A", "expr": "sum(artifacts_character_on_mission)", "instant": true }
+        { "refId": "A", "expr": "sum(increase(artifacts_combat_result_total{outcome=\"win\"}[1h]))" }
       ],
       "fieldConfig": {
         "defaults": {
           "unit": "none",
+          "decimals": 0,
           "thresholds": { "mode": "absolute", "steps": [{ "color": "#3987e5", "value": null }] }
         },
         "overrides": []
       },
-      "options": { "colorMode": "value", "graphMode": "none", "reduceOptions": { "calcs": ["lastNotNull"] } }
+      "options": { "colorMode": "value", "graphMode": "area", "reduceOptions": { "calcs": ["lastNotNull"] } }
     },
     {
       "id": 3,
@@ -167,55 +163,52 @@
     },
     {
       "id": 10,
-      "type": "state-timeline",
-      "title": "Thread vivant par personnage",
+      "type": "timeseries",
+      "title": "Combats par heure (par issue)",
       "gridPos": { "x": 0, "y": 4, "w": 12, "h": 7 },
       "datasource": { "type": "prometheus", "uid": "prometheus" },
       "targets": [
-        { "refId": "A", "expr": "artifacts_character_thread_alive", "legendFormat": "{{character}}" }
+        {
+          "refId": "A",
+          "expr": "sum by (outcome) (increase(artifacts_combat_result_total[1h]))",
+          "legendFormat": "{{outcome}}"
+        }
       ],
       "fieldConfig": {
         "defaults": {
-          "custom": { "lineWidth": 0, "fillOpacity": 80 },
-          "mappings": [
-            {
-              "type": "value",
-              "options": {
-                "0": { "text": "Mort", "color": "#d03b3b" },
-                "1": { "text": "Vivant", "color": "#0ca30c" }
-              }
-            }
-          ]
+          "unit": "none",
+          "decimals": 0,
+          "custom": { "lineWidth": 2, "fillOpacity": 10, "showPoints": "never" }
         },
-        "overrides": []
+        "overrides": [
+          { "matcher": { "id": "byName", "options": "win" }, "properties": [{ "id": "color", "value": { "mode": "fixed", "fixedColor": "#0ca30c" } }] },
+          { "matcher": { "id": "byName", "options": "loss" }, "properties": [{ "id": "color", "value": { "mode": "fixed", "fixedColor": "#d03b3b" } }] }
+        ]
       },
-      "options": { "showValue": "never", "legend": { "displayMode": "list", "placement": "bottom" }, "tooltip": { "mode": "single" } }
+      "options": { "legend": { "displayMode": "list", "placement": "bottom" }, "tooltip": { "mode": "multi", "sort": "desc" } }
     },
     {
       "id": 11,
-      "type": "state-timeline",
-      "title": "En mission par personnage",
+      "type": "timeseries",
+      "title": "Monstres tués par type (dernière heure)",
       "gridPos": { "x": 12, "y": 4, "w": 12, "h": 7 },
       "datasource": { "type": "prometheus", "uid": "prometheus" },
       "targets": [
-        { "refId": "A", "expr": "artifacts_character_on_mission", "legendFormat": "{{character}}" }
+        {
+          "refId": "A",
+          "expr": "sum by (monster) (increase(artifacts_combat_result_total{outcome=\"win\"}[1h]))",
+          "legendFormat": "{{monster}}"
+        }
       ],
       "fieldConfig": {
         "defaults": {
-          "custom": { "lineWidth": 0, "fillOpacity": 80 },
-          "mappings": [
-            {
-              "type": "value",
-              "options": {
-                "0": { "text": "Défaut", "color": "#383835" },
-                "1": { "text": "Mission", "color": "#3987e5" }
-              }
-            }
-          ]
+          "unit": "none",
+          "decimals": 0,
+          "custom": { "lineWidth": 2, "fillOpacity": 0, "showPoints": "never" }
         },
         "overrides": []
       },
-      "options": { "showValue": "never", "legend": { "displayMode": "list", "placement": "bottom" }, "tooltip": { "mode": "single" } }
+      "options": { "legend": { "displayMode": "table", "placement": "right", "calcs": ["lastNotNull", "max"], "sortBy": "Last *", "sortDesc": true }, "tooltip": { "mode": "multi", "sort": "desc" } }
     },
     {
       "id": 12,
@@ -453,6 +446,91 @@
         ]
       },
       "options": { "legend": { "displayMode": "list", "placement": "bottom" }, "tooltip": { "mode": "multi", "sort": "desc" } }
+    },
+    {
+      "id": 40,
+      "type": "stat",
+      "title": "Événements reçus (total)",
+      "description": "Événements WebSocket hors Grand Exchange, cumulés depuis le dernier démarrage de l'application (les compteurs Prometheus repartent de zéro au redémarrage).",
+      "gridPos": { "x": 0, "y": 43, "w": 4, "h": 4 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "targets": [
+        { "refId": "A", "expr": "sum(artifacts_event_received_total)", "instant": true }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "none",
+          "decimals": 0,
+          "thresholds": { "mode": "absolute", "steps": [{ "color": "#0ca30c", "value": null }] }
+        },
+        "overrides": []
+      },
+      "options": { "colorMode": "value", "graphMode": "none", "reduceOptions": { "calcs": ["lastNotNull"] } }
+    },
+    {
+      "id": 41,
+      "type": "stat",
+      "title": "Événements reçus (dernière heure)",
+      "gridPos": { "x": 4, "y": 43, "w": 4, "h": 4 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "targets": [
+        { "refId": "A", "expr": "sum(increase(artifacts_event_received_total[1h]))" }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "none",
+          "decimals": 0,
+          "thresholds": { "mode": "absolute", "steps": [{ "color": "#3987e5", "value": null }] }
+        },
+        "overrides": []
+      },
+      "options": { "colorMode": "value", "graphMode": "area", "reduceOptions": { "calcs": ["lastNotNull"] } }
+    },
+    {
+      "id": 42,
+      "type": "timeseries",
+      "title": "Événements par heure (par type)",
+      "gridPos": { "x": 8, "y": 43, "w": 8, "h": 8 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum by (type) (increase(artifacts_event_received_total[1h]))",
+          "legendFormat": "{{type}}"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "none",
+          "decimals": 0,
+          "custom": { "lineWidth": 2, "fillOpacity": 10, "showPoints": "never" }
+        },
+        "overrides": []
+      },
+      "options": { "legend": { "displayMode": "list", "placement": "bottom" }, "tooltip": { "mode": "multi", "sort": "desc" } }
+    },
+    {
+      "id": 43,
+      "type": "timeseries",
+      "title": "Événements par code (dernière heure)",
+      "gridPos": { "x": 16, "y": 43, "w": 8, "h": 8 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum by (code) (increase(artifacts_event_received_total[1h]))",
+          "legendFormat": "{{code}}"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "none",
+          "decimals": 0,
+          "custom": { "lineWidth": 2, "fillOpacity": 0, "showPoints": "never" }
+        },
+        "overrides": []
+      },
+      "options": { "legend": { "displayMode": "table", "placement": "right", "calcs": ["lastNotNull", "max"], "sortBy": "Last *", "sortDesc": true }, "tooltip": { "mode": "multi", "sort": "desc" } }
     }
   ]
 }

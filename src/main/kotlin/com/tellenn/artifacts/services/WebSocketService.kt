@@ -44,7 +44,9 @@ class WebSocketService(
     private val battleSimulatorService: BattleSimulatorService,
     private val monsterService: MonsterService,
     private val characterService: CharacterService,
-    private val mapService: MapService
+    private val mapService: MapService,
+    private val eventMetrics: EventMetrics,
+    private val equipmentService: EquipmentService
 ) {
     companion object {
         /** Stop an event fight after this many consecutive rounds the fighter could not clear. */
@@ -232,6 +234,8 @@ class WebSocketService(
                     if (messageType.isNotEmpty()) {
                         logger.debug("Processing message of type: $messageType")
 
+                        recordIncomingEvent(messageType, jsonNode)
+
                         // Handle interruption directly based on message type
                         when (messageType) {
                             "event_spawn" -> {
@@ -311,11 +315,15 @@ class WebSocketService(
                                     } else {
                                         val fighterName = getPredefinedCharacters().first { it.job == "fighter" }.name
                                         val fighter = accountClient.getCharacter(fighterName).data
+                                        // On simule le combattant équipé du meilleur stuff disponible en banque
+                                        // (comme le fera le combat réel via equipBestAvailableEquipmentForMonsterInBank) :
+                                        // sinon on renonce à des monstres gagnables faute d'avoir pris en compte le meilleur loadout.
+                                        val equippedFighter = equipmentService.bestEquippedCopyForSimulation(fighter, monsterCode)
                                         // Use the authoritative server-side simulation (as BossFightService/TaskService do).
                                         // The local heuristic over-estimates survivability (unlimited potion healing,
                                         // ignores the `corrupted` resistance-shred effect), which sent under-levelled
                                         // fighters into unwinnable event fights.
-                                        val winrate = battleSimulatorService.simulateWithApi(monsterCode, fighter).data.winrate
+                                        val winrate = battleSimulatorService.simulateWithApi(monsterCode, equippedFighter).data.winrate
 
                                         if (winrate < 100) {
                                             logger.info("$fighterName cannot reliably win against $monsterCode (winrate $winrate%) — skipping")
@@ -373,6 +381,19 @@ class WebSocketService(
                 scheduleReconnect()
             }
         }
+    }
+
+    /**
+     * Compte l'événement reçu pour les métriques, en excluant les messages Grand Exchange
+     * (ventes/achats, préfixe `grandexchange`) qui ne sont pas des événements de jeu. Le code
+     * est lu de façon générique dans le payload (`data.code`) et vaut "-" s'il est absent.
+     */
+    internal fun recordIncomingEvent(messageType: String, root: JsonNode) {
+        if (messageType.startsWith("grandexchange")) {
+            return
+        }
+        val code = root.path("data").path("code").asText("-").ifEmpty { "-" }
+        eventMetrics.recordEvent(messageType, code)
     }
 
     /**

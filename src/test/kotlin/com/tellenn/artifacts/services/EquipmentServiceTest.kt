@@ -14,11 +14,13 @@ import com.tellenn.artifacts.models.SimpleItem
 import com.tellenn.artifacts.services.battlesim.BattleSimulatorService
 import com.tellenn.artifacts.services.sync.BankItemSyncService
 import org.junit.jupiter.api.Assertions.assertEquals
+import org.junit.jupiter.api.Assertions.assertNotSame
 import org.junit.jupiter.api.Assertions.assertNull
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 import org.mockito.Mockito.mock
+import org.mockito.Mockito.verify
 import org.mockito.Mockito.`when`
 import java.time.Instant
 
@@ -194,6 +196,23 @@ class EquipmentServiceTest {
 
         // then
         assertEquals("sage_helmet", bis["helmet"]?.code)
+    }
+
+    @Test
+    fun `bestEquippedCopyForSimulation renvoie une copie et ne mute jamais l'original`() {
+        // given — rien de mieux en banque : le loadout ne doit pas changer
+        val original = character(level = 10, weaponSlot = "old_sword")
+        `when`(bankService.getAllEquipmentsUnderLevel(10)).thenReturn(emptyList())
+        `when`(monsterService.getMonster("boss")).thenReturn(monster())
+
+        // when
+        val copy = service.bestEquippedCopyForSimulation(original, "boss")
+
+        // then — instance distincte, personnage d'origine intact, meilleur stuff évalué en banque
+        assertNotSame(original, copy)
+        assertEquals("old_sword", original.weaponSlot)
+        assertEquals("old_sword", copy.weaponSlot)
+        verify(bankService).getAllEquipmentsUnderLevel(10)
     }
 
     private fun bankEquipment(code: String, type: String, vararg effects: Effect) = BankItemDocument(

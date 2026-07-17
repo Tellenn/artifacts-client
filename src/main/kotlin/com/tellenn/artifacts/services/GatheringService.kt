@@ -168,9 +168,17 @@ class GatheringService(
             }
 
             itemDetails.subtype == "mob" -> {
-                // It's a monster loot
-                characterContextService.setStep(character.name, "combat pour ${remaining}× ${itemDetails.code}")
-                fightToGet(character, itemDetails, remaining, allowFight, shouldTrain)
+                // Un drop de monstre peut aussi s'acheter au Grand Exchange : indispensable pour les
+                // ingrédients dont dépend un craft d'un personnage non-combattant (ex. Aerith crafte
+                // enchanted_potion dont l'ingrédient enchanted_mushroom est un drop). On préfère l'achat
+                // quand il est rentable, sinon on combat — même arbitrage que les branches craft/gather.
+                if (functionLevel > 0 && grandExchangeService.shouldBuyFromGC(character, itemDetails, remaining)) {
+                    characterContextService.setStep(character.name, "achat GC de ${remaining}× ${itemDetails.code}")
+                    buyFromGC(character, itemDetails, remaining)
+                } else {
+                    characterContextService.setStep(character.name, "combat pour ${remaining}× ${itemDetails.code}")
+                    fightToGet(character, itemDetails, remaining, allowFight, shouldTrain)
+                }
             }
 
             itemDetails.subtype == "npc" -> {

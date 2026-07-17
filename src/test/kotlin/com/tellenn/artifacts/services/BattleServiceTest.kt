@@ -10,6 +10,7 @@ import com.tellenn.artifacts.exceptions.CharacterInventoryFullException
 import com.tellenn.artifacts.exceptions.UnknownMapException
 import com.tellenn.artifacts.services.battlesim.BattleSimulatorService
 import com.tellenn.artifacts.utils.TimeUtils
+import io.micrometer.core.instrument.simple.SimpleMeterRegistry
 import com.tellenn.artifacts.models.ArtifactsCharacter
 import com.tellenn.artifacts.models.Cooldown
 import com.tellenn.artifacts.models.InventorySlot
@@ -57,6 +58,7 @@ class BattleServiceTest {
     private lateinit var battleSimulatorService: BattleSimulatorService
     private lateinit var timeUtils: TimeUtils
     private lateinit var eventService: EventService
+    private lateinit var combatMetrics: CombatMetrics
     private lateinit var battleService: BattleService
 
     /** Horloge de test mutable : permet de faire expirer le TTL du cache de faisabilité à volonté. */
@@ -76,16 +78,21 @@ class BattleServiceTest {
         battleSimulatorService = mock(BattleSimulatorService::class.java)
         timeUtils = mock(TimeUtils::class.java)
         eventService = mock(EventService::class.java)
+        combatMetrics = CombatMetrics(SimpleMeterRegistry())
         `when`(timeUtils.now()).thenAnswer { clock }
         battleService = BattleService(
             characterService, battleClient, monsterService, mapService, movementService,
             accountClient, equipmentService, bankService, bossFightService, battleSimulatorService,
-            timeUtils, eventService
+            timeUtils, eventService, combatMetrics
         )
 
         // Par défaut la simulation prédit une victoire nette et le meilleur stuff banque est vide
         `when`(equipmentService.findBestEquipmentForMonsterInBank(anyObject(), anyString(), anyInt()))
             .thenReturn(mutableMapOf())
+        // La simulation de faisabilité équipe désormais une copie « meilleur stuff » via ce helper :
+        // par défaut on renvoie le personnage tel quel (le contenu du loadout n'importe pas au mock de sim).
+        `when`(equipmentService.bestEquippedCopyForSimulation(anyObject(), anyString()))
+            .thenAnswer { it.getArgument<ArtifactsCharacter>(0) }
         stubSimulation(losses = 0)
 
         // Par défaut : aucune potion en banque et un monstre neutre (jamais null en production)

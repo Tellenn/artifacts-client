@@ -1,5 +1,6 @@
 package com.tellenn.artifacts.services
 
+import com.fasterxml.jackson.module.kotlin.jacksonObjectMapper
 import com.tellenn.artifacts.clients.AccountClient
 import com.tellenn.artifacts.clients.responses.ArtifactsResponseBody
 import com.tellenn.artifacts.models.ArtifactsCharacter
@@ -21,6 +22,8 @@ class WebSocketServiceTest {
     private lateinit var monsterService: MonsterService
     private lateinit var characterService: CharacterService
     private lateinit var mapService: MapService
+    private lateinit var eventMetrics: EventMetrics
+    private lateinit var equipmentService: EquipmentService
     private lateinit var webSocketService: WebSocketService
 
     @BeforeEach
@@ -36,11 +39,42 @@ class WebSocketServiceTest {
         monsterService = mock(MonsterService::class.java)
         characterService = mock(CharacterService::class.java)
         mapService = mock(MapService::class.java)
+        eventMetrics = mock(EventMetrics::class.java)
+        equipmentService = mock(EquipmentService::class.java)
         webSocketService = WebSocketService(
             merchantService, accountClient, bankService, movementService,
             gatheringService, threadService, battleService, battleSimulatorService,
-            monsterService, characterService, mapService
+            monsterService, characterService, mapService, eventMetrics, equipmentService
         )
+    }
+
+    @Test
+    fun `records a game event tagged by type and code`() {
+        val root = jacksonObjectMapper()
+            .readTree("""{"type":"event_spawn","data":{"code":"strange_apparition"}}""")
+
+        webSocketService.recordIncomingEvent("event_spawn", root)
+
+        verify(eventMetrics).recordEvent("event_spawn", "strange_apparition")
+    }
+
+    @Test
+    fun `does not record Grand Exchange sales or purchases`() {
+        val root = jacksonObjectMapper()
+            .readTree("""{"type":"grandexchange_sell","data":{"code":"copper_ore"}}""")
+
+        webSocketService.recordIncomingEvent("grandexchange_sell", root)
+
+        verifyNoInteractions(eventMetrics)
+    }
+
+    @Test
+    fun `records a dash placeholder when the event payload has no code`() {
+        val root = jacksonObjectMapper().readTree("""{"type":"event_removed","data":{}}""")
+
+        webSocketService.recordIncomingEvent("event_removed", root)
+
+        verify(eventMetrics).recordEvent("event_removed", "-")
     }
 
     @Test

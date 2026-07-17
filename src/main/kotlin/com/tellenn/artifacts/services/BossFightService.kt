@@ -23,7 +23,8 @@ class BossFightService(
     private val battleClient: BattleClient,
     private val characterService: CharacterService,
     private val bankService: BankService,
-    private val merchantService: MerchantService
+    private val merchantService: MerchantService,
+    private val combatMetrics: CombatMetrics
 ) {
 
     val log = LogManager.getLogger(MainRuntime::class.java)
@@ -274,6 +275,7 @@ class BossFightService(
                 char3 = characterService.rest(char3)
 
                 val chars = battleClient.fightBoss(char1.name, char2.name, char3.name)
+                combatMetrics.recordFight(character1Name, chars.data.fight)
                 chars.data.characters.forEach {
                     when (it.name) {
                         character1Name -> char1 = it

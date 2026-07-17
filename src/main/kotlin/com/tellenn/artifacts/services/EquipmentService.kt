@@ -312,6 +312,23 @@ class EquipmentService(
     private fun weaponAttackValue(weapon: ItemDetails, effectCode: String): Int =
         weapon.effects?.find { it.code == effectCode }?.value ?: 0
 
+    /**
+     * Renvoie une COPIE de [character] portant le meilleur équipement disponible en banque contre
+     * [monsterCode], sans aucun retrait ni équipement réel : seuls les codes de slots sont posés, ce
+     * qui suffit à l'API de simulation pour recalculer les stats. À utiliser pour évaluer un combat à
+     * son plein potentiel (garde-fou de faisabilité, décision de combat d'événement) sans engager le
+     * personnage ni toucher la banque.
+     */
+    fun bestEquippedCopyForSimulation(character: ArtifactsCharacter, monsterCode: String): ArtifactsCharacter {
+        val testCharacter = character.copy()
+        findBestEquipmentForMonsterInBank(character, monsterCode).forEach { (slot, item) ->
+            if (item != null) {
+                testCharacter["${slot}_slot"] = item.code
+            }
+        }
+        return testCharacter
+    }
+
     fun findBestEquipmentForMonsterInBank(character: ArtifactsCharacter, monsterCode: String, threatScoreMult:Int = 1) : MutableMap<String, ItemDetails?>{
         val storedEquipment = bankService.getAllEquipmentsUnderLevel(character.level)
         var availableEquipment : MutableList<BankItemDocument> = storedEquipment.toMutableList()

@@ -11,6 +11,7 @@ import com.tellenn.artifacts.utils.TimeUtils
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 import org.mockito.ArgumentMatchers.anyString
+import org.mockito.Mockito.any
 import org.mockito.Mockito.mock
 import org.mockito.Mockito.never
 import org.mockito.Mockito.times
@@ -24,6 +25,7 @@ class RaidFightServiceTest {
     private lateinit var bossFightService: BossFightService
     private lateinit var characterService: CharacterService
     private lateinit var battleClient: BattleClient
+    private lateinit var combatMetrics: CombatMetrics
     private lateinit var timeUtils: TimeUtils
 
     @BeforeEach
@@ -32,6 +34,7 @@ class RaidFightServiceTest {
         bossFightService = mock(BossFightService::class.java)
         characterService = mock(CharacterService::class.java)
         battleClient = mock(BattleClient::class.java)
+        combatMetrics = mock(CombatMetrics::class.java)
         timeUtils = mock(TimeUtils::class.java)
         `when`(timeUtils.now()).thenReturn(Instant.parse("2026-06-22T21:00:00Z"))
     }
@@ -70,7 +73,7 @@ class RaidFightServiceTest {
 
     @Test
     fun `refreshes the party from each fight result so it keeps resting between attacks`() {
-        val service = RaidFightService(raidService, bossFightService, characterService, battleClient, timeUtils, 1L, 1L)
+        val service = RaidFightService(raidService, bossFightService, characterService, battleClient, combatMetrics, timeUtils, 1L, 1L)
 
         val preparedRenoir = namedChar("Renoir")
         val preparedCloud = namedChar("Cloud")
@@ -100,11 +103,13 @@ class RaidFightServiceTest {
         // The second attack must rest the character returned by the first fight,
         // not the stale prepared instance (otherwise the party never heals and dies).
         verify(characterService).rest(foughtRenoir)
+        // Chaque coup porté est compté (deux passes de combat) : une métrique par attaque.
+        verify(combatMetrics, times(2)).recordFight(anyString(), any())
     }
 
     @Test
     fun `skips with no reservation when the party cannot win`() {
-        val service = RaidFightService(raidService, bossFightService, characterService, battleClient, timeUtils, 1L, 0L)
+        val service = RaidFightService(raidService, bossFightService, characterService, battleClient, combatMetrics, timeUtils, 1L, 0L)
         `when`(raidService.getCachedRaid("god_of_the_sun")).thenReturn(raid())
         `when`(bossFightService.simulateParty(anyString(), anyString(), anyString(), anyString())).thenReturn(false)
 
@@ -116,7 +121,7 @@ class RaidFightServiceTest {
 
     @Test
     fun `skips fighting when the party cannot be reserved`() {
-        val service = RaidFightService(raidService, bossFightService, characterService, battleClient, timeUtils, 1L, 0L)
+        val service = RaidFightService(raidService, bossFightService, characterService, battleClient, combatMetrics, timeUtils, 1L, 0L)
         `when`(raidService.getCachedRaid("god_of_the_sun")).thenReturn(raid())
         `when`(bossFightService.simulateParty(anyString(), anyString(), anyString(), anyString())).thenReturn(true)
         `when`(bossFightService.reserveParty(anyString(), anyString(), anyString())).thenReturn(false)
@@ -129,7 +134,7 @@ class RaidFightServiceTest {
 
     @Test
     fun `does not fight when the boss is already dead, but still releases the party`() {
-        val service = RaidFightService(raidService, bossFightService, characterService, battleClient, timeUtils, 1L, 0L)
+        val service = RaidFightService(raidService, bossFightService, characterService, battleClient, combatMetrics, timeUtils, 1L, 0L)
         `when`(raidService.getCachedRaid("god_of_the_sun")).thenReturn(raid())
         `when`(bossFightService.simulateParty(anyString(), anyString(), anyString(), anyString())).thenReturn(true)
         `when`(bossFightService.reserveParty(anyString(), anyString(), anyString())).thenReturn(true)
@@ -147,7 +152,7 @@ class RaidFightServiceTest {
 
     @Test
     fun `fights while the boss is alive then stops when it dies`() {
-        val service = RaidFightService(raidService, bossFightService, characterService, battleClient, timeUtils, 1L, 1L)
+        val service = RaidFightService(raidService, bossFightService, characterService, battleClient, combatMetrics, timeUtils, 1L, 1L)
         val char = anyChar()
         `when`(char.name).thenReturn("Renoir")
         `when`(raidService.getCachedRaid("god_of_the_sun")).thenReturn(raid())
