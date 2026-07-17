@@ -209,6 +209,10 @@ class BattleService(
                     bankedQuantity += newCharacter.inventory.filter { it.code == itemCode }.sumOf { it.quantity }
                     newCharacter = movementService.moveToBank(newCharacter)
                     newCharacter = bankService.emptyInventory(newCharacter)
+                    // emptyInventory dépose la nourriture et déséquipe les potions utilitaires : sans
+                    // ré-équipement, le farm repartait sans potion ni nourriture après le premier
+                    // débordement. On ré-applique gear + potions conditionnelles + nourriture.
+                    newCharacter = equipmentService.equipBestAvailableEquipmentForMonsterInBank(newCharacter, monster.code)
                     newCharacter = movementService.moveCharacterToCell(map.mapId, newCharacter)
                 }
             }
