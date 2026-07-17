@@ -97,6 +97,19 @@ class CrafterJob(
                 character = tryGatherUniqueArtifact(artifact)
             }
 
+            runLevelingCycle()
+        }while (true)
+    }
+
+    /**
+     * Sélectionne un palier de leveling, publie ses manques au pool de récolte, puis craft jusqu'à
+     * ce que la compétence monte de niveau (ou que la recette/le craft devienne impossible). Dès
+     * qu'un level up survient, reboucle immédiatement sur le palier suivant au lieu de rendre la
+     * main à l'appelant, qui referait d'abord le nettoyage banque / claim / collecte d'artefacts —
+     * ce qui laissait les récolteurs sans nouvelle consigne pendant ce temps.
+     */
+    private fun runLevelingCycle() {
+        while (true) {
             // Leveling prioritaire : publier les manques au pool au plus tôt pour que les
             // récolteurs produisent en parallèle, puis assembler dès que la banque couvre le batch.
             // En attendant, le crafter reste utile : un craft banque par cycle, re-check entre chaque.
@@ -109,14 +122,14 @@ class CrafterJob(
                 craftLevelingService.isLevelingBatchReady(levelingChoice.item, levelingChoice.batchSize)
 
             if (!levelingReady && craftOneItemForBank()) {
-                continue
+                return
             }
 
             if (skillToLevel == null) {
                 // Aucune recette « sans matériau rare » ni couverte par un surplus : on protège la
                 // réserve et on laisse la boucle principale faire autre chose (nettoyage, crafts
                 // banque, collecte) plutôt que d'entamer les matériaux rares.
-                continue
+                return
             }
             val oldLevel = character.getLevelOf(skillToLevel)
             while (oldLevel == character.getLevelOf(skillToLevel)) {
@@ -167,7 +180,13 @@ class CrafterJob(
                     break
                 }
             }
-        }while (true)
+            if (oldLevel == character.getLevelOf(skillToLevel)) {
+                // Pas de level up cette fois (recette épuisée ou erreur) : on rend la main pour
+                // repasser par le cycle complet (nettoyage, claim, artefacts) avant de retenter.
+                return
+            }
+            // Level up : on reboucle tout de suite pour republier au plus vite pour le palier suivant.
+        }
     }
 
     /**
