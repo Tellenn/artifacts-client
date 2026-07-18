@@ -148,6 +148,32 @@ class MerchantServiceBuyTest {
     }
 
     @Test
+    fun `listBuyableItems exclut les marchands d'evenement et enrichit devise, solde banque et finançable`() {
+        // given — 2 offres fixes (or + small_pearls) et 1 offre d'événement, à écarter.
+        `when`(npcClient.getAllNpcItems()).thenReturn(listOf(
+            NpcItem(code = "perfect_pearl", npc = fixedMerchant, currency = pearlCurrency, buyPrice = 20, sellPrice = null),
+            NpcItem(code = "healing_aura_rune", npc = "rune_seller", currency = "gold", buyPrice = 500, sellPrice = null),
+            NpcItem(code = "lost_world_map", npc = eventMerchant, currency = "gold", buyPrice = 15000, sellPrice = null),
+        ))
+        givenEventNpcs(eventMerchant)
+        `when`(bankService.quantityInBank(pearlCurrency)).thenReturn(60)
+        `when`(bankService.getBankDetails()).thenReturn(bankWith(gold = 1_200))
+
+        // when
+        val result = merchantService.listBuyableItems()
+
+        // then — l'offre d'événement exclue, tri par code, solde + finançable calculés
+        assertEquals(listOf("healing_aura_rune", "perfect_pearl"), result.map { it.code })
+        val pearl = result.first { it.code == "perfect_pearl" }
+        assertEquals(pearlCurrency, pearl.currency)
+        assertEquals(60, pearl.currencyInBank)
+        assertEquals(3, pearl.affordable)
+        val rune = result.first { it.code == "healing_aura_rune" }
+        assertEquals(1_200, rune.currencyInBank)
+        assertEquals(2, rune.affordable)
+    }
+
+    @Test
     fun `findFixedMerchantSelling retourne null quand seul un marchand d'evenement vend l'item`() {
         // given
         givenMerchantSells(npcItem(eventMerchant, currency = pearlCurrency))

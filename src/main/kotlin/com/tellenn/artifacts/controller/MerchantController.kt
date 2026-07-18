@@ -1,9 +1,12 @@
 package com.tellenn.artifacts.controller
 
+import com.tellenn.artifacts.models.MerchantOffer
 import com.tellenn.artifacts.services.MerchantMissionResult
 import com.tellenn.artifacts.services.MerchantOrderService
+import com.tellenn.artifacts.services.MerchantService
 import org.springframework.http.HttpStatus
 import org.springframework.http.ResponseEntity
+import org.springframework.web.bind.annotation.GetMapping
 import org.springframework.web.bind.annotation.PostMapping
 import org.springframework.web.bind.annotation.RequestBody
 import org.springframework.web.bind.annotation.RequestMapping
@@ -14,7 +17,13 @@ data class MerchantMissionResponse(val status: String, val reason: String? = nul
 
 @RestController
 @RequestMapping("/merchant")
-class MerchantController(private val merchantOrderService: MerchantOrderService) {
+class MerchantController(
+    private val merchantOrderService: MerchantOrderService,
+    private val merchantService: MerchantService,
+) {
+
+    @GetMapping("/offers")
+    fun offers(): List<MerchantOffer> = merchantService.listBuyableItems()
 
     @PostMapping("/buy")
     fun buy(@RequestBody request: MerchantBuyRequest): ResponseEntity<MerchantMissionResponse> {

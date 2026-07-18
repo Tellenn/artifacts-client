@@ -4,6 +4,7 @@ import com.tellenn.artifacts.clients.AccountClient
 import com.tellenn.artifacts.clients.EventClient
 import com.tellenn.artifacts.clients.NpcClient
 import com.tellenn.artifacts.models.ArtifactsCharacter
+import com.tellenn.artifacts.models.MerchantOffer
 import com.tellenn.artifacts.models.NpcItem
 import com.tellenn.artifacts.models.SimpleItem
 import org.apache.logging.log4j.LogManager
@@ -177,6 +178,29 @@ class MerchantService (
 
     private fun eventNpcCodes(): Set<String> =
         eventClient.getEvents(type = "npc").data.map { it.content.code }.toSet()
+
+    /**
+     * Catalogue des items achetables chez un marchand fixe (hors événement) : devise, prix
+     * unitaire, solde de la devise en banque et nombre d'exemplaires finançables. Le solde par
+     * devise est calculé une seule fois (l'or est partagé par beaucoup d'offres). Read-only.
+     */
+    fun listBuyableItems(): List<MerchantOffer> {
+        val eventNpcs = eventNpcCodes()
+        val offers = npcClient.getAllNpcItems()
+            .filter { (it.buyPrice ?: 0) > 0 && it.npc !in eventNpcs }
+        val balanceByCurrency = offers.map { it.currency }.distinct()
+            .associateWith { currencyInBank(it) }
+        return offers
+            .map { offer ->
+                val price = offer.buyPrice!!
+                val inBank = balanceByCurrency.getValue(offer.currency)
+                MerchantOffer(offer.code, offer.npc, offer.currency, price, inBank, inBank / price)
+            }
+            .sortedBy { it.code }
+    }
+
+    private fun currencyInBank(currency: String): Int =
+        if (currency == GOLD) bankService.getBankDetails().gold else bankService.quantityInBank(currency)
 
     /**
      * Achète [quantity] [itemCode] chez le marchand fixe qui le vend, plafonné par la devise

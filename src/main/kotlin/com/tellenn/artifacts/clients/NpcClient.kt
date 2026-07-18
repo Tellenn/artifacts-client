@@ -18,6 +18,27 @@ class NpcClient(deps: BaseClientDependencies) : BaseArtifactsClient(deps) {
             objectMapper.readValue<ArtifactsArrayResponseBody<NpcItem>>(responseBody)
         }
     }
+
+    /** Tous les items proposés par les NPC, toutes pages confondues. */
+    fun getAllNpcItems(): List<NpcItem> {
+        val all = mutableListOf<NpcItem>()
+        var page = 1
+        var pages = 1
+        while (page <= pages) {
+            val response = getNpcItemsPage(page, 100)
+            all += response.data
+            pages = response.pages
+            page++
+        }
+        return all
+    }
+
+    private fun getNpcItemsPage(page: Int, size: Int): ArtifactsArrayResponseBody<NpcItem> {
+        return sendGetRequest("/npcs/items?page=$page&size=$size").use { response ->
+            val responseBody = response.body!!.string()
+            objectMapper.readValue<ArtifactsArrayResponseBody<NpcItem>>(responseBody)
+        }
+    }
     fun getItemsBoughtWith(itemCode: String): ArtifactsArrayResponseBody<NpcItem> {
         return sendGetRequest("/npcs/items?currency=$itemCode").use { response ->
             val responseBody = response.body!!.string()
