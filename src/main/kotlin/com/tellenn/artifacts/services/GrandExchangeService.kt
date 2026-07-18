@@ -121,8 +121,14 @@ class GrandExchangeService(
         return if (ingredientsTime == Int.MAX_VALUE) Int.MAX_VALUE else ingredientsTime + 5 * quantity
     }
 
+    // Défense en profondeur : le client filtre déjà type=sell côté API, mais on re-filtre ici pour
+    // ne jamais retenir un ordre d'achat (buy) — l'acheter renverrait 404 « Sell order not found ».
     private fun getLowestGCOrder(itemCode: String): GEOrder? =
-        runCatching { grandExchangeClient.getPublicSellOrders(itemCode).data.minByOrNull { it.price } }.getOrNull()
+        runCatching {
+            grandExchangeClient.getPublicSellOrders(itemCode).data
+                .filter { it.type == "sell" }
+                .minByOrNull { it.price }
+        }.getOrNull()
 
     private fun euclideanDistance(character: ArtifactsCharacter, map: MapData): Double {
         val dx = (character.x - map.x).toDouble()

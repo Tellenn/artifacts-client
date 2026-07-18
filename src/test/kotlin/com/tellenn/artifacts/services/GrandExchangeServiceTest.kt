@@ -65,7 +65,17 @@ class GrandExchangeServiceTest {
         }
     }
 
+    @Test
+    fun `shouldBuyFromGC ignore un ordre d'achat et ne declenche pas un achat impossible`() {
+        // given — le carnet ne contient qu'un ordre buy (type=buy), jamais achetable
+        `when`(grandExchangeClient.getPublicSellOrders("iron_ore")).thenReturn(ordersOf(buyOrder()))
+
+        // when / then — aucun ordre de vente : on n'achète pas (sinon 404 « Sell order not found »)
+        assert(!service.shouldBuyFromGC(character, ironOre(), 3))
+    }
+
     private fun order() = GEOrder("ord-1", "sell", "acc", "iron_ore", 100, 2, Instant.EPOCH)
+    private fun buyOrder() = GEOrder("ord-buy", "buy", "acc", "iron_ore", 2000, 2, Instant.EPOCH)
     private fun ordersOf(vararg o: GEOrder) = ArtifactsArrayResponseBody(o.toList(), o.size, 1, o.size, 1)
     private fun ironOre() = ItemDetails(
         code = "iron_ore", name = "Iron Ore", description = "", type = "resource", subtype = "mining",
