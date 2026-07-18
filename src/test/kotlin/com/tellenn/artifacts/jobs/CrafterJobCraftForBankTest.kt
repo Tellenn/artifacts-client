@@ -7,9 +7,11 @@ import com.tellenn.artifacts.exceptions.CharacterSkillTooLow
 import com.tellenn.artifacts.models.ArtifactsCharacter
 import com.tellenn.artifacts.models.ItemCraft
 import com.tellenn.artifacts.models.ItemDetails
+import com.tellenn.artifacts.models.MonsterData
 import com.tellenn.artifacts.models.RecipeIngredient
 import com.tellenn.artifacts.services.AchievementService
 import com.tellenn.artifacts.services.BankService
+import com.tellenn.artifacts.services.BossFightService
 import com.tellenn.artifacts.services.CharacterContextService
 import com.tellenn.artifacts.services.CharacterService
 import com.tellenn.artifacts.services.CraftLevelingService
@@ -70,6 +72,8 @@ class CrafterJobCraftForBankTest {
     private lateinit var itemService: ItemService
     private lateinit var craftedItemRepository: CraftedItemRepository
     private lateinit var accountClient: AccountClient
+    private lateinit var monsterService: MonsterService
+    private lateinit var bossFightService: BossFightService
     private lateinit var job: CrafterJob
 
     @BeforeEach
@@ -80,6 +84,8 @@ class CrafterJobCraftForBankTest {
         itemService = mock(ItemService::class.java)
         craftedItemRepository = mock(CraftedItemRepository::class.java)
         accountClient = mock(AccountClient::class.java)
+        monsterService = mock(MonsterService::class.java)
+        bossFightService = mock(BossFightService::class.java)
 
         job = CrafterJob(
             mapService = mock(MapService::class.java),
@@ -92,12 +98,13 @@ class CrafterJobCraftForBankTest {
             craftedItemRepository = craftedItemRepository,
             gatheringService = gatheringService,
             eventService = mock(EventService::class.java),
-            monsterService = mock(MonsterService::class.java),
+            monsterService = monsterService,
             raidService = mock(RaidService::class.java),
             achievementService = mock(AchievementService::class.java),
             uniqueArtifactService = mock(UniqueArtifactService::class.java),
             contextService = mock(CharacterContextService::class.java),
             craftLevelingService = mock(CraftLevelingService::class.java),
+            bossFightService = bossFightService,
         )
         job.character = character()
 
@@ -126,6 +133,22 @@ class CrafterJobCraftForBankTest {
             craft = ItemCraft("weaponcrafting", level, listOf(RecipeIngredient("iron_bar", 2)), 1),
             effects = emptyList(), conditions = emptyList()
         )
+
+    private fun bossCraftable(code: String, ingredientCode: String, level: Int = 5): ItemDetails =
+        ItemDetails(
+            code = code, name = code, description = "", type = "weapon", subtype = "",
+            level = level, tradeable = true,
+            craft = ItemCraft("weaponcrafting", level, listOf(RecipeIngredient(ingredientCode, 1)), 1),
+            effects = emptyList(), conditions = emptyList()
+        )
+
+    private fun bossMonster(code: String) = MonsterData(
+        name = code, code = code, level = 40, hp = 5000,
+        attackFire = 0, attackEarth = 0, attackWater = 0, attackAir = 0,
+        defenseFire = 0, defenseEarth = 0, defenseWater = 0, defenseAir = 0,
+        criticalStrike = 0, effects = emptyList(), minGold = 0, maxGold = 0,
+        drops = null, initiative = 0, type = "boss",
+    )
 
     private fun stubCandidates(vararg items: ItemDetails) {
         `when`(itemService.getCrafterItemsBetweenLevel(anyInt(), anyInt(), anyList())).thenAnswer { inv ->
@@ -175,6 +198,57 @@ class CrafterJobCraftForBankTest {
         assertFalse(job.craftOneItemForBank())
         verify(gatheringService, never())
             .craftOrGather(anyObject(), anyString(), anyInt(), anyInt(), anyBoolean(), anyBoolean())
+    }
+
+    @Test
+    fun `item a ingredient boss hors banque est tente quand la party boss est libre`() {
+        // given : un candidat dont l'ingrédient vient d'un boss, absent de la banque, party libre
+        stubCandidates(bossCraftable("obsidian_sword", "bloodshard"))
+        `when`(bankService.canCraftFromBank(anyObject(), anyInt())).thenReturn(false)
+        `when`(bankService.isInBank("bloodshard", 1)).thenReturn(false)
+        `when`(monsterService.findMonsterThatDrop("bloodshard")).thenReturn(bossMonster("demon_king"))
+        `when`(bossFightService.isPartyAvailable()).thenReturn(true)
+
+        // when
+        val crafted = job.craftOneItemForBank()
+
+        // then : le craft est tenté avec combat autorisé (le chemin boss prend le relais)
+        assertTrue(crafted)
+        verify(gatheringService, times(1))
+            .craftOrGather(anyObject(), eqObject("obsidian_sword"), eq(1), anyInt(), eq(true), eq(false))
+    }
+
+    @Test
+    fun `item a ingredient boss hors banque est exclu quand la party boss est occupee`() {
+        // given : même candidat boss, mais la party n'est pas disponible
+        stubCandidates(bossCraftable("obsidian_sword", "bloodshard"))
+        `when`(bankService.canCraftFromBank(anyObject(), anyInt())).thenReturn(false)
+        `when`(bankService.isInBank("bloodshard", 1)).thenReturn(false)
+        `when`(monsterService.findMonsterThatDrop("bloodshard")).thenReturn(bossMonster("demon_king"))
+        `when`(bossFightService.isPartyAvailable()).thenReturn(false)
+
+        // when - then : aucun craft tenté
+        assertFalse(job.craftOneItemForBank())
+        verify(gatheringService, never())
+            .craftOrGather(anyObject(), anyString(), anyInt(), anyInt(), anyBoolean(), anyBoolean())
+    }
+
+    @Test
+    fun `item a ingredient boss deja en banque reste craftable meme party occupee`() {
+        // given : l'ingrédient boss est en stock, la party est occupée
+        stubCandidates(bossCraftable("obsidian_sword", "bloodshard"))
+        `when`(bankService.canCraftFromBank(anyObject(), anyInt())).thenReturn(false)
+        `when`(bankService.isInBank("bloodshard", 1)).thenReturn(true)
+        `when`(monsterService.findMonsterThatDrop("bloodshard")).thenReturn(bossMonster("demon_king"))
+        `when`(bossFightService.isPartyAvailable()).thenReturn(false)
+
+        // when
+        val crafted = job.craftOneItemForBank()
+
+        // then : le stock banque suffit, pas besoin de la party
+        assertTrue(crafted)
+        verify(gatheringService, times(1))
+            .craftOrGather(anyObject(), eqObject("obsidian_sword"), eq(1), anyInt(), eq(true), eq(false))
     }
 
     @Test

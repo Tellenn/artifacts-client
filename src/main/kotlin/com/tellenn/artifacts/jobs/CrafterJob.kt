@@ -12,6 +12,7 @@ import com.tellenn.artifacts.exceptions.UnknownMapException
 import com.tellenn.artifacts.models.ArtifactsCharacter
 import com.tellenn.artifacts.models.ItemDetails
 import com.tellenn.artifacts.services.BankService
+import com.tellenn.artifacts.services.BossFightService
 import com.tellenn.artifacts.services.CharacterService
 import com.tellenn.artifacts.services.CraftLevelingService
 import com.tellenn.artifacts.services.EventService
@@ -52,6 +53,7 @@ class CrafterJob(
     private val uniqueArtifactService: UniqueArtifactService,
     private val contextService: CharacterContextService,
     private val craftLevelingService: CraftLevelingService,
+    private val bossFightService: BossFightService,
 ) : GenericJob(mapService, movementService, bankService, characterService, accountClient, taskService) {
 
     lateinit var character: ArtifactsCharacter
@@ -270,6 +272,8 @@ class CrafterJob(
 
     private fun getListOfItemToCraftUnderLevel(character : ArtifactsCharacter, skills : List<String>) : List<ItemDetails>{
         val items = ArrayList<ItemDetails>()
+        // Évalué une fois par appel : check local (ThreadService), zéro appel API dans le filtre.
+        val bossPartyAvailable = bossFightService.isPartyAvailable()
 
 
         for (skill in skills) {
@@ -303,12 +307,14 @@ class CrafterJob(
                     }
                 }else{ false } } ?: false }
             .filter { item ->
-                // Filter out items that require boss monster components not in bank.
+                // Items with boss components not in bank are only viable when the boss party is
+                // idle: craftOrGather then routes to the boss path (availability + simulation
+                // re-checked at fight time). Party busy → excluded, no wasted attempt.
                 // A non-craftable item (craft == null) is never a valid craft target → excluded.
                 item.craft?.items?.none { ingredient ->
                     val monster = monsterService.findMonsterThatDrop(ingredient.code)
                     if(monster?.type == "boss"){
-                        !bankService.isInBank(ingredient.code, ingredient.quantity)
+                        !bankService.isInBank(ingredient.code, ingredient.quantity) && !bossPartyAvailable
                     }else{ false }
                 } ?: false
             }

@@ -8,6 +8,7 @@ import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
+import org.mockito.ArgumentMatchers.anyString
 import org.mockito.Mockito.mock
 import org.mockito.Mockito.never
 import org.mockito.Mockito.verify
@@ -35,6 +36,20 @@ class BossFightServiceTest {
             merchantService = mock(MerchantService::class.java),
             combatMetrics = CombatMetrics(SimpleMeterRegistry()),
         )
+    }
+
+    @Test
+    fun `isPartyAvailable is true when no default character is on mission`() {
+        `when`(threadService.isCharacterOnMission(anyString())).thenReturn(false)
+
+        assertTrue(service.isPartyAvailable())
+    }
+
+    @Test
+    fun `isPartyAvailable is false when one default character is on mission`() {
+        `when`(threadService.isCharacterOnMission("Cloud")).thenReturn(true)
+
+        assertFalse(service.isPartyAvailable())
     }
 
     @Test

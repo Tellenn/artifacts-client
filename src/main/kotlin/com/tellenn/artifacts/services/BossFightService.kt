@@ -43,10 +43,7 @@ class BossFightService(
      * @throws BattleLostException if characters are unavailable or the simulation predicts defeat
      */
     fun tryFightForItem(monsterCode: String, itemCode: String, quantity: Int): ArtifactsCharacter {
-        val allAvailable = listOf(DEFAULT_CHARACTER_1, DEFAULT_CHARACTER_2, DEFAULT_CHARACTER_3)
-            .none { threadService.isCharacterOnMission(it) }
-
-        if (!allAvailable) {
+        if (!isPartyAvailable()) {
             log.info("Boss fight for $monsterCode skipped: not all default characters are available")
             throw BattleLostException(monsterCode)
         }
@@ -58,6 +55,15 @@ class BossFightService(
 
         return runBossFights(monsterCode = monsterCode, itemCode = itemCode, quantity = quantity)
     }
+
+    /**
+     * True when the three default party characters are all off-mission and could
+     * be reserved for a boss fight right now. Cheap local check (no API call),
+     * safe to use in job filters; [tryFightForItem] re-checks at fight time.
+     */
+    fun isPartyAvailable(): Boolean =
+        listOf(DEFAULT_CHARACTER_1, DEFAULT_CHARACTER_2, DEFAULT_CHARACTER_3)
+            .none { threadService.isCharacterOnMission(it) }
 
     /**
      * Simulates a boss fight with the default three characters.

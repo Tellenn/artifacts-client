@@ -10,6 +10,7 @@ import com.tellenn.artifacts.models.RecipeIngredient
 import com.tellenn.artifacts.models.SimpleItem
 import com.tellenn.artifacts.services.AchievementService
 import com.tellenn.artifacts.services.BankService
+import com.tellenn.artifacts.services.BossFightService
 import com.tellenn.artifacts.services.CharacterContextService
 import com.tellenn.artifacts.services.CharacterService
 import com.tellenn.artifacts.services.CraftLevelingService
@@ -79,6 +80,7 @@ class CrafterJobCleanUpBankTest {
             uniqueArtifactService = mock(UniqueArtifactService::class.java),
             contextService = mock(CharacterContextService::class.java),
             craftLevelingService = mock(CraftLevelingService::class.java),
+            bossFightService = mock(BossFightService::class.java),
         )
         job.character = character()
     }
