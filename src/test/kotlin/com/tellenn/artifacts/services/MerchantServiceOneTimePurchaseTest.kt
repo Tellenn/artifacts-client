@@ -1,6 +1,7 @@
 package com.tellenn.artifacts.services
 
 import com.tellenn.artifacts.clients.AccountClient
+import com.tellenn.artifacts.clients.EventClient
 import com.tellenn.artifacts.clients.NpcClient
 import com.tellenn.artifacts.clients.responses.ArtifactsArrayResponseBody
 import com.tellenn.artifacts.clients.responses.ArtifactsResponseBody
@@ -42,6 +43,7 @@ class MerchantServiceOneTimePurchaseTest {
     private lateinit var movementService: MovementService
     private lateinit var itemService: ItemService
     private lateinit var accountClient: AccountClient
+    private lateinit var eventClient: EventClient
     private lateinit var merchantService: MerchantService
 
     private val npcCode = "nomadic_merchant"
@@ -55,7 +57,8 @@ class MerchantServiceOneTimePurchaseTest {
         movementService = mock(MovementService::class.java)
         itemService = mock(ItemService::class.java)
         accountClient = mock(AccountClient::class.java)
-        merchantService = MerchantService(npcClient, bankService, movementService, itemService, accountClient)
+        eventClient = mock(EventClient::class.java)
+        merchantService = MerchantService(npcClient, bankService, movementService, itemService, accountClient, eventClient)
     }
 
     // ── findPendingOneTimePurchases ────────────────────────────────────────────

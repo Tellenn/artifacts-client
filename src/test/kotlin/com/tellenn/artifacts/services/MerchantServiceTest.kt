@@ -1,8 +1,10 @@
 package com.tellenn.artifacts.services
 
 import com.tellenn.artifacts.clients.AccountClient
+import com.tellenn.artifacts.clients.EventClient
 import com.tellenn.artifacts.clients.NpcClient
 import com.tellenn.artifacts.clients.responses.ArtifactsArrayResponseBody
+import com.tellenn.artifacts.clients.responses.ArtifactsResponseBody
 import com.tellenn.artifacts.models.ItemCraft
 import com.tellenn.artifacts.models.ItemDetails
 import com.tellenn.artifacts.models.NpcItem
@@ -19,6 +21,7 @@ class MerchantServiceTest {
     private lateinit var movementService: MovementService
     private lateinit var itemService: ItemService
     private lateinit var accountClient: AccountClient
+    private lateinit var eventClient: EventClient
     private lateinit var merchantService: MerchantService
 
     private val npcName = "herbal_merchant"
@@ -30,7 +33,8 @@ class MerchantServiceTest {
         movementService = mock(MovementService::class.java)
         itemService = mock(ItemService::class.java)
         accountClient = mock(AccountClient::class.java)
-        merchantService = MerchantService(npcClient, bankService, movementService, itemService, accountClient)
+        eventClient = mock(EventClient::class.java)
+        merchantService = MerchantService(npcClient, bankService, movementService, itemService, accountClient, eventClient)
     }
 
     private fun npcItem(code: String, sellPrice: Int?) =
@@ -110,6 +114,38 @@ class MerchantServiceTest {
         `when`(npcClient.getNpcItems(npcName)).thenReturn(npcItemsResponse(item))
         val craft = ItemCraft(skill = "alchemy", level = 1, items = emptyList(), quantity = 1)
         `when`(itemService.getItem("health_potion")).thenReturn(itemDetails("health_potion", craft = craft))
+
+        // when
+        val result = merchantService.findSellableItems(npcName)
+
+        // then
+        assertTrue(result.isEmpty())
+    }
+
+    @Test
+    fun `findSellableItems sells small_pearls once the perfect_pearl target is reached`() {
+        // given — le marchand rachète les small_pearls (prix bas, sous le seuil générique) et
+        // la réserve de 5 perfect_pearl est atteinte : la monnaie devient vendable.
+        val item = npcItem("small_pearls", sellPrice = 5)
+        `when`(npcClient.getNpcItems(npcName)).thenReturn(npcItemsResponse(item))
+        `when`(accountClient.getCharacters()).thenReturn(ArtifactsResponseBody(emptyList()))
+        `when`(bankService.quantityInBank("perfect_pearl")).thenReturn(5)
+        `when`(bankService.isInBank("small_pearls", 1)).thenReturn(true)
+
+        // when
+        val result = merchantService.findSellableItems(npcName)
+
+        // then
+        assertEquals(listOf("small_pearls"), result.map { it.code })
+    }
+
+    @Test
+    fun `findSellableItems keeps small_pearls before the perfect_pearl target is reached`() {
+        // given — seulement 2 perfect_pearl possédées : on garde les small_pearls pour l'échange.
+        val item = npcItem("small_pearls", sellPrice = 5)
+        `when`(npcClient.getNpcItems(npcName)).thenReturn(npcItemsResponse(item))
+        `when`(accountClient.getCharacters()).thenReturn(ArtifactsResponseBody(emptyList()))
+        `when`(bankService.quantityInBank("perfect_pearl")).thenReturn(2)
 
         // when
         val result = merchantService.findSellableItems(npcName)

@@ -1,6 +1,7 @@
 package com.tellenn.artifacts.services
 
 import com.tellenn.artifacts.clients.AccountClient
+import com.tellenn.artifacts.clients.EventClient
 import com.tellenn.artifacts.clients.NpcClient
 import com.tellenn.artifacts.models.ArtifactsCharacter
 import com.tellenn.artifacts.models.NpcItem
@@ -15,17 +16,33 @@ class MerchantService (
     private val movementService: MovementService,
     private val itemService: ItemService,
     private val accountClient: AccountClient,
+    private val eventClient: EventClient,
 ){
 
     companion object {
         private val logger = LogManager.getLogger(MerchantService::class.java)
         private const val MIN_SELL_PRICE = 99
 
+        // Devise « or » : solde monétaire de la banque, pas un item stockable.
+        private const val GOLD = "gold"
+
+        // Échange perfect_pearl (artifact) contre des small_pearls chez un marchand fixe (hors
+        // événement). On achète jusqu'à en posséder PERFECT_PEARL_TARGET (équipés + inventaires +
+        // banque, tous personnages). Tant que la cible n'est pas atteinte, les small_pearls sont
+        // gardées pour l'achat ; une fois atteinte, elles deviennent vendables.
+        private const val PERFECT_PEARL = "perfect_pearl"
+        private const val SMALL_PEARLS = "small_pearls"
+        private const val PERFECT_PEARL_TARGET = 5
+
         // Items d'événement à acheter jusqu'à une quantité cible possédée (équipés + inventaires
         // + banque, tous personnages). La limite « une fois par saison » est auto-portée par le
         // comptage : cible atteinte = plus d'achat. La liste grandira — ajouter une entrée suffit.
         private val ONE_TIME_PURCHASE_TARGETS = mapOf(
             "lost_world_map" to 5,
+            "voidstone_pickaxe" to 1,
+            "voidstone_fishing_rod" to 1,
+            "voidstone_gloves" to 1,
+            "voidstone_axe" to 1
         )
 
         private val EQUIPMENT_SLOTS = listOf(
@@ -41,15 +58,27 @@ class MerchantService (
      * is worthwhile before interrupting a character's thread.
      */
     fun findSellableItems(npcName: String): List<NpcItem> {
-        val items = npcClient.getNpcItems(npcName).data
+        val npcItems = npcClient.getNpcItems(npcName).data
+        val genericlySellable = npcItems
             .filter { it.sellPrice != null
                     && it.sellPrice > MIN_SELL_PRICE
                     && itemService.getItem(it.code).craft == null
                     && npcClient.getItemsBoughtWith(it.code).total == 0
                     && bankService.isInBank(it.code, 1) }
+
+        // Les small_pearls sont une monnaie (exclue du filtre générique) : on ne les vend qu'une
+        // fois la réserve de perfect_pearl atteinte, sinon on les garde pour l'échange.
+        val sellablePearls = npcItems
+            .filter { it.code == SMALL_PEARLS && it.sellPrice != null && shouldSellSmallPearls() }
+
+        val items = genericlySellable + sellablePearls
         logger.info("Found ${items.size} sellable npcItems for the event $npcName")
         return items
     }
+
+    private fun shouldSellSmallPearls(): Boolean =
+        countOwned(PERFECT_PEARL, accountClient.getCharacters().data) >= PERFECT_PEARL_TARGET
+                && bankService.isInBank(SMALL_PEARLS, 1)
 
     fun sellBankItemTo(chararacter : ArtifactsCharacter, npcName : String) : ArtifactsCharacter{
         var newCharacter = chararacter
@@ -134,6 +163,50 @@ class MerchantService (
         }
         return newCharacter
     }
+
+    /**
+     * Marchand fixe (hors événement) vendant [itemCode], avec sa devise et son prix unitaire.
+     * Un marchand est « d'événement » si son code figure dans /events?type=npc ; on les exclut.
+     * Null si aucun marchand fixe ne le vend ou si le prix est absent/invalide. Read-only.
+     */
+    fun findFixedMerchantSelling(itemCode: String): NpcItem? {
+        val eventNpcs = eventNpcCodes()
+        return npcClient.getNpcByItemCode(itemCode).data
+            .firstOrNull { (it.buyPrice ?: 0) > 0 && it.npc !in eventNpcs }
+    }
+
+    private fun eventNpcCodes(): Set<String> =
+        eventClient.getEvents(type = "npc").data.map { it.content.code }.toSet()
+
+    /**
+     * Achète [quantity] [itemCode] chez le marchand fixe qui le vend, plafonné par la devise
+     * disponible en banque (or ou item selon la devise du marchand). Déclenché par le dashboard
+     * (mission humaine). Achat partiel possible si la banque ne couvre pas toute la quantité.
+     */
+    fun buyFromFixedMerchant(character: ArtifactsCharacter, itemCode: String, quantity: Int): ArtifactsCharacter {
+        val merchant = findFixedMerchantSelling(itemCode) ?: return character
+        val price = merchant.buyPrice!!
+        val toBuy = minOf(quantity, affordableQuantity(merchant.currency, price))
+        if (toBuy <= 0) return character
+        val cost = toBuy * price
+
+        logger.info("Buying {} {} from {} for {} {}", toBuy, itemCode, merchant.npc, cost, merchant.currency)
+        var newCharacter = movementService.moveToBank(character)
+        newCharacter = withdrawCurrency(merchant.currency, cost, newCharacter)
+        newCharacter = movementService.moveToNpc(newCharacter, merchant.npc)
+        newCharacter = npcClient.buyItem(newCharacter.name, itemCode, toBuy).data.character
+        newCharacter = movementService.moveToBank(newCharacter)
+        return bankService.deposit(newCharacter, listOf(SimpleItem(itemCode, toBuy)))
+    }
+
+    /** Quantité maximale achetable avec la devise disponible en banque au prix unitaire [price]. */
+    fun affordableQuantity(currency: String, price: Int): Int =
+        if (currency == GOLD) bankService.getBankDetails().gold / price
+        else bankService.quantityInBank(currency) / price
+
+    private fun withdrawCurrency(currency: String, amount: Int, character: ArtifactsCharacter): ArtifactsCharacter =
+        if (currency == GOLD) bankService.withdrawGold(amount, character)
+        else bankService.withdrawOne(currency, amount, character)
 
     private fun missingQuantity(itemCode: String, characters: List<ArtifactsCharacter>): Int {
         val target = ONE_TIME_PURCHASE_TARGETS[itemCode] ?: return 0
