@@ -74,6 +74,16 @@ class TeleportService(
     }
 
     /**
+     * Première potion de téléport utilisable dont le point d'arrivée est dans [region].
+     * Évasion inconditionnelle (indépendante du gain de cases) : sert à rejoindre la
+     * région d'une banque sans emprunter un ferry payant potentiellement impayable.
+     */
+    fun findPotionLandingInRegion(character: ArtifactsCharacter, region: Int): ItemDetails? =
+        findUsableTeleportPotionsInInventory(character)
+            .firstOrNull { (_, landingMapId) -> mapMongoClient.getMapById(landingMapId)?.region == region }
+            ?.first
+
+    /**
      * Coût de marche (en cases) d'un point vers [destination] : distance de
      * Manhattan, majorée de [PENALTY_PER_TRANSITION] cases par transition de
      * région à franchir lorsque l'origine et la destination changent de région.

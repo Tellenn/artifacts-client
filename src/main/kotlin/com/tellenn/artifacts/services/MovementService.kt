@@ -25,6 +25,14 @@ class MovementService(
     private val log = LoggerFactory.getLogger(MovementService::class.java)
 
     /**
+     * Vrai (par thread = par personnage) pendant qu'on finance un ferry à coût en or.
+     * Sert à couper la récursion `moveToBank ↔ transitionsFromRegions` : si rejoindre la
+     * banque exige à son tour un ferry impayable et qu'aucune potion n'atterrit dans sa
+     * région, on échoue proprement au lieu de boucler à l'infini.
+     */
+    private val fundingFerry = ThreadLocal.withInitial { false }
+
+    /**
      * Moves a character to a specific cell.
      * If the character is already at the destination, no movement is performed.
      *
@@ -140,7 +148,16 @@ class MovementService(
                 when (condition.operator) {
                     "cost", "has_item" -> {
                         if(condition.code == "gold"){
-                            newCharacter = moveToBank(newCharacter)
+                            // Le retrait d'or se fait à la banque, qui peut être derrière ce
+                            // même ferry : on marque le financement pour que le moveToBank
+                            // interne coupe la récursion (potion prioritaire, sinon échec net).
+                            val previous = fundingFerry.get()
+                            fundingFerry.set(true)
+                            newCharacter = try {
+                                moveToBank(newCharacter)
+                            } finally {
+                                fundingFerry.set(previous)
+                            }
                             newCharacter = bankService.withdrawMoney(newCharacter, condition.value)
                         }else {
                             newCharacter = bankService.withdrawOne(condition.code, condition.value, newCharacter)
@@ -177,6 +194,26 @@ class MovementService(
         if (character.mapId == closestBank.mapId) {
             return character
         }
+
+        val currentRegion = mapService.findByMapId(character.mapId)?.region
+        if (currentRegion != null && closestBank.region != null && currentRegion != closestBank.region) {
+            // Banque dans une autre région : y aller à pied peut passer par un ferry payant.
+            // 1) On privilégie une potion de téléport qui atterrit dans la région de la banque
+            //    (region des banques), pour ne pas rester bloqué sans or de l'autre côté.
+            val potion = teleportService.findPotionLandingInRegion(character, closestBank.region!!)
+            if (potion != null) {
+                log.info("{} uses {} to reach the bank region {} (avoids a paid ferry)", character.name, potion.code, closestBank.region)
+                val teleported = teleportService.use(character, potion.code)
+                return moveCharacterToCell(closestBank.mapId, teleported)
+            }
+            // 2) Aucune potion et on finance déjà un ferry : rejoindre la banque relancerait
+            //    la même transition impayable. On coupe la récursion par un échec propre.
+            if (fundingFerry.get()) {
+                log.warn("{} cannot fund the bank ferry without a potion or reachable gold, aborting", character.name)
+                throw UnreachableMapException(closestBank, character.name)
+            }
+        }
+
         // moveCharacterToCell applique la logique de téléport (distance + garde-fou
         // « rapprochement ») : la potion n'est utilisée que si elle aide réellement.
         return moveCharacterToCell(closestBank.mapId, character)

@@ -2,8 +2,10 @@ package com.tellenn.artifacts.services
 
 import com.tellenn.artifacts.clients.AccountClient
 import com.tellenn.artifacts.clients.MovementClient
+import com.tellenn.artifacts.exceptions.UnreachableMapException
 import com.tellenn.artifacts.models.*
 import org.junit.jupiter.api.Assertions.assertEquals
+import org.junit.jupiter.api.Assertions.assertThrows
 import org.junit.jupiter.api.Test
 import org.mockito.Mockito.*
 
@@ -93,5 +95,49 @@ class MovementServiceTransitionTest {
         // then : l'or en banque n'est pas un item -> l'ancien isInBank("gold",…) échouait toujours.
         assertEquals(1229, result.mapId)
         verify(bankService).getBankDetails()
+    }
+
+    @Test
+    fun `moveToBank uses a bank-region teleport potion when the bank is in another region`() {
+        // given : personnage en region 19 (île sans banque), banque la plus proche en region 1.
+        // Une potion (forest_bank_potion) atterrit sur la banque : on la privilégie pour éviter
+        // le ferry payant du retour (sinon récursion moveToBank <-> transitionsFromRegions).
+        val character = buildCharacter(mapId = 1336)
+        val bank = mapAt(955, region = 1)
+        `when`(mapService.findClosestMap(character, contentCode = "bank", checkAchievement = true)).thenReturn(bank)
+        `when`(mapService.findByMapId(1336)).thenReturn(mapAt(1336, region = 19))
+        val potion = mock(ItemDetails::class.java)
+        `when`(potion.code).thenReturn("forest_bank_potion")
+        `when`(teleportService.findPotionLandingInRegion(character, 1)).thenReturn(potion)
+        val teleported = buildCharacter(mapId = 955)
+        `when`(teleportService.use(character, "forest_bank_potion")).thenReturn(teleported)
+
+        // when
+        val result = service.moveToBank(character)
+
+        // then : potion utilisée, arrivée sur la banque, aucun ferry ni retrait d'or.
+        verify(teleportService).use(character, "forest_bank_potion")
+        assertEquals(955, result.mapId)
+        verify(bankService, never()).getBankDetails()
+    }
+
+    @Test
+    fun `transitionsFromRegions aborts with UnreachableMapException instead of recursing when the bank ferry is unaffordable`() {
+        // given : Kepo en region 19 sans or ni potion. Financer le ferry exige la banque,
+        // elle-même derrière le ferry -> l'ancien code bouclait à l'infini (StackOverflow +
+        // rafale de /my/bank). On attend désormais un échec propre.
+        val character = buildCharacter(mapId = 1336)
+        val originMap = mapAt(1336, region = 19)
+        val destinationMap = mapAt(999, region = 1)
+        `when`(mapService.findTransitionPath(19, 1)).thenReturn(listOf(goldCostTransition(sourceMapId = 1336)))
+        `when`(bankService.getBankDetails()).thenReturn(BankDetails(gold = 5000, nextExpansionCost = 0, expansions = 0, slots = 0))
+        `when`(mapService.findClosestMap(character, contentCode = "bank", checkAchievement = true)).thenReturn(mapAt(334, region = 1))
+        `when`(mapService.findByMapId(1336)).thenReturn(mapAt(1336, region = 19))
+        `when`(teleportService.findPotionLandingInRegion(character, 1)).thenReturn(null)
+
+        // when / then
+        assertThrows(UnreachableMapException::class.java) {
+            service.transitionsFromRegions(character, originMap, destinationMap)
+        }
     }
 }

@@ -262,6 +262,37 @@ class TeleportServiceTest {
         assertNull(result)
     }
 
+    // ── findPotionLandingInRegion ──────────────────────────────────────────
+
+    @Test
+    fun `findPotionLandingInRegion returns the potion that lands in the target region`() {
+        val character = buildCharacter(inventory = arrayOf(
+            InventorySlot(1, "recall_potion", 1),
+            InventorySlot(2, "forest_bank_potion", 1),
+        ))
+        `when`(itemRepository.findByCodeIn(listOf("recall_potion", "forest_bank_potion")))
+            .thenReturn(listOf(buildPotion("recall_potion", 271), buildPotion("forest_bank_potion", 955)))
+        // recall atterrit region 3, forest_bank region 1 : on veut la région 1.
+        `when`(mapMongoClient.getMapById(271)).thenReturn(map(271, 0, 0, region = 3))
+        `when`(mapMongoClient.getMapById(955)).thenReturn(map(955, 0, 0, region = 1))
+
+        val result = service.findPotionLandingInRegion(character, 1)
+
+        assertEquals("forest_bank_potion", result?.code)
+    }
+
+    @Test
+    fun `findPotionLandingInRegion returns null when no potion lands in the target region`() {
+        val character = buildCharacter(inventory = arrayOf(InventorySlot(1, "recall_potion", 1)))
+        `when`(itemRepository.findByCodeIn(listOf("recall_potion")))
+            .thenReturn(listOf(buildPotion("recall_potion", 271)))
+        `when`(mapMongoClient.getMapById(271)).thenReturn(map(271, 0, 0, region = 3))
+
+        val result = service.findPotionLandingInRegion(character, 1)
+
+        assertNull(result)
+    }
+
     // ── findUsableTeleportPotionsInBank ────────────────────────────────────
 
     @Test
