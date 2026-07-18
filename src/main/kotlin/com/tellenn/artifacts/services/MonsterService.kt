@@ -30,6 +30,13 @@ class MonsterService(
         return  monsterRepository.findFirstByDropsCodeOrderByLevelAsc(itemCode)
     }
 
+    // Tous les monstres qui droppent l'item, du plus faible au plus fort. Un même drop peut être
+    // partagé par un monstre permanent et sa variante d'événement — l'appelant choisit lequel est
+    // réellement joignable au lieu de se contenter du premier par niveau.
+    fun findMonstersThatDrop(itemCode: String) : List<MonsterData> {
+        return monsterRepository.findByDropsCodeOrderByLevelAsc(itemCode)
+    }
+
     fun findStrongestMonsterUnderLevel(level: Int) : MonsterData{
         return monsterRepository.findFirstByLevelLessThanEqualOrderByLevelDesc(level.coerceAtLeast(1))
     }

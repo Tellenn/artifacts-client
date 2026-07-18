@@ -3,6 +3,7 @@ package com.tellenn.artifacts.services
 import com.tellenn.artifacts.clients.AccountClient
 import com.tellenn.artifacts.clients.BattleClient
 import com.tellenn.artifacts.models.ArtifactsCharacter
+import com.tellenn.artifacts.models.MonsterData
 import com.tellenn.artifacts.exceptions.BattleLostException
 import com.tellenn.artifacts.exceptions.CharacterInventoryFullException
 import com.tellenn.artifacts.exceptions.MapNotFoundException
@@ -122,12 +123,31 @@ class BattleService(
     }
 
     /**
+     * Monstre effectivement joignable qui drop [itemCode] : parmi tous les droppers (plus faible
+     * d'abord), on préfère celui qu'on peut atteindre maintenant — un monstre permanent, ou un
+     * monstre d'événement actuellement apparu. Un même drop peut être partagé par un monstre
+     * permanent et sa variante d'événement (ex. `owlbear` + `corrupted_owlbear`) : le tri par
+     * niveau seul renvoyait parfois la variante d'événement absente, faisant renoncer au craft.
+     * Repli sur le dropper le plus faible si aucun n'est joignable, pour préserver le chemin boss
+     * et le message d'erreur d'origine.
+     */
+    fun findObtainableMonsterThatDrop(itemCode: String): MonsterData? {
+        val droppers = monsterService.findMonstersThatDrop(itemCode)
+        return droppers.firstOrNull { isMonsterObtainable(it) } ?: droppers.firstOrNull()
+    }
+
+    // Un monstre permanent est toujours joignable ; un monstre d'événement uniquement s'il est
+    // actuellement apparu sur la carte (vérification live via /maps).
+    private fun isMonsterObtainable(monster: MonsterData): Boolean =
+        !eventService.isEventMonster(monster.code) || monsterService.findMonsterMapOrNull(monster.code) != null
+
+    /**
      * Vérifie qu'obtenir [itemCode] par le combat est réaliste pour [character].
      * Les boss sont laissés au chemin boss qui fait sa propre simulation de groupe ;
      * un item sans monstre connu est considéré comme hors combat (non bloquant).
      */
     fun isFightForItemWinnable(character: ArtifactsCharacter, itemCode: String): Boolean {
-        val monster = monsterService.findMonsterThatDrop(itemCode) ?: return true
+        val monster = findObtainableMonsterThatDrop(itemCode) ?: return true
         if (monster.type == "boss") {
             return true
         }
@@ -135,17 +155,17 @@ class BattleService(
     }
 
     /**
-     * Vérifie que le monstre qui drop [itemCode] est actuellement présent sur une map (API live).
-     * Les monstres d'événement n'existent sur la carte que pendant leur événement — le cache
-     * local de maps peut prétendre le contraire. Les monstres permanents sont toujours présents,
-     * aucune requête live n'est faite pour eux ; un item sans monstre connu est non bloquant.
+     * Vérifie qu'au moins un monstre droppant [itemCode] est actuellement joignable. Les monstres
+     * d'événement n'existent sur la carte que pendant leur événement — le cache local peut
+     * prétendre le contraire. Un drop partagé par plusieurs monstres reste obtenable tant qu'un
+     * seul dropper est présent (le permanent) ; un item sans monstre connu est non bloquant.
      */
     fun isMonsterForItemOnMap(itemCode: String): Boolean {
-        val monster = monsterService.findMonsterThatDrop(itemCode) ?: return true
-        if (!eventService.isEventMonster(monster.code)) {
+        val droppers = monsterService.findMonstersThatDrop(itemCode)
+        if (droppers.isEmpty()) {
             return true
         }
-        return monsterService.findMonsterMapOrNull(monster.code) != null
+        return droppers.any { isMonsterObtainable(it) }
     }
 
 
@@ -169,7 +189,7 @@ class BattleService(
     }
 
     fun fightToGetItem(character: ArtifactsCharacter, itemCode: String, quantity: Int, shouldTrain: Boolean = false): ArtifactsCharacter {
-        val monster = monsterService.findMonsterThatDrop(itemCode)
+        val monster = findObtainableMonsterThatDrop(itemCode)
         if(monster == null){
             log.error("Monster with itemcode $itemCode not found")
             return character

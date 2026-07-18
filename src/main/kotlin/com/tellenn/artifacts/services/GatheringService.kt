@@ -367,8 +367,13 @@ class GatheringService(
             grandExchangeService.buyFromGC(character, item, quantity)
         } catch (e: GENoOrdersException) {
             log.warn("Achat GC échoué pour {} — repli sur gather/craft : {}", item.code, e.message)
-            if (item.craft == null) gather(character, item, quantity)
-            else throw e
+            if (item.craft == null) {
+                // L'achat a pu retirer l'or et déplacer le personnage avant d'échouer (offre disparue
+                // en cours d'achat) : on repart de l'état serveur réel pour ne pas récolter avec une
+                // position ou un solde d'or périmés.
+                val fresh = accountClient.getCharacter(character.name).data
+                gather(fresh, item, quantity)
+            } else throw e
         }
     }
 

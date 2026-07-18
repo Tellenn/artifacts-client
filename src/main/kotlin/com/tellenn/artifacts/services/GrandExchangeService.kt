@@ -2,6 +2,7 @@ package com.tellenn.artifacts.services
 
 import com.tellenn.artifacts.clients.GrandExchangeClient
 import com.tellenn.artifacts.exceptions.GENoOrdersException
+import com.tellenn.artifacts.exceptions.NotFoundException
 import com.tellenn.artifacts.models.ArtifactsCharacter
 import com.tellenn.artifacts.models.GEOrder
 import com.tellenn.artifacts.models.ItemDetails
@@ -66,7 +67,14 @@ class GrandExchangeService(
         var newCharacter = movementService.moveToBank(character)
         newCharacter = bankService.withdrawGold(goldNeeded, newCharacter)
         newCharacter = movementService.moveToGrandExchange(newCharacter)
-        newCharacter = grandExchangeClient.buyItem(newCharacter.name, lowestOrder.id, quantity).data.character
+        newCharacter = try {
+            grandExchangeClient.buyItem(newCharacter.name, lowestOrder.id, quantity).data.character
+        } catch (e: NotFoundException) {
+            // L'offre a disparu entre la lecture du prix et l'achat (achetée ou expirée par un autre
+            // acteur) : concurrence GC. Sémantiquement identique à « plus d'offre » — on lève
+            // GENoOrdersException pour que l'appelant retombe sur gather/craft au lieu de crasher.
+            throw GENoOrdersException("Offre GC ${lowestOrder.id} pour ${item.code} introuvable — disparue avant l'achat")
+        }
 
         log.info("{} bought {} x{} from GE for {}g/u", newCharacter.name, item.code, quantity, lowestOrder.price)
         return newCharacter

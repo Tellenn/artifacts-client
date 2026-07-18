@@ -104,6 +104,7 @@ class BattleServiceTest {
         `when`(monster.code).thenReturn("chicken")
         `when`(monster.type).thenReturn("normal")
         `when`(monsterService.findMonsterThatDrop("feather")).thenReturn(monster)
+        `when`(monsterService.findMonstersThatDrop("feather")).thenReturn(listOf(monster))
 
         val map = mock(MapData::class.java)
         `when`(map.mapId).thenReturn(42)
@@ -266,6 +267,42 @@ class BattleServiceTest {
 
         // when / then
         assert(battleService.isMonsterForItemOnMap("feather"))
+    }
+
+    @Test
+    fun `isMonsterForItemOnMap renvoie true quand un dropper permanent existe malgre une variante d'evenement absente`() {
+        // given — owlbear_hair droppé par corrupted_owlbear (événement, absent) puis owlbear (permanent)
+        stubSharedDrop()
+
+        // when / then — le dropper permanent suffit : l'item reste obtenable
+        assert(battleService.isMonsterForItemOnMap("owlbear_hair"))
+    }
+
+    @Test
+    fun `findObtainableMonsterThatDrop prefere le dropper permanent a la variante d'evenement absente`() {
+        // given — même item, variante d'événement listée en premier (égalité de niveau)
+        stubSharedDrop()
+
+        // when
+        val monster = battleService.findObtainableMonsterThatDrop("owlbear_hair")
+
+        // then — on retient l'owlbear permanent, jamais le corrupted_owlbear inatteignable
+        assert(monster?.code == "owlbear")
+    }
+
+    /**
+     * Deux monstres droppent owlbear_hair au même niveau : la variante d'événement
+     * (corrupted_owlbear, absente hors événement) est listée en premier, l'owlbear permanent ensuite.
+     */
+    private fun stubSharedDrop() {
+        val event = mock(MonsterData::class.java)
+        `when`(event.code).thenReturn("corrupted_owlbear")
+        val permanent = mock(MonsterData::class.java)
+        `when`(permanent.code).thenReturn("owlbear")
+        `when`(monsterService.findMonstersThatDrop("owlbear_hair")).thenReturn(listOf(event, permanent))
+        `when`(eventService.isEventMonster("corrupted_owlbear")).thenReturn(true)
+        `when`(monsterService.findMonsterMapOrNull("corrupted_owlbear")).thenReturn(null)
+        `when`(eventService.isEventMonster("owlbear")).thenReturn(false)
     }
 
     @Test

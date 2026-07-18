@@ -12,6 +12,10 @@ interface MonsterRepository : MongoRepository<MonsterData, String> {
     // Find the weakest monster that drop a specific item
     fun findFirstByDropsCodeOrderByLevelAsc(itemId: String): MonsterData?
 
+    // Find every monster dropping a specific item, weakest first (a drop can be shared,
+    // e.g. a permanent monster and its event/corrupted variant).
+    fun findByDropsCodeOrderByLevelAsc(itemId: String): List<MonsterData>
+
     fun findFirstByLevelLessThanEqualOrderByLevelDesc(level: Int): MonsterData
 
     fun findByLevelLessThanEqualOrderByLevelDesc(level: Int): List<MonsterData>
