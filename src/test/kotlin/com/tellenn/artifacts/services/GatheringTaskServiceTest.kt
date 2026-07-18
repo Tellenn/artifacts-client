@@ -223,6 +223,42 @@ class GatheringTaskServiceTest {
     }
 
     @Test
+    fun `openTasksFor prioritizes the character's own skill over mob even when the mob task is older`() {
+        // given : une tâche mob plus ancienne et une tâche minage plus récente, toutes deux à portée
+        val olderMob = task("snake_skin", "mob").copy(createdAt = Instant.parse("2026-07-18T09:00:00Z"))
+        val newerMining = task("steel_bar", "mining").copy(createdAt = Instant.parse("2026-07-18T11:00:00Z"))
+        `when`(repository.findBySkillInAndRemainingGreaterThan(listOf("mining", "mob"), 0))
+            .thenReturn(listOf(olderMob, newerMining))
+        `when`(itemService.getItem("snake_skin")).thenReturn(item("snake_skin", 10))
+        `when`(itemService.getItem("steel_bar")).thenReturn(item("steel_bar", 10))
+
+        // when
+        val codes = service.openTasksFor(listOf("mining", "mob"), mapOf("mining" to 30, "mob" to 30))
+            .map { it.materialCode }
+
+        // then : la profession (minage) passe avant le mob, malgré l'ancienneté du mob
+        assertEquals(listOf("steel_bar", "snake_skin"), codes)
+    }
+
+    @Test
+    fun `openTasksFor keeps oldest-first ordering within the same skill`() {
+        // given : deux tâches de minage, l'ancienneté départage à priorité de skill égale
+        val recent = task("steel_bar", "mining").copy(createdAt = Instant.parse("2026-07-18T11:00:00Z"))
+        val old = task("iron_bar", "mining").copy(createdAt = Instant.parse("2026-07-18T09:00:00Z"))
+        `when`(repository.findBySkillInAndRemainingGreaterThan(listOf("mining"), 0))
+            .thenReturn(listOf(recent, old))
+        `when`(itemService.getItem("steel_bar")).thenReturn(item("steel_bar", 10))
+        `when`(itemService.getItem("iron_bar")).thenReturn(item("iron_bar", 10))
+
+        // when
+        val codes = service.openTasksFor(listOf("mining"), mapOf("mining" to 30))
+            .map { it.materialCode }
+
+        // then : à skill égal, la plus ancienne d'abord
+        assertEquals(listOf("iron_bar", "steel_bar"), codes)
+    }
+
+    @Test
     fun `getQueueStatus maps a task and its reservations into a status view`() {
         // given
         val reservedAt = Instant.parse("2026-07-02T10:00:00Z")

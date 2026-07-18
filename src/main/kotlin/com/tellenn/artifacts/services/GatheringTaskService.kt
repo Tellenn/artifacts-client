@@ -128,12 +128,15 @@ class GatheringTaskService(
 
     /**
      * Tâches ouvertes que le personnage peut produire : compétence dans [skills],
-     * niveau du matériau couvert par le niveau du personnage, triées par ancienneté.
+     * niveau du matériau couvert par le niveau du personnage. Triées par priorité de
+     * compétence (ordre de [skills] : sa profession d'abord, `mob` en dernier via
+     * [com.tellenn.artifacts.jobs.GenericJob.poolSkillsFor]) puis par ancienneté — un
+     * récolteur draine ses tâches de métier avant de partir sur des drops de monstre.
      */
     fun openTasksFor(skills: List<String>, levelBySkill: Map<String, Int>): List<GatheringTaskDocument> =
         repository.findBySkillInAndRemainingGreaterThan(skills, 0)
             .filter { task -> itemService.getItem(task.materialCode).level <= (levelBySkill[task.skill] ?: 0) }
-            .sortedBy { it.createdAt }
+            .sortedWith(compareBy({ skills.indexOf(it.skill) }, { it.createdAt }))
 
     /** Vue synthétique de la file, triée par ancienneté (ordre de consommation des workers). */
     fun getQueueStatus(): List<GatheringTaskStatus> =
