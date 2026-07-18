@@ -1,10 +1,14 @@
 package com.tellenn.artifacts.services
 
 import com.fasterxml.jackson.module.kotlin.jacksonObjectMapper
+import com.tellenn.artifacts.AppConfig
 import com.tellenn.artifacts.clients.AccountClient
 import com.tellenn.artifacts.clients.responses.ArtifactsResponseBody
+import com.tellenn.artifacts.config.CharacterConfig.Companion.getPredefinedCharacters
 import com.tellenn.artifacts.models.ArtifactsCharacter
 import com.tellenn.artifacts.services.battlesim.BattleSimulatorService
+import org.junit.jupiter.api.Assertions.assertEquals
+import org.junit.jupiter.api.Assertions.assertNull
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 import org.mockito.Mockito.*
@@ -109,6 +113,76 @@ class WebSocketServiceTest {
         webSocketService.fightEventMonster("Cloud", 91, "corrupted_ogre")
 
         verify(battleService, never()).battleUntilInvIsFull(character, "corrupted_ogre")
+    }
+
+    // ── apparitionGathererFor ──────────────────────────────────────────────
+
+    private val minerName = getPredefinedCharacters().first { it.job == "miner" }.name
+    private val woodworkerName = getPredefinedCharacters().first { it.job == "woodworker" }.name
+    private val crafterName = getPredefinedCharacters().first { it.job == "crafter" }.name
+
+    @Test
+    fun `strange_apparition always sends the miner when its mining level is high enough`() {
+        AppConfig.maxLevel = 40
+        stubGatherer(minerName, miningLevel = 35)
+        // Même crafter non max : le mineur y va quand même (priorité au-dessus du crafter).
+        stubCrafter(weapon = 10, gear = 10, jewelry = 10)
+
+        assertEquals(minerName, webSocketService.apparitionGathererFor("strange_apparition"))
+    }
+
+    @Test
+    fun `strange_apparition sends nobody when the miner is under the gather level`() {
+        AppConfig.maxLevel = 40
+        stubGatherer(minerName, miningLevel = 34)
+
+        assertNull(webSocketService.apparitionGathererFor("strange_apparition"))
+    }
+
+    @Test
+    fun `magic_apparition sends the woodworker only once the crafter is max level`() {
+        AppConfig.maxLevel = 40
+        stubGatherer(woodworkerName, woodcuttingLevel = 40)
+        stubCrafter(weapon = 40, gear = 40, jewelry = 40)
+
+        assertEquals(woodworkerName, webSocketService.apparitionGathererFor("magic_apparition"))
+    }
+
+    @Test
+    fun `magic_apparition sends nobody while the crafter is not max level`() {
+        AppConfig.maxLevel = 40
+        stubGatherer(woodworkerName, woodcuttingLevel = 40)
+        stubCrafter(weapon = 40, gear = 39, jewelry = 40)
+
+        assertNull(webSocketService.apparitionGathererFor("magic_apparition"))
+    }
+
+    @Test
+    fun `magic_apparition sends nobody when the woodworker is under the gather level`() {
+        AppConfig.maxLevel = 40
+        stubGatherer(woodworkerName, woodcuttingLevel = 34)
+
+        assertNull(webSocketService.apparitionGathererFor("magic_apparition"))
+    }
+
+    @Test
+    fun `an unrelated resource event dispatches nobody`() {
+        assertNull(webSocketService.apparitionGathererFor("iron_rocks"))
+    }
+
+    private fun stubGatherer(name: String, miningLevel: Int = 0, woodcuttingLevel: Int = 0) {
+        val character = mock(ArtifactsCharacter::class.java)
+        `when`(character.miningLevel).thenReturn(miningLevel)
+        `when`(character.woodcuttingLevel).thenReturn(woodcuttingLevel)
+        `when`(accountClient.getCharacter(name)).thenReturn(ArtifactsResponseBody(character))
+    }
+
+    private fun stubCrafter(weapon: Int, gear: Int, jewelry: Int) {
+        val crafter = mock(ArtifactsCharacter::class.java)
+        `when`(crafter.weaponcraftingLevel).thenReturn(weapon)
+        `when`(crafter.gearcraftingLevel).thenReturn(gear)
+        `when`(crafter.jewelrycraftingLevel).thenReturn(jewelry)
+        `when`(accountClient.getCharacter(crafterName)).thenReturn(ArtifactsResponseBody(crafter))
     }
 
     private fun stubFightRound(): ArtifactsCharacter {

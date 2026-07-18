@@ -4,6 +4,7 @@ import com.fasterxml.jackson.databind.JsonNode
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule
 import com.fasterxml.jackson.module.kotlin.jacksonObjectMapper
 import com.fasterxml.jackson.module.kotlin.readValue
+import com.tellenn.artifacts.AppConfig.maxLevel
 import com.tellenn.artifacts.clients.AccountClient
 import com.tellenn.artifacts.config.CharacterConfig.Companion.getPredefinedCharacters
 import com.tellenn.artifacts.exceptions.MapContentNotFoundException
@@ -51,6 +52,9 @@ class WebSocketService(
     companion object {
         /** Stop an event fight after this many consecutive rounds the fighter could not clear. */
         private const val MAX_EVENT_FIGHT_FAILURES = 3
+
+        /** Niveau de récolte minimal pour envoyer un personnage récolter une apparition. */
+        private const val APPARITION_MIN_GATHER_LEVEL = 35
     }
 
     val objectMapper = jacksonObjectMapper().apply {
@@ -266,26 +270,17 @@ class WebSocketService(
                                 }else if (event.map.interactions?.content?.type == "resource") {
                                     logger.info("Resource spawned: ${event.map.interactions.content.code}")
                                     logger.info("Resource is about ${event.code}")
-                                    val characterName = when (event.code) {
-                                        "strange_apparition" -> "Kepo"
-                                        "magic_apparition" -> "Gustave"
-                                        else -> ""
-                                    }
-                                    logger.info("I want to call ${characterName} to handle it")
 
                                     // Execute asynchronously with AUTOMATIC priority
                                     // Will not interrupt human-ordered tasks
-                                    val canGather = when (event.code) {
-                                        "strange_apparition" -> accountClient.getCharacter(characterName).data.miningLevel >= 35
-                                        "magic_apparition" -> accountClient.getCharacter(characterName).data.woodcuttingLevel >= 35
-                                        else -> false
-                                    }
-                                    if (!canGather) {
-                                        logger.info("${characterName} can't gather ${event.code} yet")
-                                    }else {
-                                        threadService.assignMissionAsync(characterName, MissionPriority.AUTOMATIC) {
+                                    val gathererName = apparitionGathererFor(event.code)
+                                    if (gathererName == null) {
+                                        logger.info("No gatherer dispatched for resource event ${event.code}")
+                                    } else {
+                                        logger.info("I want to call ${gathererName} to handle it")
+                                        threadService.assignMissionAsync(gathererName, MissionPriority.AUTOMATIC) {
                                             try {
-                                                var character = accountClient.getCharacter(characterName).data
+                                                var character = accountClient.getCharacter(gathererName).data
                                                 do {
                                                     character = movementService.moveToBank(character)
                                                     character = bankService.emptyInventory(character)
@@ -394,6 +389,43 @@ class WebSocketService(
         }
         val code = root.path("data").path("code").asText("-").ifEmpty { "-" }
         eventMetrics.recordEvent(messageType, code)
+    }
+
+    /**
+     * Personnage à envoyer récolter l'apparition [eventCode], ou null s'il ne faut pas l'envoyer.
+     *
+     * - `strange_apparition` : le mineur y va **toujours** (priorité au-dessus du service crafter).
+     * - `magic_apparition`   : le woodworker n'y va **que si le crafter est au niveau max** sur tous
+     *   ses métiers — sinon il reste sur le service crafter (même priorité que le crafter).
+     *
+     * Dans les deux cas le personnage doit avoir le niveau de récolte minimal
+     * ([APPARITION_MIN_GATHER_LEVEL]).
+     */
+    internal fun apparitionGathererFor(eventCode: String): String? {
+        val job = when (eventCode) {
+            "strange_apparition" -> "miner"
+            "magic_apparition" -> "woodworker"
+            else -> return null
+        }
+        val name = getPredefinedCharacters().first { it.job == job }.name
+        val gatherer = accountClient.getCharacter(name).data
+        val gatherLevel = if (eventCode == "strange_apparition") gatherer.miningLevel else gatherer.woodcuttingLevel
+        if (gatherLevel < APPARITION_MIN_GATHER_LEVEL) {
+            logger.info("{} can't gather {} yet (gather level {})", name, eventCode, gatherLevel)
+            return null
+        }
+        if (eventCode == "magic_apparition" && !isCrafterAtMaxLevel()) {
+            logger.info("{} stays on crafter duty (crafter not max level yet), skipping {}", name, eventCode)
+            return null
+        }
+        return name
+    }
+
+    private fun isCrafterAtMaxLevel(): Boolean {
+        val crafter = accountClient.getCharacter(getPredefinedCharacters().first { it.job == "crafter" }.name).data
+        return crafter.weaponcraftingLevel >= maxLevel &&
+            crafter.gearcraftingLevel >= maxLevel &&
+            crafter.jewelrycraftingLevel >= maxLevel
     }
 
     /**
