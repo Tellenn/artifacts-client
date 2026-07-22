@@ -7,6 +7,7 @@ import com.tellenn.artifacts.db.repositories.ItemRepository
 import com.tellenn.artifacts.exceptions.NotFoundException
 import com.tellenn.artifacts.models.ArtifactsCharacter
 import com.tellenn.artifacts.models.Effect
+import com.tellenn.artifacts.models.InventorySlot
 import com.tellenn.artifacts.models.ItemCraft
 import com.tellenn.artifacts.models.ItemDetails
 import com.tellenn.artifacts.models.MonsterData
@@ -32,6 +33,7 @@ class EquipmentServiceTest {
     private lateinit var itemService: ItemService
     private lateinit var movementService: MovementService
     private lateinit var accountClient: AccountClient
+    private lateinit var characterService: CharacterService
     private lateinit var service: EquipmentService
 
     @BeforeEach
@@ -42,11 +44,12 @@ class EquipmentServiceTest {
         itemService = mock(ItemService::class.java)
         movementService = mock(MovementService::class.java)
         accountClient = mock(AccountClient::class.java)
+        characterService = mock(CharacterService::class.java)
         service = EquipmentService(
             bankService = bankService,
             monsterService = monsterService,
             itemRepository = itemRepository,
-            characterService = mock(CharacterService::class.java),
+            characterService = characterService,
             itemService = itemService,
             movementService = movementService,
             battleSimulatorService = mock(BattleSimulatorService::class.java),
@@ -215,6 +218,26 @@ class EquipmentServiceTest {
         verify(bankService).getAllEquipmentsUnderLevel(10)
     }
 
+    @Test
+    fun `equipBossPotions clamps withdrawal to the character's free inventory space`() {
+        // given — inventory already at 95/100 from crafting when boss prep runs, but the bank
+        // holds 100 potions: withdrawing all 100 would overflow the character to a 497.
+        val craftingMaterials = InventorySlot(slot = 1, code = "ash_wood", quantity = 95)
+        val hero = character(level = 20, inventory = arrayOf(craftingMaterials))
+        val monster = monster(attackFire = 100)
+        val healPotion = potion("greater_health_potion", level = 10, effect("restore", 150))
+        `when`(bankService.getCombatPotions()).thenReturn(listOf(healPotion))
+        `when`(bankService.getOne("greater_health_potion")).thenReturn(SimpleItem("greater_health_potion", 100))
+        `when`(bankService.withdrawOne("greater_health_potion", 5, hero)).thenReturn(hero)
+        `when`(characterService.equip(hero, "greater_health_potion", "utility2", 5)).thenReturn(hero)
+
+        // when — DPS with no weapon equipped: utility1 stays null, only utility2 (heal) withdraws
+        service.equipBossPotions(hero, monster, BossRole.DPS)
+
+        // then — only the 5 free slots are withdrawn, never the 100 sitting in the bank
+        verify(bankService).withdrawOne("greater_health_potion", 5, hero)
+    }
+
     private fun bankEquipment(code: String, type: String, vararg effects: Effect) = BankItemDocument(
         code = code, name = code, description = "", type = type, subtype = "",
         level = 1, tradeable = true, recyclable = true,
@@ -248,9 +271,14 @@ class EquipmentServiceTest {
         initiative = 0, type = "boss",
     )
 
-    private fun character(level: Int, weaponSlot: String? = null, mapId: Int = 1) = ArtifactsCharacter(
+    private fun character(
+        level: Int,
+        weaponSlot: String? = null,
+        mapId: Int = 1,
+        inventory: Array<InventorySlot> = arrayOf(),
+    ) = ArtifactsCharacter(
         name = "Hero", account = "acc", level = level, gold = 0, hp = 100, maxHp = 100, x = 0, y = 0,
-        mapId = mapId, layer = "main", inventory = arrayOf(), cooldown = 0, skin = null, task = null,
+        mapId = mapId, layer = "main", inventory = inventory, cooldown = 0, skin = null, task = null,
         initiative = 0, threat = 0, dmg = 0, wisdom = 0, prospecting = 0, criticalStrike = 0, speed = 0,
         haste = 0, xp = 0, maxXp = 100, taskType = null, taskTotal = 0, taskProgress = 0,
         miningXp = 0, miningMaxXp = 100, miningLevel = 1, woodcuttingXp = 0, woodcuttingMaxXp = 100,

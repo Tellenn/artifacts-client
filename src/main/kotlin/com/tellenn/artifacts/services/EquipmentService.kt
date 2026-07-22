@@ -269,10 +269,11 @@ class EquipmentService(
             return character
         }
         val available = bankService.getOne(potionCode).quantity
-        if (available <= 0) {
+        val freeSpace = character.inventoryMaxItems - character.inventory.sumOf { it.quantity }
+        if (available <= 0 || freeSpace <= 0) {
             return character
         }
-        val quantity = min(100, available)
+        val quantity = min(100, min(available, freeSpace))
         val newCharacter = bankService.withdrawOne(potionCode, quantity, character)
         return characterService.equip(newCharacter, potionCode, slot, quantity)
     }
